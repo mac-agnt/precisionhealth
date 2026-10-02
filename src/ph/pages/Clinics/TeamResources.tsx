@@ -57,7 +57,7 @@ export default function TeamResources() {
         <PageHeader title="Team and resources"
           sub="Eight demonstration staff profiles, not total headcount. Names and titles come from the public website; clinic assignments, rooms and printers are fictional. Workload is booked appointments times the slot length. Nothing here tracks people live." />
         <KpiStrip>
-          <Kpi label="Demonstration staff profiles" value={state.staff.length} icon="users" sub="A roster for the demo, not company headcount" />
+          <Kpi label="Staff profiles" value={state.staff.length} icon="users" sub="A demonstration roster, not company headcount" />
           <Kpi label="Rostered at clinics today" value={`${plural(nursesToday, "nurse")}, ${supportToday} support`} sub={`One booked nurse per clinic across ${plural(todays.length, "clinic")}. Support is not booked.`} />
           <Kpi label="Booked nurse time today" value={minutesLabel(bookedMin)} sub={`Of ${minutesLabel(bookableMin)} bookable across today's clinics`} hint="Confirmed appointments today times 15 minutes, against bookable slot time." />
           <Kpi label="Resources in use today" value={`${roomsToday} of ${rooms.length} rooms`} sub={`${printersToday} of ${printers.length} fictional label printers`} />

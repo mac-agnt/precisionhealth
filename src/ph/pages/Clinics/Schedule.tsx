@@ -118,8 +118,8 @@ function SessionBlock({ session: s, selected, onSelect }: { session: ClinicSessi
         {warn ? <Icon name="alert" size={13} style={{ color: "var(--warn)" }} /> : null}
         <span className="ph-faint" style={{ fontSize: 10.5 }}>{status}</span>
       </span>
-      <span className="ph-trunc" style={{ display: "block", fontSize: 12, color: "var(--ink)", marginTop: 7 }}>{placeLabel(s)}</span>
-      <span className="ph-faint ph-trunc" style={{ display: "block", fontSize: 11, marginTop: 2 }}>{s.start} to {s.end}, {staffName(state, s.nurseId)}</span>
+      <span style={{ display: "block", fontSize: 12, color: "var(--ink)", marginTop: 7, lineHeight: 1.35, overflowWrap: "anywhere" }}>{placeLabel(s)}</span>
+      <span className="ph-faint" style={{ display: "block", fontSize: 11, marginTop: 2, lineHeight: 1.35 }}>{s.start} to {s.end}, {staffName(state, s.nurseId)}</span>
       <span className="ph-row-flex" style={{ gap: 8, marginTop: 8 }}>
         <span className="ph-grow"><ProgressBar value={st.booked} max={st.slots} tone={st.isPast ? "ok" : "brand"} label={`${s.id} booked`} /></span>
         <span className="ph-num" style={{ fontSize: 11, color: "var(--body)" }}>{st.booked}/{st.slots}</span>
@@ -182,8 +182,8 @@ function DayView({ date, selected, onDate, onSelect }: { date: LocalDate; select
               <button key={s.id} type="button" className={"clx-sess" + (selected === s.id ? " sel" : "")} style={{ gridColumn: ci + 2, gridRow: 1, marginBottom: 6, padding: "8px 10px" }} onClick={() => onSelect(s.id)}
                 title={`Open ${s.id}`}>
                 <span className="ph-row-flex" style={{ gap: 6 }}><ProgTag code={st.programme.code} /><span className="ph-num ph-faint" style={{ fontSize: 11 }}>{st.booked}/{st.slots}</span></span>
-                <span className="ph-trunc" style={{ display: "block", fontSize: 11.5, color: "var(--ink)", marginTop: 5 }}>{placeLabel(s)}</span>
-                <span className="ph-faint ph-trunc" style={{ display: "block", fontSize: 11 }}>{staffName(state, s.nurseId)}{s.supportIds.length ? `, support ${s.supportIds.map((id) => staffName(state, id).split(" ")[0]).join(", ")}` : ""}</span>
+                <span style={{ display: "block", fontSize: 11.5, color: "var(--ink)", marginTop: 5, lineHeight: 1.35 }}>{placeLabel(s)}</span>
+                <span className="ph-faint" style={{ display: "block", fontSize: 11, lineHeight: 1.35 }}>{staffName(state, s.nurseId)}{s.supportIds.length ? `, support ${s.supportIds.map((id) => staffName(state, id).split(" ")[0]).join(", ")}` : ""}</span>
               </button>
             );
           })}
@@ -244,7 +244,7 @@ function ListView({ selected, onSelect }: { selected: string; onSelect: (id: str
     { key: "date", header: "Date", cell: (s) => <span className="ph-num">{fmtWeekdayDate(s.date)}</span>, sort: (a, b) => sortSessions(a, b) },
     { key: "id", header: "Session", cell: (s) => <span className="ph-mono" style={{ fontSize: 11.5 }}>{s.id}</span> },
     { key: "prog", header: "Programme", cell: (s) => <ProgTag code={sessionStats(state, s.id).programme.code} /> },
-    { key: "place", header: "Room and site", cell: (s) => <span className="ph-trunc" style={{ display: "inline-block", maxWidth: 220 }} title={placeLabel(s)}>{placeLabel(s)}</span> },
+    { key: "place", header: "Room and site", nowrap: false, cell: (s) => <span style={{ display: "inline-block", minWidth: 160 }}>{placeLabel(s)}</span> },
     { key: "nurse", header: "Nurse", cell: (s) => staffName(state, s.nurseId), sort: (a, b) => (staffName(state, a.nurseId) < staffName(state, b.nurseId) ? -1 : 1) },
     { key: "support", header: "Support", cell: (s) => (s.supportIds.length ? s.supportIds.map((id) => staffName(state, id)).join(", ") : <span className="ph-faint">None</span>) },
     { key: "booked", header: "Booked", align: "right", cell: (s) => { const st = sessionStats(state, s.id); return <span className="ph-num">{st.booked} of {st.slots}</span>; }, sort: (a, b) => sessionStats(state, a.id).booked - sessionStats(state, b.id).booked },

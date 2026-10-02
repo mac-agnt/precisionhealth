@@ -88,7 +88,7 @@ function DayList() {
   const wide: Column<ApptRow>[] = [
     { key: "time", header: "Time", cell: time, sort: (a, b) => (a.booking.slotStart < b.booking.slotStart ? -1 : a.booking.slotStart > b.booking.slotStart ? 1 : 0) },
     { key: "who", header: "Participant", cell: (r) => who(r), sort: (a, b) => (a.person.family < b.person.family ? -1 : a.person.family > b.person.family ? 1 : 0) },
-    { key: "clinic", header: "Clinic", cell: (r) => <span className="ph-row-flex" style={{ gap: 6 }}><ProgTag code={r.programme.code} /><span className="ph-trunc ph-dim" style={{ maxWidth: 150, fontSize: 12 }}>{r.session.room}</span></span> },
+    { key: "clinic", header: "Clinic", nowrap: false, cell: (r) => <span className="ph-row-flex" style={{ gap: 6 }}><ProgTag code={r.programme.code} /><span className="ph-dim" style={{ maxWidth: 190, fontSize: 12, lineHeight: 1.35 }}>{r.session.room}</span></span> },
     { key: "q", header: "Questionnaire", cell: qPill },
     { key: "att", header: "Attendance", cell: attendance, sort: (a, b) => APPT_META[a.status].label.localeCompare(APPT_META[b.status].label) },
     { key: "nurse", header: "Nurse", cell: (r) => staffName(state, r.session.nurseId) },

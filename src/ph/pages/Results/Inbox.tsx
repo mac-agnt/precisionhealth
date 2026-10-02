@@ -249,6 +249,8 @@ function InboxContext() {
   const nav = useNav();
   const t = totalCounts(state);
   const etc = expectedTestCompletion(state);
+  const quarantined = state.importRows.filter((r) => r.state === "quarantined").length;
+  const idHeld = holdCounts(state).identity;
   let inImport = 0, atLab = 0;
   for (const e of state.episodes) {
     if (e.reportState === "released") continue;
@@ -265,7 +267,9 @@ function InboxContext() {
           { label: "Awaiting results", value: t.awaiting, color: PALETTE[1] },
           { label: "On hold", value: t.onHold, color: "var(--warn)" },
         ]} />
-        <div className="phr-sub" style={{ marginTop: 10 }}>Identity exceptions are counted in laboratory rows, not episodes. Three held rows belong to three held episodes.</div>
+        <div className="phr-sub" style={{ marginTop: 10 }}>
+          Identity exceptions are counted in laboratory rows, not episodes: {quarantined} held {quarantined === 1 ? "row belongs" : "rows belong"} to {idHeld} {idHeld === 1 ? "episode" : "episodes"} on an identity hold.
+        </div>
       </Card>
       <Card>
         <CardHeader title="Expected tests" sub="Across episodes not yet released" />
