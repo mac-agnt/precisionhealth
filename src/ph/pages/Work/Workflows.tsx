@@ -114,7 +114,7 @@ function journeyOf(state: PhState, personId: string, clinical: boolean, story: S
         const v = currentReleased(state, ep.id);
         const fu = (I.followUpsByEpisode.get(ep.id) || []).find((f) => f.status === "open");
         report = seeClinical
-          ? { step: fu ? "followup" : "released", label: `Released v${v ? v.version : 1}${fu ? `, follow-up ${fu.id} open` : ""}`, episodeId: ep.id }
+          ? { step: "released", label: `Released v${v ? v.version : 1}${fu ? `, routine call-back ${fu.id} open` : ""}`, episodeId: ep.id }
           : { step: "released", label: "Report released", episodeId: ep.id };
         break;
       }
@@ -259,14 +259,14 @@ export default function Workflows() {
             <Arrow />
             <Step n={7} label="Released report" count={c.released} unit="released" sub={`${rate(c.released, c.attended)} of ${c.attended} attended. Released versions are kept when corrected.`} people={clinical ? report("released") : []} />
           </div>
-          <div className="phf-sectiontitle" style={{ marginTop: 14 }}>Branches, each returning to Clinical review once resolved by a person</div>
+          <div className="phf-sectiontitle" style={{ marginTop: 14 }}>Branches. Identity and source unit holds return to Clinical review once a person resolves them; a clinician-assigned follow-up closes only with a documented outcome</div>
           <div className={"phf-branches" + (wide ? "" : " narrow")}>
             <Branch label="Identity resolution" count={idHolds} unit={idHolds === 1 ? "episode on hold" : "episodes on hold"}
               sub={`${heldRows} laboratory row${heldRows === 1 ? "" : "s"} held. Resolved with a two-identifier check, never a fuzzy match.`} people={report("identity")} />
             <Branch label="Source unit confirmation" count={dqHolds} unit={dqHolds === 1 ? "episode on hold" : "episodes on hold"}
               sub="The laboratory confirms the unit. The received value is kept, with no silent conversion." people={clinical ? report("data_quality") : []} />
-            <Branch label="Follow-up" count={fus.length} unit={fus.length === 1 ? "open follow-up" : "open follow-ups"}
-              sub={clinical ? `${caHolds} ${caHolds === 1 ? "report" : "reports"} on hold for clinician-assigned follow-up. Closes only with a documented outcome and acknowledgement.` : "Clinical action assigned. Owned by a clinician. No clinical detail is shown to this role."}
+            <Branch label="Clinician-assigned follow-up" count={clinical ? caHolds : null} unit={clinical ? (caHolds === 1 ? "report on hold" : "reports on hold") : "Clinical action assigned"}
+              sub={clinical ? `Closes only with a documented outcome and acknowledgement.${fus.length - caHolds > 0 ? ` Separately, ${fus.length - caHolds} routine call-back${fus.length - caHolds === 1 ? " is" : "s are"} open on released reports; they do not hold a report.` : ""}` : "Owned by a clinician. No count or clinical detail is shown to this role."}
               people={clinical ? report("followup") : []} />
           </div>
           {!clinical ? <div className="phf-note" style={{ marginTop: 10 }}><Icon name="lock" size={11} style={{ verticalAlign: "-1px", marginRight: 5 }} />Names in clinical review, follow-up and data quality holds are visible to clinical roles only.</div> : null}
@@ -317,7 +317,7 @@ function Step({ n, label, count, unit, sub, people }: { n: number; label: string
   );
 }
 
-function Branch({ label, count, unit, sub, people }: { label: string; count: number; unit: string; sub: ReactNode; people: PersonChip[] }) {
+function Branch({ label, count, unit, sub, people }: { label: string; count: number | null; unit: string; sub: ReactNode; people: PersonChip[] }) {
   return (
     <div className="phf-branch">
       <span className="ph-row-flex" style={{ gap: 6 }}>
@@ -325,7 +325,7 @@ function Branch({ label, count, unit, sub, people }: { label: string; count: num
         <span style={{ fontSize: 13, color: "var(--ink)", fontWeight: 500 }}>{label}</span>
       </span>
       <span className="ph-row-flex" style={{ gap: 6, alignItems: "baseline" }}>
-        <span className="phf-step-count" style={{ fontSize: 20 }}>{count}</span>
+        {count === null ? null : <span className="phf-step-count" style={{ fontSize: 20 }}>{count}</span>}
         <span className="phf-small">{unit}</span>
       </span>
       <span className="phf-note">{sub}</span>

@@ -7,9 +7,9 @@ import { approvalViews, canViewEpisodeClinical, fmtAge, fmtDateTime, hoursBetwee
 import type { ApprovalType, ApprovalView, PhState, ReviewItem } from "../../model";
 import { usePersona, usePhState } from "../../store";
 import { useNav } from "../../nav-context";
-import { Button, Card, CardHeader, Checklist, Chip, DataTable, EmptyState, Icon, PageHeader, Pill, ProgressBar, Segmented } from "../../ui";
+import { Button, Card, CardHeader, Checklist, Chip, DataTable, EmptyState, Icon, PageHeader, Pill, ProgressBar, Segmented, Drawer } from "../../ui";
 import type { Column, GlyphName } from "../../ui";
-import { StaffCell, Tag, WIDE_MIN, isClinicalViewer, mergeParams, useMeasure, SafeDrawer as Drawer } from "./shared";
+import { StaffCell, Tag, WIDE_MIN, isClinicalViewer, mergeParams, useMeasure } from "./shared";
 
 const TYPE: Record<ApprovalType, { label: string; icon: GlyphName; open: string; where: string }> = {
   report_release: { label: "Clinician report release", icon: "file", open: "Open the episode in Review", where: "Results, Review" },

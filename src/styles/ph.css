@@ -109,7 +109,7 @@ select.ph-input { cursor: pointer; }
   border-left: 1px solid var(--border-strong); backdrop-filter: blur(24px); box-shadow: -30px 0 80px rgba(0,0,0,.45); animation: slideInRight .3s var(--ease) both;
 }
 .ph-modal {
-  position: fixed; z-index: 69; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(560px, calc(100vw - 28px)); max-height: calc(100vh - 40px); overflow: auto;
+  position: fixed; z-index: 69; inset: 0; margin: auto; height: fit-content; width: min(560px, calc(100vw - 28px)); max-height: calc(100vh - 40px); overflow: auto;
   background: var(--overlay); border: 1px solid var(--border-strong); border-radius: var(--card-r, 18px); box-shadow: 0 34px 90px rgba(0,0,0,.55); backdrop-filter: blur(24px); animation: popIn .26s var(--ease) both;
 }
 .ph-toasts { position: fixed; z-index: 120; right: 18px; bottom: 18px; display: flex; flex-direction: column; gap: 8px; width: min(380px, calc(100vw - 28px)); pointer-events: none; }
@@ -147,3 +147,8 @@ select.ph-input { cursor: pointer; }
 [data-density="compact"] .ph-pad { padding: 12px 14px; }
 [data-density="compact"] .ph-btn { height: 30px; }
 [data-reduce-motion="1"] *, [data-reduce-motion="1"] *::before, [data-reduce-motion="1"] *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
+
+/* Brand logo: pick the copy that reads on the current theme. */
+.ph-logo-for-light { display: none !important; }
+[data-theme="light"] .ph-logo-for-dark, [data-theme="mist"] .ph-logo-for-dark, [data-theme="sand"] .ph-logo-for-dark { display: none !important; }
+[data-theme="light"] .ph-logo-for-light, [data-theme="mist"] .ph-logo-for-light, [data-theme="sand"] .ph-logo-for-light { display: block !important; }

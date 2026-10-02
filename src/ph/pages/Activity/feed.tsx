@@ -12,8 +12,8 @@ import {
 import type { ActivityEvent, ActivityView, PhState } from "../../model";
 import { usePersona, usePhState } from "../../store";
 import { useNav } from "../../nav-context";
-import { Avatar, Button, Card, DemoTag, EmptyState, EntityLink, Icon, Pill, RestrictedNotice, SearchBox, Segmented } from "../../ui";
-import { IconBadge, KIND_LABEL, ProgTag, Tag, mergeParams, refLabel, storyVisible, useMeasure, SafeDrawer as Drawer } from "../Work/shared";
+import { Avatar, Button, Card, DemoTag, EmptyState, EntityLink, Icon, Pill, RestrictedNotice, SearchBox, Segmented, Drawer } from "../../ui";
+import { IconBadge, KIND_LABEL, ProgTag, Tag, mergeParams, refLabel, storyLabel, storyVisible, useMeasure } from "../Work/shared";
 import "../Work/phf.css";
 
 /* ---- time windows, from the demo clock ---- */
@@ -55,6 +55,9 @@ export function ActorBadge({ actor, size = 24 }: { actor: ActivityEvent["actor"]
 export function EventRow({ v, onOpen, compact, narrow }: { v: ActivityView; onOpen: (id: string) => void; compact?: boolean; narrow?: boolean }) {
   const state = usePhState();
   const e = v.event;
+  // A story hidden from this role shows neither its tag nor an attention marker.
+  const sv = e.storyId ? storyViews(state).find((s) => s.def.id === e.storyId) : undefined;
+  const showStory = !!sv && storyVisible(sv);
   const cls = "phf-ev" + (compact ? " compact" : narrow ? " narrow" : "");
   return (
     <div className={cls} onClick={() => onOpen(e.id)}>
@@ -69,12 +72,12 @@ export function EventRow({ v, onOpen, compact, narrow }: { v: ActivityView; onOp
           {compact ? <span className="ph-num">{fmtWhen(e.at, state.clock.nowUtc)}</span> : null}
           <span style={{ color: "var(--dim)" }}>{e.actor.label}</span>
           <span className="phf-id">{e.id}</span>
-          {e.storyId ? <Tag mono>{e.storyId}</Tag> : null}
+          {showStory ? <Tag mono>{e.storyId}</Tag> : null}
           {v.minimal ? null : <ProgTag id={e.programmeId} />}
           {!v.minimal && e.entity ? <EntityLink kind={e.entity.kind} id={e.entity.id}>{refLabel(state, e.entity)}</EntityLink> : null}
           {e.simulated ? <DemoTag>Simulated</DemoTag> : null}
           {!e.seeded ? <Tag accent>This session</Tag> : null}
-          {v.attention ? <Pill tone="warn" icon="dot">Needs attention</Pill> : null}
+          {v.attention && showStory ? <Pill tone="warn" icon="dot">Needs attention</Pill> : null}
         </div>
       </div>
       <div className="phf-ev-go">
@@ -173,13 +176,13 @@ export function EventDrawer({ id, onClose }: { id: string; onClose: () => void }
         <div className="ph-wrap" style={{ gap: 6 }}>
           {e.simulated ? <DemoTag>Simulated</DemoTag> : null}
           <DemoTag title="All people, events and records in this demo are fictional.">{e.seeded ? "Fictional demo event" : "Recorded in this session"}</DemoTag>
-          {v.attention ? <Pill tone="warn" icon="dot">Needs attention</Pill> : <Pill tone="neutral" icon={null}>No open story</Pill>}
+          {v.attention && story && storyVisible(story) ? <Pill tone="warn" icon="dot">Needs attention</Pill> : null}
         </div>
         <dl className="phf-kv">
-          <dt>Event type</dt><dd className="ph-mono" style={{ fontSize: 12 }}>{e.verb}</dd>
+          <dt>Event type</dt><dd className="ph-mono" style={{ fontSize: 12 }}>{v.minimal ? "Hidden for this role" : e.verb}</dd>
           <dt>Record</dt><dd>{e.entity && !v.minimal ? <><EntityLink kind={e.entity.kind} id={e.entity.id}>{refLabel(state, e.entity)}</EntityLink> <span className="phf-note">({KIND_LABEL[e.entity.kind]})</span></> : v.minimal ? "Hidden for this role" : "None"}</dd>
           <dt>Programme</dt><dd>{v.minimal ? "Hidden for this role" : e.programmeId ? <EntityLink kind="programme" id={e.programmeId}>{PROGRAMME_BY_ID[e.programmeId].name}</EntityLink> : "Not programme specific"}</dd>
-          <dt>Story</dt><dd>{story && storyVisible(story) ? <><span className="phf-id">{story.def.id}</span> {story.def.title}, {story.open ? "open" : "resolved"}</> : e.storyId || "None"}</dd>
+          <dt>Story</dt><dd>{story && storyVisible(story) ? <><span className="phf-id">{story.def.id}</span> {storyLabel(story)}, {story.open ? "open" : "resolved"}</> : "None shown for this role"}</dd>
           <dt>System</dt><dd>{integ ? <EntityLink kind="system" id={integ.id}>{integ.name}</EntityLink> : "None"}{integ ? <div className="phf-note">{integ.statusLabel}</div> : null}</dd>
           <dt>Provenance</dt><dd>{e.seeded ? "Seeded demo history. Fictional." : "Created by an action in this session. Local demo state only, cleared by Reset demo."}{e.simulated ? " No provider, laboratory or model was contacted." : ""}</dd>
         </dl>

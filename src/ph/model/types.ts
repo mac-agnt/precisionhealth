@@ -189,6 +189,8 @@ export interface Membership {
   answers: Record<string, string | number | boolean>;
   eligible: boolean;
   contactPreference: "email" | "sms";
+  /** When the participant completed the questionnaire and consent in the portal. Absent for seeded bookings. */
+  questionnaireCompletedAt?: Iso | null;
 }
 
 export interface Booking {
@@ -286,6 +288,14 @@ export interface Observation {
   /** The value and unit exactly as received, kept after any documented correction. */
   original: null | { value: number; unit: string };
   version: number;
+  /** Why this version exists when it replaced an earlier one: a unit confirmation or a result correction. */
+  correction?: null | {
+    kind: "unit_confirmation" | "result_correction";
+    reason: string;
+    by: StaffId;
+    at: Iso;
+    previous: { id: Id; value: number; unit: string; version: number };
+  };
 }
 
 export interface ExpectedTest {
@@ -387,6 +397,8 @@ export interface ImportRow {
     checks: string[];
     reason: string;
   };
+  /** Set by the batchRows selector when the viewer may not see this row's result value (valueText is blank). */
+  valueHidden?: boolean;
 }
 
 export interface ImportBatch {
@@ -679,7 +691,12 @@ export interface MetricClinical {
 export interface EmployerMetrics {
   programmeId: ProgrammeId;
   cohortLabel: string;
+  /** Cohort size. 0 when the size is hidden (a group smaller than the suppression threshold), so printing it leaks nothing. */
   size: number;
+  /** The size as safe text: "126", "6" or "fewer than 5". Prefer this over size in any rendered copy. */
+  sizeLabel: string;
+  /** True when the cohort is smaller than the suppression threshold, so its exact size is never stated. */
+  sizeHidden: boolean;
   blocked: boolean;
   reason: string;
   reportEligible: number;
@@ -714,6 +731,17 @@ export interface EmployerReport {
   blockedAttempts: number;
   /** Key of the last cohort that was blocked, so the same selection is logged once. */
   lastBlockedKey: string | null;
+  /** Earlier versions, kept unchanged when a new version is created. */
+  history?: Array<{
+    version: number;
+    status: EmployerReport["status"];
+    narrative: string;
+    cohort: CohortDef;
+    approvedBy: StaffId | null;
+    approvedAt: Iso | null;
+    snapshot: EmployerReport["snapshot"];
+    closedAt: Iso;
+  }>;
 }
 export interface ExportRecord {
   id: Id;

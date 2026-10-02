@@ -15,7 +15,7 @@ export interface PageDef { id: PageId; label: string; icon: string; hint: string
 export const PAGES: PageDef[] = [
   { id: "Home", label: "Home", icon: "helios", hint: "Chat first", tabs: [] },
   { id: "Agents", label: "Agents", icon: "navAgents", hint: "Seven agents", tabs: [
-    { id: "overview", label: "Overview" }, { id: "conversations", label: "Conversations" }, { id: "activity", label: "Activity" }] },
+    { id: "conversations", label: "Conversations" }, { id: "activity", label: "Activity" }] },
   { id: "Dashboard", label: "Dashboard", icon: "navDash", hint: "Executive, clinics, delivery", tabs: [
     { id: "executive", label: "Executive" }, { id: "clinic-operations", label: "Clinic Operations" }, { id: "clinical-delivery", label: "Clinical Delivery" }] },
   { id: "Programmes", label: "Programmes", icon: "navProgrammes", hint: "Screening programmes", tabs: [
@@ -42,7 +42,7 @@ export const PAGE_BY_ID: Record<PageId, PageDef> = Object.fromEntries(PAGES.map(
 /** True when this page and tab are rendered by a PH component rather than the original Pulse view. */
 export function isPhScreen(page: string, tab: string): boolean {
   if (["Dashboard", "Programmes", "Clinics", "Participants", "Results", "Reporting", "Work", "Activity", "Settings"].includes(page)) return true;
-  if (page === "Agents") return tab === "overview" || tab === "activity";
+  if (page === "Agents") return tab === "activity";
   if (page === "Records") return tab === "companies" || tab === "staff";
   return false;
 }

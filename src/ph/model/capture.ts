@@ -36,20 +36,32 @@ export function captureErrors(c: ClinicalCapture): Partial<Record<MeasureKey | "
   return out;
 }
 
+/** A recorded state with no value is a blank, and a blank is missing, never zero. */
+export const isBlankMeasure = (m: Measure): boolean => m.state === "missing" || (m.state === "recorded" && (m.value === null || m.value === undefined));
+
 /** Required fields that are still missing. Not done and declined count as accounted for. */
 export function captureMissing(c: ClinicalCapture): MeasureKey[] {
-  return MEASURE_KEYS.filter((k) => MEASURE_RULES[k].required && c.measures[k].state === "missing");
+  return MEASURE_KEYS.filter((k) => MEASURE_RULES[k].required && isBlankMeasure(c.measures[k]));
 }
 
 export const measure = (value: number | null, state: Measure["state"] = "recorded", provenance: Measure["provenance"] = "measured"): Measure => ({ value, state, provenance });
 
 export const IDENTITY_HELP = "Confirm two identifiers from the participant. A name match alone is never enough.";
 
-/** dd/mm/yyyy typed by a nurse to an ISO date, or null. */
+/** True for a real calendar date in YYYY-MM-DD form. 2026-02-31 is not one. */
+export function isRealDate(iso: string): boolean {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || "");
+  if (!m) return false;
+  const y = Number(m[1]), mo = Number(m[2]), d = Number(m[3]);
+  const t = new Date(Date.UTC(y, mo - 1, d));
+  return t.getUTCFullYear() === y && t.getUTCMonth() === mo - 1 && t.getUTCDate() === d;
+}
+
+/** dd/mm/yyyy typed by a nurse to an ISO date, or null. Impossible dates such as 31/02 are rejected. */
 export function parseIrishDate(s: string): string | null {
   const m = /^\s*(\d{1,2})[/.-](\d{1,2})[/.-](\d{4})\s*$/.exec(s);
   if (!m) return null;
   const d = Number(m[1]), mo = Number(m[2]), y = Number(m[3]);
-  if (mo < 1 || mo > 12 || d < 1 || d > 31) return null;
-  return `${y}-${String(mo).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+  const iso = `${y}-${String(mo).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+  return isRealDate(iso) ? iso : null;
 }

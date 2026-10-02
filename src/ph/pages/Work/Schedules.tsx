@@ -6,9 +6,9 @@ import { PROGRAMME_BY_ID, fmtDateTime, fmtShortDateTime, fmtWeekdayDate, fmtWhen
 import type { PhState, ScheduledJob } from "../../model";
 import { usePersona, usePhState } from "../../store";
 import { useNav } from "../../nav-context";
-import { Button, Card, CardHeader, Chip, DataTable, DemoTag, EmptyState, EntityLink, Icon, PageHeader, Pill, ProgressBar } from "../../ui";
+import { Button, Card, CardHeader, Chip, DataTable, DemoTag, EmptyState, EntityLink, Icon, PageHeader, Pill, ProgressBar, Drawer } from "../../ui";
 import type { Column, GlyphName } from "../../ui";
-import { Tag, WIDE_MIN, isClinicalViewer, mergeParams, refLabel, useMeasure, SafeDrawer as Drawer } from "./shared";
+import { Tag, WIDE_MIN, isClinicalViewer, mergeParams, refLabel, useMeasure } from "./shared";
 
 type Kind = ScheduledJob["kind"];
 const KIND: Record<Kind, { label: string; icon: GlyphName }> = {

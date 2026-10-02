@@ -80,10 +80,10 @@ export function RowStatePill({ state }: { state: ImportRow["state"] }) {
 }
 
 /** Text-labelled flag. Never "normal": the limits are illustrative and clinician-owned. */
-export function FlagPill({ flag }: { flag: Observation["flag"] }) {
+export function FlagPill({ flag, short }: { flag: Observation["flag"]; short?: boolean }) {
   return flag === "review_required"
     ? <Pill tone="warn" icon="flag">Review required</Pill>
-    : <Pill tone="neutral" icon="dot">Within displayed limit</Pill>;
+    : <Pill tone="neutral" icon="dot">{short ? "Within limit" : "Within displayed limit"}</Pill>;
 }
 
 export function TestStatusPill({ status }: { status: "received" | "pending" | "quarantined" }) {

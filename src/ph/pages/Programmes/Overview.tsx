@@ -185,7 +185,7 @@ export default function Overview() {
   const wRow = rows.find((r) => r.p.id === weeksFor);
   const weeks = wRow?.win.weeks || 0;
   const slotsEach = programmeSessions(s, weeksFor)[0]?.slots || 0;
-  const bookedPeople = t.invited - t.notStarted - t.drafts;
+  const bookedPeople = t.invited - t.notStarted - t.drafts - (t.readyToBook || 0);
   return (
     <div className="ph-page prg-page">
       <PageHeader

@@ -7,11 +7,11 @@ import { act, addDays, dublinToUtc, fmtDateTime, fmtShortDateTime, fmtWhen, staf
 import type { PhState, StaffId, TaskView } from "../../model";
 import { dispatch, usePersona, usePhState } from "../../store";
 import { useNav } from "../../nav-context";
-import { Button, Card, Chip, DataTable, EmptyState, EntityLink, Field, Icon, PageHeader, Pill, RestrictedNotice, SearchBox, Segmented, Select, TextInput } from "../../ui";
+import { Button, Card, Chip, DataTable, EmptyState, EntityLink, Field, Icon, PageHeader, Pill, RestrictedNotice, SearchBox, Segmented, Select, TextInput, Drawer } from "../../ui";
 import type { Column } from "../../ui";
 import {
-  PRIORITY, PriorityPill, StaffCell, TEAM_NAME, Tag, TaskStatusPill, WIDE_MIN, isClinicalViewer, mergeParams, openTarget, refLabel, relDue, storyVisible,
-  taskStatusRank, useMeasure, SafeDrawer as Drawer } from "./shared";
+  PRIORITY, PriorityPill, StaffCell, TEAM_NAME, Tag, TaskStatusPill, WIDE_MIN, isClinicalViewer, mergeParams, openTarget, refLabel, relDue, storyLabel, storyVisible,
+  taskStatusRank, useMeasure } from "./shared";
 
 type StatusFilter = "open" | "overdue" | "blocked" | "done" | "all";
 const STATUS_FILTERS: StatusFilter[] = ["open", "overdue", "blocked", "done", "all"];
@@ -74,7 +74,7 @@ export default function Tasks() {
 
   const openTask = (id: string) => nav.setParams(mergeParams(nav.params, { task: id }));
   const closeTask = () => nav.setParams(mergeParams(nav.params, { task: null }));
-  const storyName = (id: string) => stories.find((s) => s.def.id === id)?.def.title || id;
+  const storyName = (id: string) => { const sv = stories.find((s) => s.def.id === id); return sv ? storyLabel(sv) : id; };
 
   const columns: Column<TaskView>[] = [
     {
@@ -156,7 +156,7 @@ export default function Tasks() {
               const n = visible.filter((t) => t.task.storyId === s.def.id && t.status !== "done").length;
               return (
                 <button key={s.def.id} type="button" className="phf-story" aria-pressed={story === s.def.id}
-                  title={`${s.def.title}. Filter tasks to this story.`} onClick={() => setStory(story === s.def.id ? "all" : s.def.id)}>
+                  title={`${storyLabel(s)}. Filter tasks to this story.`} onClick={() => setStory(story === s.def.id ? "all" : s.def.id)}>
                   <span className="ph-row-flex" style={{ gap: 6 }}>
                     <span className="phf-id">{s.def.id}</span>
                     <span className="ph-grow" />
@@ -183,7 +183,7 @@ export default function Tasks() {
           <span className="phf-spacer" />
           <Select className="phf-sel" aria-label="Story" value={story} onChange={(e) => setStory(e.target.value)} style={{ maxWidth: 200 }}>
             <option value="all">All stories</option>
-            {stories.map((s) => <option key={s.def.id} value={s.def.id}>{s.def.id}: {s.def.title}</option>)}
+            {stories.map((s) => <option key={s.def.id} value={s.def.id}>{s.def.id}: {storyLabel(s)}</option>)}
             <option value="routine">Routine work (no story)</option>
           </Select>
           <Select className="phf-sel" aria-label="Owner" value={owner} onChange={(e) => setOwner(e.target.value)} style={{ maxWidth: 170 }}>
@@ -372,8 +372,8 @@ function TaskDrawer({ state, id, onClose }: { state: PhState; id: string; onClos
   }
   if (!tv.visible) {
     return (
-      <Drawer open onClose={onClose} title="Clinical action assigned" sub={tv.task.id}>
-        <RestrictedNotice title="Clinical action assigned">
+      <Drawer open onClose={onClose} title={tv.task.storyId === "ST-04" ? "Clinical action assigned" : "Restricted clinical task"} sub={tv.task.id}>
+        <RestrictedNotice title={tv.task.storyId === "ST-04" ? "Clinical action assigned" : "Restricted clinical task"}>
           A clinician owns this task. {p.name} ({p.roleLabel}) sees no clinical detail. The owner and the clinical team can open it.
         </RestrictedNotice>
       </Drawer>
@@ -416,7 +416,7 @@ function TaskDrawer({ state, id, onClose }: { state: PhState; id: string; onClos
           <Card flat pad="sm">
             <div className="ph-row-flex" style={{ gap: 8, marginBottom: 6 }}>
               <span className="phf-id">{sv.def.id}</span>
-              <span className="ph-grow ph-trunc" style={{ fontSize: 12.5, color: "var(--ink)", fontWeight: 500 }}>{sv.def.title}</span>
+              <span className="ph-grow ph-trunc" style={{ fontSize: 12.5, color: "var(--ink)", fontWeight: 500 }}>{storyLabel(sv)}</span>
               {sv.open ? <Pill tone="warn" icon="dot">Open</Pill> : <Pill tone="ok">Resolved</Pill>}
             </div>
             <div style={{ fontSize: 12.5, color: "var(--ink)" }}>{sv.headline}</div>

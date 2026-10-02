@@ -2,7 +2,7 @@
    employer reporting (defined cohort, disclosure control, narrative approval, frozen
    snapshot, print and PowerPoint previews). */
 import type { CohortDef, FormTemplate, FormTemplateVersion } from "../types";
-import { cohortKey, cohortLabel, defaultCohort, disclosureCheck, draftNarrative, employerMetrics, cohortEpisodes, isProgrammeLevel } from "../selectors/reporting";
+import { blockedExportText, cohortKey, cohortLabel, defaultCohort, disclosureCheck, draftNarrative, employerMetrics, cohortEpisodes, isProgrammeLevel } from "../selectors/reporting";
 import { PROGRAMME_BY_ID } from "../constants";
 import { Ctx, pad } from "./ctx";
 import type { Handler } from "./ctx";
@@ -129,7 +129,7 @@ handlers["report/setCohort"] = (c, a: { reportId: string; cohort: CohortDef }) =
     if (r.lastBlockedKey !== key) {
       r.blockedAttempts += 1;
       r.lastBlockedKey = key;
-      c.emit({ verb: "export.blocked", actor: { kind: "system", id: "system", label: "Disclosure control" }, summary: `${PROGRAMME_BY_ID[r.programmeId].clientName} employer export blocked: selected cohort has ${size} participants.`, entity: { kind: "employer_report", id: r.id }, programmeId: r.programmeId, storyId: "ST-06" });
+      c.emit({ verb: "export.blocked", actor: { kind: "system", id: "system", label: "Disclosure control" }, summary: blockedExportText(c.s, PROGRAMME_BY_ID[r.programmeId].clientName, size), entity: { kind: "employer_report", id: r.id }, programmeId: r.programmeId, storyId: "ST-06" });
     }
     return { ok: true, tone: "warn", message: check.reason };
   }

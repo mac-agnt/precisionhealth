@@ -32,12 +32,9 @@ export default function AppShell({ v }: Props) {
         <span style={css(v.railThumbStyle)} />
         <div style={css(cat(v.railRowStyle, "margin-bottom:22px"))}>
           <button className="ix0" onClick={v.toggleRail} title={v.railLabel} aria-label={v.railLabel} style={{"flex":"none","border":"0","background":"none","padding":"0","cursor":"pointer","display":"flex","alignItems":"center"}}>
-            {v.railOpen ? <BrandLogo height={38} /> : <Monogram size={36} />}
+            {v.railOpen ? <BrandLogo height={60} /> : <Monogram size={36} />}
           </button>
           <span style={css(v.brandStyle)}>
-            <span style={{"display":"block","fontSize":"9.5px","fontWeight":"500","letterSpacing":".16em","color":"var(--accent)"}}>
-              {"PULSE"}
-            </span>
           </span>
           {v.railOpen && (
             <>

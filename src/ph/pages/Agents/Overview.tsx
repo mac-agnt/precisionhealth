@@ -11,9 +11,9 @@ import {
 import type { ActivityView, AgentDef, NavTarget, PhState } from "../../model";
 import { usePersona, usePhState } from "../../store";
 import { useNav } from "../../nav-context";
-import { Button, Card, DemoTag, Icon, Kpi, KpiStrip, PageHeader, Pill } from "../../ui";
+import { Button, Card, DemoTag, Icon, Kpi, KpiStrip, PageHeader, Pill, Drawer } from "../../ui";
 import type { GlyphName, Tone } from "../../ui";
-import { StaffOnly, Tag, WIDE_MIN, isClinicalViewer, mergeParams, storyVisible, useMeasure, SafeDrawer as Drawer } from "../Work/shared";
+import { StaffOnly, Tag, WIDE_MIN, isClinicalViewer, mergeParams, storyVisible, useMeasure } from "../Work/shared";
 import { EventDrawer, EventRow, useEventParam } from "../Activity/feed";
 import "../Work/phf.css";
 
@@ -170,7 +170,19 @@ function OverviewBody() {
   const selected = infos.find((i) => i.def.id === param) || (wide ? infos[0] : null);
   const select = (id: string) => nav.setParams(mergeParams(nav.params, { agent: id, event: null }));
   const totalToday = infos.reduce((n, i) => n + i.todayCount, 0);
-  const awaiting = infos.reduce((n, i) => n + i.pending, 0);
+  // Distinct items: a Data Quality identifier issue on a row that is still held is the same exception as that held row.
+  const heldKeys = state.importRows.filter((r) => r.state === "quarantined").map((r) => r.specimenKey);
+  const dupIssues = state.dqIssues.filter((i) => i.status === "open" && i.kind === "identifier" && heldKeys.some((k) => i.detail.includes(k))).length;
+  const pendingOf = (id: string) => infos.find((i) => i.def.id === id)?.pending || 0;
+  const parts = [
+    { n: pendingOf("booking") + pendingOf("reporting"), one: "approval", many: "approvals" },
+    { n: pendingOf("lab"), one: "held laboratory row", many: "held laboratory rows" },
+    { n: pendingOf("quality") - dupIssues, one: "data quality issue", many: "data quality issues" },
+    { n: pendingOf("watchdog"), one: "flagged operational item", many: "flagged operational items" },
+    { n: pendingOf("drafting"), one: "drafting preview", many: "drafting previews" },
+  ].filter((x) => x.n > 0);
+  const awaiting = parts.reduce((n, x) => n + x.n, 0);
+  const awaitingSub = parts.length ? `${parts.map((x) => `${x.n} ${x.n === 1 ? x.one : x.many}`).join(", ")}.${dupIssues ? " A held row also raised as an identifier issue is counted once." : ""}` : "Nothing is waiting for a person.";
   const on = state.settings.aiDraftingOn;
 
   const list = (
@@ -206,7 +218,7 @@ function OverviewBody() {
         <KpiStrip>
           <Kpi label="Agents" value={AGENT_DEFS.length} icon="spark" sub={`${AGENT_DEFS.filter((a) => !a.optional).length} core agents and ${AGENT_DEFS.filter((a) => a.optional).length} optional preview`} />
           <Kpi label="Simulated actions" value={feed.length} icon="list" sub={`${totalToday} today. The same entries as Activity, Agents.`} onClick={() => nav.go({ page: "Agents", tab: "activity" })} hint="Open the agent activity feed" />
-          <Kpi label="Awaiting a human" value={awaiting} tone={awaiting ? "warn" : "ok"} sub="Approvals, held rows, open issues and failed reminders that agents prepared or flagged." />
+          <Kpi label="Awaiting a human" value={awaiting} tone={awaiting ? "warn" : "ok"} sub={awaitingSub} hint="Distinct items agents prepared or flagged that wait for a person. Agents never decide." />
           <Kpi label="Clinical Drafting preview" value={on ? "On" : "Off"} icon="edit" sub="Set in Settings, AI Controls. Manual workflows never depend on it." onClick={() => nav.go({ page: "Settings", tab: "ai-controls" })} hint="Open AI Controls" />
         </KpiStrip>
         {wide ? (

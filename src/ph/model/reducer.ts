@@ -61,6 +61,8 @@ export const act = {
   commitImportPreview: () => ({ type: "import/commitPreview" }),
   resolveRow: (rowId: string, episodeId: string, checks: string[], reason: string) => ({ type: "import/resolveRow", rowId, episodeId, checks, reason }),
   confirmUnit: (episodeId: string, reason: string) => ({ type: "import/confirmUnit", episodeId, reason }),
+  /** Simulate the laboratory returning results for an episode awaiting them. Never releases a report. */
+  deliverSampleResults: (episodeId: string) => ({ type: "import/deliverSampleResults", episodeId }),
   acknowledgeDq: (id: string) => ({ type: "dq/acknowledge", id }),
   /* review, release, corrections */
   setAdvice: (episodeId: string, text: string) => ({ type: "review/setAdvice", episodeId, text }),
@@ -70,7 +72,8 @@ export const act = {
   acceptAiDraft: (episodeId: string) => ({ type: "review/acceptAiDraft", episodeId }),
   releaseReport: (episodeId: string) => ({ type: "review/release", episodeId }),
   releaseRoutine: (episodeId: string) => ({ type: "review/releaseRoutine", episodeId }),
-  startCorrection: (episodeId: string, reason: string) => ({ type: "correction/start", episodeId, reason }),
+  /** Optional edits correct result values in the new draft version. The released version keeps its own values. */
+  startCorrection: (episodeId: string, reason: string, edits?: Array<{ code: string; value: number }>) => ({ type: "correction/start", episodeId, reason, edits }),
   releaseCorrection: (episodeId: string) => ({ type: "correction/release", episodeId }),
   /* follow-up and reminders */
   logAttempt: (followUpId: string, channel: "phone" | "sms" | "email", result: "no_answer" | "voicemail" | "spoke" | "wrong_number", note: string) => ({ type: "followup/attempt", followUpId, channel, result, note }),
@@ -78,8 +81,9 @@ export const act = {
   closeFollowUp: (followUpId: string, outcomeCode: string, note: string, acknowledge: boolean) => ({ type: "followup/close", followUpId, outcomeCode, note, acknowledge }),
   retryReminder: (messageId: string) => ({ type: "reminder/retry", messageId }),
   /* portal and bookings */
-  portalSaveDraft: (personId: string, sectionsDone?: number, answers?: Record<string, string | number | boolean>) => ({ type: "portal/saveDraft", personId, sectionsDone, answers }),
-  portalComplete: (personId: string, consent: { service: boolean; data: boolean; sms?: boolean }) => ({ type: "portal/completeQuestionnaire", personId, consent }),
+  /** Participant preview only, for the participant's own record. programmeId picks the membership when a person is on more than one programme. */
+  portalSaveDraft: (personId: string, sectionsDone?: number, answers?: Record<string, string | number | boolean>, programmeId?: string) => ({ type: "portal/saveDraft", personId, sectionsDone, answers, programmeId }),
+  portalComplete: (personId: string, consent: { service: boolean; data: boolean; sms?: boolean }, programmeId?: string) => ({ type: "portal/completeQuestionnaire", personId, consent, programmeId }),
   createBooking: (personId: string, sessionId: string, slotStart: string) => ({ type: "booking/create", personId, sessionId, slotStart }),
   rescheduleBooking: (bookingId: string, sessionId: string, slotStart: string) => ({ type: "booking/reschedule", bookingId, sessionId, slotStart }),
   cancelBooking: (bookingId: string, reason?: string) => ({ type: "booking/cancel", bookingId, reason }),

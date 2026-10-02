@@ -1,11 +1,10 @@
 /* Shared helpers for module F: Work, Activity and the Agents Overview and Activity tabs.
    Everything reads the shared store through selectors. No count is typed in here. */
 import { useLayoutEffect, useState } from "react";
-import type { ComponentProps, ReactNode } from "react";
-import { createPortal } from "react-dom";
+import type { ReactNode } from "react";
 import { INTEGRATIONS, PROGRAMME_BY_ID, fmtAge, fmtDayMonth, hoursBetween, ix, staffName, storyViews } from "../../model";
 import type { EntityKind, EntityRef, NavTarget, Persona, PhState, StoryView, TaskView, TeamId } from "../../model";
-import { Avatar, Drawer, Icon, PageHeader, Pill, RestrictedNotice } from "../../ui";
+import { Avatar, Icon, PageHeader, Pill, RestrictedNotice } from "../../ui";
 import { usePersona } from "../../store";
 import type { GlyphName, Tone } from "../../ui";
 import "./phf.css";
@@ -47,6 +46,8 @@ export const isClinicalViewer = (p: Persona) => p.perms.has("clinical.view") || 
  * other roles, except the urgent follow-up, which they see only as "Clinical action assigned".
  */
 export const storyVisible = (s: StoryView) => !s.restricted || s.def.id === "ST-04";
+/** A story's name as this role may see it. ST-04 is only "Clinical action" for other roles. */
+export const storyLabel = (s: StoryView) => (s.restricted ? "Clinical action" : s.def.title);
 export const visibleStories = (state: PhState) => storyViews(state).filter(storyVisible);
 
 export const TEAM_NAME = (state: PhState, id: TeamId) => state.teams.find((t) => t.id === id)?.name || id;
@@ -157,25 +158,6 @@ export function IconBadge({ icon, size = 24, title }: { icon: GlyphName; size?: 
       <Icon name={icon} size={Math.round(size * 0.55)} />
     </span>
   );
-}
-
-/**
- * Renders overlays at the themed app root instead of inside the page. ".ph-page" keeps a transform
- * and filter from its entry animation, which would make it the containing block for
- * position: fixed, so a drawer inside it would span the page instead of the viewport.
- * The themed root keeps the theme and density tokens.
- */
-export function InTheme({ children }: { children: ReactNode }) {
-  const [host, setHost] = useState<HTMLElement | null>(null);
-  useLayoutEffect(() => {
-    setHost((document.querySelector("[data-theme]") as HTMLElement | null) || document.body);
-  }, []);
-  return host ? createPortal(children, host) : null;
-}
-
-/** The shared Drawer, mounted at the themed app root so it always covers the viewport edge. */
-export function SafeDrawer(props: ComponentProps<typeof Drawer>) {
-  return <InTheme><Drawer {...props} /></InTheme>;
 }
 
 /** Work, Activity and Agents are staff workspaces. The participant preview never shows them. */

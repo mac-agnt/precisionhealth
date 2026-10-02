@@ -24,6 +24,8 @@ export const BRAND = {
   darkTeal: "#3D6D67",
   deepTeal: "#1F3633",
   logoPath: "/brand/precision-health-logo.png",
+  logoDarkPath: "/brand/precision-health-logo-dark.png",
+  logoLightPath: "/brand/precision-health-logo-light.png",
   demoLabel: "Demo · synthetic data",
 };
 
@@ -254,12 +256,22 @@ export const HOLD_CATEGORY_LABEL: Record<HoldCategory, string> = {
   data_quality: "Data quality hold",
   clinical_action: "Clinical action",
 };
-export const FOLLOW_UP_OUTCOMES: Array<{ code: string; label: string }> = [
-  { code: "reached_advice_given", label: "Reached participant, advice given" },
-  { code: "appointment_arranged", label: "Reached participant, onward appointment arranged" },
-  { code: "unable_to_reach_escalated", label: "Unable to reach after attempts, escalated per clinician" },
-  { code: "declined_contact", label: "Participant declined further contact (documented)" },
+/** Outcomes marked reached need at least one recorded attempt where the participant was spoken to. */
+export const FOLLOW_UP_OUTCOMES: Array<{ code: string; label: string; reached: boolean }> = [
+  { code: "reached_advice_given", label: "Reached participant, advice given", reached: true },
+  { code: "appointment_arranged", label: "Reached participant, onward appointment arranged", reached: true },
+  { code: "unable_to_reach_escalated", label: "Unable to reach after attempts, escalated per clinician", reached: false },
+  { code: "declined_contact", label: "Participant declined further contact (documented)", reached: false },
 ];
+
+/** Roles that can be the one booked nurse at a clinic session. Support resources are listed separately. */
+export const NURSE_ROLE_KEYS: RoleKey[] = ["nursing_lead", "clinical_capture"];
+
+/** Words that mark health information. Invitation messages must not contain them. */
+export const HEALTH_INFO_PATTERN = /(result|diagnos|cholesterol|blood pressure)/i;
+
+/** Columns of the bundled Eurofins CSV, in file order. Lab Reconciliation maps each one to a Pulse field. */
+export const EUROFINS_CSV_COLUMNS = ["Specimen ID", "Surname and initial", "DOB", "Analyte", "Result", "Unit", "Result date"];
 export const AGE_BANDS = ["18-34", "35-44", "45-54", "55+"] as const;
 
 /* ---- form blocks and templates (versioned, clinically approved content) ---- */

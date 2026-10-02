@@ -76,6 +76,7 @@ handlers["governance/setOwner"] = (c, a: { id: string; owner: string }) => {
 };
 
 handlers["task/complete"] = (c, a: { taskId: string }) => {
+  const so = c.staffOnly("complete tasks"); if (so) return so;
   const tv = taskViews(c.s).find((t) => t.task.id === a.taskId);
   if (!tv) return c.fail("Unknown task.");
   if (tv.status === "done") return c.fail("Already done.");
@@ -89,22 +90,30 @@ handlers["task/complete"] = (c, a: { taskId: string }) => {
 };
 
 handlers["task/add"] = (c, a: { title: string; ownerId: StaffId; dueAt: string | null }) => {
+  const so = c.staffOnly("add tasks"); if (so) return so;
   if (!(a.title || "").trim()) return c.fail("Give the task a title.");
-  const n = c.nextNo("task");
   const owner = c.s.staff.find((x) => x.id === a.ownerId);
   if (!owner) return c.fail("Choose an owner.");
+  const n = c.nextNo("task");
   c.s.tasks.push({ id: `TSK-${pad(n, 4)}`, title: a.title.trim(), detail: "Added in this session.", storyId: null, ownerId: owner.id, team: owner.team, priority: "medium", dueAt: a.dueAt, status: "open", clinical: false, linked: { kind: "staff", id: owner.id }, createdAt: c.stamp(), completedAt: null, completedBy: null });
   c.emit({ verb: "task.added", summary: `${c.first()} added task ${`TSK-${pad(n, 4)}`} for ${owner.name}.`, entity: { kind: "task", id: `TSK-${pad(n, 4)}` } });
   return c.ok("Task added.", "ok");
 };
 
-/** The participant opens a released report. Recorded separately from message delivery. */
+/**
+ * The participant opens their own released report. Recorded separately from message delivery.
+ * Only the participant preview records an access, and only for the participant's own report:
+ * a staff preview is never logged as the participant opening it.
+ */
 handlers["portal/viewReport"] = (c, a: { episodeId: string }) => {
+  const ep = c.ix().episodeById.get(a.episodeId);
+  if (!ep) return c.fail("Unknown report.");
+  if (!c.persona().isParticipant) return { ok: false, tone: "info", message: "Report access is recorded only when the participant opens their own report. A staff preview is not logged as participant access." };
+  const own = c.selfOnly(ep.personId, "open reports"); if (own) return own;
   const v = currentReleased(c.s, a.episodeId);
   if (!v) return c.fail("No released report to view.");
   if (v.accessedAt) return c.ok();
   v.accessedAt = c.stamp();
-  const ep = c.ix().episodeById.get(a.episodeId)!;
   c.emit({ verb: "report.accessed", summary: `${c.personName(ep.personId)} opened report ${ep.id} v${v.version} in the portal. Recorded separately from message delivery.`, entity: { kind: "report", id: v.id }, programmeId: ep.programmeId, personId: ep.personId, simulated: true });
   return c.ok();
 };

@@ -8,13 +8,18 @@ export function Monogram({ size = 36 }: { size?: number }) {
   );
 }
 
-/** The public Precision Health logo on a light plate so the dark wordmark stays legible. Proportions are kept. */
+/** The public Precision Health logo on a transparent background: a light-wordmark copy for dark themes and the
+    original colours for light themes. Proportions are kept; nothing is redrawn. */
 export function BrandLogo({ height = 38 }: { height?: number }) {
   const [failed, setFailed] = useState(false);
   if (failed) return <Monogram size={height} />;
+  const img = (src: string, cls: string) => (
+    <img className={cls} src={src} alt="Precision Health" height={height} style={{ height, width: "auto", display: "block" }} onError={() => setFailed(true)} />
+  );
   return (
-    <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", height, padding: "0 9px", borderRadius: 12, background: "#f3f5f4", flex: "none" }}>
-      <img src={BRAND.logoPath} alt="Precision Health" height={height - 8} style={{ height: height - 8, width: "auto", display: "block" }} onError={() => setFailed(true)} />
+    <span style={{ display: "inline-flex", alignItems: "center", height, flex: "none" }}>
+      {img(BRAND.logoDarkPath, "ph-logo-for-dark")}
+      {img(BRAND.logoLightPath, "ph-logo-for-light")}
     </span>
   );
 }

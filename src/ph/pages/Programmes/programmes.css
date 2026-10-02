@@ -72,6 +72,17 @@
 .prg-stat-s { font-size: 10.5px; color: var(--dim); margin-top: 3px; line-height: 1.35; }
 
 .prg-stats-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.prg-two-fixed { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.prg-tlist { display: flex; flex-direction: column; gap: 4px; }
+.prg-tgroup { font-size: 11px; color: var(--faint); margin: 8px 0 2px; }
+.prg-trow { display: flex; flex-direction: column; gap: 3px; width: 100%; text-align: left; padding: 8px 10px; border-radius: 12px; border: 1px solid transparent; background: none; color: inherit; font: inherit; cursor: pointer; }
+.prg-trow:hover { background: var(--surface-2); }
+.prg-trow[aria-pressed="true"] { background: var(--accent-faint); border-color: var(--accent-line); }
+.prg-trow:focus-visible, .prg-frow:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.prg-frows { display: flex; flex-direction: column; gap: 2px; margin: 8px 0 0 32px; }
+.prg-frow { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; width: 100%; text-align: left; padding: 5px 8px; border-radius: 8px; border: 1px solid transparent; background: none; color: var(--body); font: inherit; font-size: 12px; cursor: pointer; }
+.prg-frow:hover { background: var(--surface-2); }
+.prg-frow[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent-line); color: var(--ink); }
 .prg-kv { display: flex; flex-direction: column; margin-top: 12px; }
 .prg-kv > div { display: flex; gap: 12px; align-items: baseline; padding: 8px 0; border-top: 1px solid var(--border); font-size: 12px; line-height: 1.4; }
 .prg-kv > div > span:first-child { color: var(--dim); flex: none; }

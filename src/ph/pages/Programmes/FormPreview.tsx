@@ -21,7 +21,7 @@ function numberError(f: FieldDef, raw: string): string | null {
   return null;
 }
 
-export function FormPreview({ version, blocks }: { version: FormTemplateVersion; blocks: FormBlock[] }) {
+export function FormPreview({ version, blocks, participant }: { version: FormTemplateVersion; blocks: FormBlock[]; participant?: boolean }) {
   const [answers, setAnswers] = useState<Record<string, Answer>>({});
   const [absent, setAbsent] = useState<Record<string, Absence | "">>({});
   const set = (k: string, v: Answer) => setAnswers((a) => ({ ...a, [k]: v }));
@@ -80,6 +80,11 @@ export function FormPreview({ version, blocks }: { version: FormTemplateVersion;
                 <option value="">Choose</option>
                 {(f.options || []).map((o) => <option key={o} value={o}>{o}</option>)}
               </Select>
+            ) : f.type === "boolean" && participant && f.key.startsWith("consent") ? (
+              <label className="ph-row-flex" style={{ gap: 8, fontSize: 12.5, color: "var(--body)", cursor: "pointer" }}>
+                <input id={id} type="checkbox" checked={raw === true} onChange={(e) => set(f.key, e.target.checked)} style={{ accentColor: "var(--accent)", width: 16, height: 16 }} />
+                {f.required ? "Required consent" : "Optional"}
+              </label>
             ) : f.type === "boolean" ? (
               <span className="ph-wrap" style={{ gap: 6 }} role="group" aria-label={f.label} id={id}>
                 <button type="button" className="prg-yn" aria-pressed={raw === true} disabled={!!ab} onClick={() => set(f.key, true)}>Yes</button>
@@ -90,7 +95,14 @@ export function FormPreview({ version, blocks }: { version: FormTemplateVersion;
             )}
             {f.unit && !computed && f.type === "number" ? <span className="prg-unit">{f.unit}</span> : null}
           </div>
-          {!computed ? (
+          {participant ? (
+            !computed && f.absence.includes("declined") ? (
+              <label className="ph-row-flex" style={{ gap: 6, fontSize: 11.5, color: "var(--dim)", cursor: "pointer" }}>
+                <input type="checkbox" checked={ab === "declined"} onChange={(e) => setAbsent((a) => ({ ...a, [f.key]: e.target.checked ? "declined" : "" }))} style={{ accentColor: "var(--accent)" }} />
+                Prefer not to answer
+              </label>
+            ) : null
+          ) : !computed ? (
             <div className="prg-absence">
               <Select aria-label={`${f.label}: value or absence reason`} value={ab} onChange={(e) => setAbsent((a) => ({ ...a, [f.key]: e.target.value as Absence | "" }))} style={{ height: 30, fontSize: 12 }}>
                 <option value="">Value given</option>
@@ -111,7 +123,8 @@ export function FormPreview({ version, blocks }: { version: FormTemplateVersion;
     <div className="ph-stack" style={{ gap: 12 }}>
       <div className="ph-row-flex" style={{ flexWrap: "wrap", gap: 10 }}>
         <div className="ph-grow" style={{ minWidth: 200, fontSize: 12, color: "var(--dim)", lineHeight: 1.45 }}>
-          Preview only. Answers stay on this screen: nothing is saved, no episode is created and nothing is sent.
+          {participant ? "What the participant sees, live as you edit. " : ""}Preview only: nothing is saved, no episode is created and nothing is sent.
+          {participant && version.blocks.some((b) => b.blockId.startsWith("blk-consent")) ? " A booking is confirmed only when the questionnaire and both required consents are complete." : ""}
         </div>
         <Button size="sm" variant="ghost" icon="refresh" onClick={() => { setAnswers({}); setAbsent({}); }}>Clear answers</Button>
       </div>

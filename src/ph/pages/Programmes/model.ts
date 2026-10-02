@@ -322,17 +322,20 @@ export interface VersionDiff {
   reordered: boolean;
   any: boolean;
 }
+/** Draft block versions carry ids such as "blk-bp--tpl-x-2.1"; they compare as their base block. */
+export const baseBlockId = (id: string) => id.split("--")[0];
 export function versionDiff(base: FormTemplateVersion | undefined, v: FormTemplateVersion): VersionDiff {
   if (!base || base.version === v.version) return { added: [], removed: [], requiredChanged: [], blockVersionChanged: [], reordered: false, any: false };
-  const bIds = base.blocks.map((b) => b.blockId);
-  const vIds = v.blocks.map((b) => b.blockId);
-  const added = v.blocks.filter((b) => !bIds.includes(b.blockId));
-  const removed = base.blocks.filter((b) => !vIds.includes(b.blockId));
+  const bIds = base.blocks.map((b) => baseBlockId(b.blockId));
+  const vIds = v.blocks.map((b) => baseBlockId(b.blockId));
+  const find = (id: string) => base.blocks.find((x) => baseBlockId(x.blockId) === baseBlockId(id));
+  const added = v.blocks.filter((b) => !bIds.includes(baseBlockId(b.blockId)));
+  const removed = base.blocks.filter((b) => !vIds.includes(baseBlockId(b.blockId)));
   const common = vIds.filter((id) => bIds.includes(id));
   const baseOrder = bIds.filter((id) => vIds.includes(id));
   const reordered = common.some((id, i) => baseOrder[i] !== id);
-  const requiredChanged = v.blocks.filter((b) => { const o = base.blocks.find((x) => x.blockId === b.blockId); return !!o && o.required !== b.required; });
-  const blockVersionChanged = v.blocks.flatMap((b) => { const o = base.blocks.find((x) => x.blockId === b.blockId); return o && o.version !== b.version ? [{ blockId: b.blockId, from: o.version, to: b.version }] : []; });
+  const requiredChanged = v.blocks.filter((b) => { const o = find(b.blockId); return !!o && o.required !== b.required; });
+  const blockVersionChanged = v.blocks.flatMap((b) => { const o = find(b.blockId); return o && o.version !== b.version ? [{ blockId: b.blockId, from: o.version, to: b.version }] : []; });
   return { added, removed, requiredChanged, blockVersionChanged, reordered, any: !!(added.length || removed.length || requiredChanged.length || blockVersionChanged.length || reordered) };
 }
 
@@ -342,9 +345,9 @@ export function versionDiff(base: FormTemplateVersion | undefined, v: FormTempla
  */
 export function movedBlocks(base: FormTemplateVersion | undefined, v: FormTemplateVersion): Set<string> {
   if (!base) return new Set();
-  const baseIds = base.blocks.map((b) => b.blockId);
-  const seq = v.blocks.map((b) => b.blockId).filter((id) => baseIds.includes(id));
-  const idx = seq.map((id) => baseIds.indexOf(id));
+  const baseIds = base.blocks.map((b) => baseBlockId(b.blockId));
+  const seq = v.blocks.map((b) => b.blockId).filter((id) => baseIds.includes(baseBlockId(id)));
+  const idx = seq.map((id) => baseIds.indexOf(baseBlockId(id)));
   const len = idx.map(() => 1), prev = idx.map(() => -1);
   for (let i = 0; i < idx.length; i++) for (let j = 0; j < i; j++) if (idx[j] < idx[i] && len[j] + 1 > len[i]) { len[i] = len[j] + 1; prev[i] = j; }
   let end = len.indexOf(Math.max(0, ...len));

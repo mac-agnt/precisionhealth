@@ -6,14 +6,51 @@ import type { FieldDef, FormBlock, FormTemplate, FormTemplateVersion, PhState } 
 import { CLINIC_DAY, activityFeed, buildSlots, fmtDateTime, fmtShortDateTime, ix, plural } from "../../model";
 import { Button, Card, CardHeader, DemoTag, EmptyState, EntityLink, Icon, Pill, Switch } from "../../ui";
 import { Note, VersionPill } from "./common";
+import { VERSION_STATUS } from "./palette";
 import { ABSENCE_LABEL, conditionText, currentOf, fieldShort, movedBlocks, sharedBy, sortVersionsDesc, templateUsage, versionDiff } from "./model";
+
+/* ---- left: template list with status and version ---- */
+export function TemplateList({ templates, selected, onSelect }: { templates: FormTemplate[]; selected: string; onSelect: (id: string) => void }) {
+  const groups: Array<{ label: string; list: FormTemplate[] }> = [
+    { label: "Clinical screening forms", list: templates.filter((t) => t.kind === "screening" && t.id !== "tpl-booking-consent") },
+    { label: "Booking and consent", list: templates.filter((t) => t.id === "tpl-booking-consent") },
+    { label: "Scheduling only", list: templates.filter((t) => t.kind === "service") },
+  ].filter((g) => g.list.length);
+  return (
+    <Card>
+      <CardHeader title="Form templates" sub={`${templates.length} templates. Select one to build or review it.`} />
+      <div className="prg-tlist" role="group" aria-label="Form templates">
+        {groups.map((g) => (
+          <div key={g.label}>
+            <div className="prg-tgroup">{g.label}</div>
+            {g.list.map((t) => {
+              const cur = t.versions.find((v) => v.version === t.currentVersion);
+              const draft = t.versions.find((v) => v.status === "draft"), pend = t.versions.find((v) => v.status === "pending_approval");
+              return (
+                <button key={t.id} type="button" className="prg-trow" aria-pressed={t.id === selected} onClick={() => onSelect(t.id)}>
+                  <span style={{ fontSize: 12.5, color: "var(--ink)", fontWeight: 500, lineHeight: 1.3 }}>{t.name}</span>
+                  <span className="ph-wrap" style={{ gap: 5 }}>
+                    <span className="prg-tag prg-tag-on">v{t.currentVersion}{cur ? ` ${VERSION_STATUS[cur.status].label.toLowerCase()}` : ""}</span>
+                    {draft ? <span className="prg-tag">Draft v{draft.version}</span> : null}
+                    {pend ? <span className="prg-tag" style={{ color: "var(--warn)" }}>v{pend.version} awaiting approval</span> : null}
+                    {t.kind === "service" ? <span className="prg-tag">Scheduling only</span> : null}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        ))}
+      </div>
+    </Card>
+  );
+}
 
 /* ---- left: reusable blocks ---- */
 export function BlockLibrary({ s, version, selected, editable, hint, onSelect, onAdd }: {
   s: PhState; version: FormTemplateVersion; selected: string; editable: boolean; hint: string | null;
   onSelect: (id: string) => void; onAdd: (id: string) => void;
 }) {
-  const blocks = s.forms.blocks;
+  const blocks = s.forms.blocks.filter((b) => !b.id.includes("--"));
   return (
     <Card>
       <CardHeader title="Reusable blocks" sub={`${blocks.length} versioned, clinically approved blocks. Templates reference a block; they never copy it.`} />
@@ -47,10 +84,11 @@ export function BlockLibrary({ s, version, selected, editable, hint, onSelect, o
 }
 
 /* ---- centre: ordered sections ---- */
-export function SectionList({ s, template, version, selected, editable, onSelect, onMove, onMoveTo, onToggle, onRemove, onAdd }: {
+export function SectionList({ s, template, version, selected, editable, onSelect, onMove, onMoveTo, onToggle, onRemove, onAdd, selectedField, onSelectField }: {
   s: PhState; template: FormTemplate; version: FormTemplateVersion; selected: string; editable: boolean;
   onSelect: (id: string) => void; onMove: (id: string, dir: -1 | 1) => void; onMoveTo: (id: string, to: number) => void;
   onToggle: (id: string) => void; onRemove: (id: string) => void; onAdd: (id: string) => void;
+  selectedField?: string | null; onSelectField?: (blockId: string, key: string) => void;
 }) {
   const [drag, setDrag] = useState<string | null>(null);
   const [over, setOver] = useState<number | null>(null);
@@ -105,13 +143,25 @@ export function SectionList({ s, template, version, selected, editable, onSelect
                   {isMoved ? <Pill tone="neutral" icon="list">Moved</Pill> : null}
                 </span>
                 <span className="prg-sec-fields">
-                  {!blk ? "Unknown block." : archived ? `Archived block version. The library now holds ${blk.version}.` : blk.fields.map(fieldShort).join("; ")}
+                  {!blk ? "Unknown block." : archived ? `Archived block version. The library now holds ${blk.version}.` : onSelectField ? `${blk.fields.length} fields${ref.blockId.includes("--") ? ", draft block version for this draft only" : ""}` : blk.fields.map(fieldShort).join("; ")}
                 </span>
               </button>
               {editable ? <span className="prg-grip" title="Drag to reorder" aria-hidden="true"><Icon name="grip" size={14} /></span> : (
                 <span className={"prg-tag" + (ref.required ? " prg-tag-on" : "")} style={{ marginTop: 2 }}>{ref.required ? "Required" : "Optional"}</span>
               )}
             </div>
+            {onSelectField && blk && !archived ? (
+              <div className="prg-frows" aria-label={`Fields in ${name}`}>
+                {blk.fields.map((f) => (
+                  <button key={f.key} type="button" className="prg-frow" aria-pressed={selectedField === `${ref.blockId}:${f.key}`} onClick={() => onSelectField(ref.blockId, f.key)}>
+                    <span style={{ flex: "1 1 120px", minWidth: 0 }}>{f.label}</span>
+                    {f.unit ? <span className="prg-tag">{f.unit}</span> : null}
+                    <span className={"prg-tag" + (f.required ? " prg-tag-on" : "")}>{f.required ? "Required" : "Optional"}</span>
+                    {f.showIf ? <span className="prg-tag" title={`Shown when ${conditionText(f, blk.fields)}`}>Conditional</span> : null}
+                  </button>
+                ))}
+              </div>
+            ) : null}
             {editable ? (
               <div className="prg-sec-ctl">
                 <span className="prg-req">

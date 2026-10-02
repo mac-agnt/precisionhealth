@@ -14,6 +14,7 @@ import { AnswersCard, EpisodeHeader, EpisodeHistory, MeasuresCard, ResultsTable,
 import type { Bundle } from "./EpisodePanels";
 import { AdviceCard, FlagsCard, PreviewCard, ReleaseCard, ReleasedCard } from "./ReleasePanel";
 import { PreviewModal } from "./ReportPreview";
+import { ReviewSheet } from "./Sheet";
 import { Count } from "./shared";
 
 type QueueFilter = "all" | "routine" | "flagged" | "aged";
@@ -192,6 +193,7 @@ function CentreMain({ b, inQueue }: { b: Bundle; inQueue: boolean }) {
         </RestrictedNotice>
       ) : (
         <>
+          <ReviewSheet b={b} />
           <ResultsTable b={b} showValues />
           <MeasuresCard b={b} showValues />
         </>

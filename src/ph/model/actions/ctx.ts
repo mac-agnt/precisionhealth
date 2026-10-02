@@ -4,9 +4,9 @@
    new objects into arrays and before reading selectors again. */
 import type { ActivityEvent, EntityRef, Episode, Id, Perm, PhState, ProgrammeId, StoryId, Toast } from "../types";
 import type { Iso } from "../time";
-import { invalidate, ix, persona } from "../selectors/core";
+import { invalidate, ix, membershipOf, persona } from "../selectors/core";
 import type { Persona } from "../selectors/core";
-import { episodeFlags, expectedTests, hasUnitDiscrepancy } from "../selectors/clinical";
+import { expectedTests, hasUnitDiscrepancy } from "../selectors/clinical";
 
 export interface ActionResult {
   ok: boolean;
@@ -51,6 +51,18 @@ export class Ctx {
   need(p: Perm, what: string): ActionResult | null {
     return this.can(p) ? null : this.fail(`${this.persona().name} (${this.persona().roleLabel}) cannot ${what}. Switch role in Settings, Experience to try it.`);
   }
+  /** Staff only: the participant preview cannot do this. Returns a failure result, otherwise null. */
+  staffOnly(what: string): ActionResult | null {
+    return this.persona().isParticipant ? this.fail(`The participant preview cannot ${what}. This is a staff action.`) : null;
+  }
+  /**
+   * In the participant preview a person may act only on their own record. Staff pass through here
+   * and are checked by permission instead. Returns a failure result, otherwise null.
+   */
+  selfOnly(personId: Id, what: string): ActionResult | null {
+    if (!this.persona().isParticipant || personId === this.s.session.portalPersonId) return null;
+    return this.fail(`In the participant preview you can only ${what} for yourself, not for another person.`);
+  }
 
   /** Last-used sequence numbers live in counters. */
   nextNo(counter: string): number {
@@ -58,10 +70,15 @@ export class Ctx {
     return this.s.counters[counter];
   }
 
-  /** New events get a stable, increasing timestamp just after the demo clock. */
+  /**
+   * New events get a stable, increasing timestamp just after the demo clock. If the clock was moved
+   * back, the stamp still follows the last event by a second, so history never runs backwards.
+   */
   stamp(): Iso {
     const n = Math.max(0, (this.s.counters.event || 0) - (this.s.counters.eventBase || 0));
-    return new Date(Date.parse(this.now) + n * 1000).toISOString();
+    const byClock = Date.parse(this.now) + n * 1000;
+    const last = this.s.activity.length ? Date.parse(this.s.activity[this.s.activity.length - 1].at) + 1000 : 0;
+    return new Date(Math.max(byClock, last)).toISOString();
   }
 
   actor(): ActivityEvent["actor"] {
@@ -97,12 +114,18 @@ export class Ctx {
       ep.readyAt = this.now;
       ep.reviewAssigneeId = "neil";
     }
-    void episodeFlags;
   }
 
   /** Current name of a person for event text. */
   personName(personId: Id): string {
     const p = this.ix().personById.get(personId);
     return p ? `${p.given} ${p.family}` : personId;
+  }
+
+  /** Verified, masked destination for a simulated message, from the contact preference on the programme membership. */
+  contactFor(personId: Id, programmeId?: ProgrammeId | null): { channel: "sms" | "email"; destination: string; provider: "Esendex" | "Email" } {
+    const person = this.ix().personById.get(personId)!;
+    const channel = membershipOf(this.s, personId, programmeId)?.contactPreference || "email";
+    return { channel, destination: channel === "sms" ? person.phone : person.email.replace(/^(.)[^@]*/, "$1***"), provider: channel === "sms" ? "Esendex" : "Email" };
   }
 }

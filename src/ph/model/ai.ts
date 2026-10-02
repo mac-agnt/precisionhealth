@@ -8,10 +8,10 @@ import type { NavTarget } from "./nav";
 import { PROGRAMME_BY_ID } from "./constants";
 import { fmtDate, fmtDayMonth, fmtTime, fmtWeekdayDate, greetingFor, localDateOf } from "./time";
 import {
-  can, dayStats, ix, persona, personName, plural, programmeCounts, sessionStats, today, todaySessions, todayStats, firstName, staffName,
+  canViewEpisodeClinical, dayStats, ix, persona, personName, plural, programmeCounts, sessionStats, today, todaySessions, todayStats, firstName, staffName,
 } from "./selectors/core";
-import { episodeFlags, expectedTests, holdQueue, reviewStats, reviewQueue, batchStats, episodeHeldByRow, openFollowUps, QRISK3 } from "./selectors/clinical";
-import { agentEvents, failedReminders, reminderStats, storyViews } from "./selectors/ops";
+import { reviewStats, reviewQueue, batchStats, episodeHeldByRow, openFollowUps, QRISK3 } from "./selectors/clinical";
+import { agentEvents, failedReminders, reminderStats } from "./selectors/ops";
 import { employerMetrics } from "./selectors/reporting";
 
 export interface AnswerAction { label: string; target?: NavTarget; ask?: string; primary?: boolean }
@@ -166,12 +166,14 @@ export function answerQuery(state: PhState, q: string): Answer {
   const sc = match(q);
   const p = persona(state);
   const I = ix(state);
+  // Staff answers are not part of the participant preview, which shows own released data only.
+  if (p.isParticipant) return { scenario: "restricted", supported: true, tool: "pulse_scope", effect: "read", text: "Staff answers are not available in the participant preview. Your own appointments and released reports are in the portal.", actions: [] };
   if (!sc) {
     const people = personLookup(state, q);
     if (people.length === 1) {
       const per = people[0];
       const eps = I.episodesByPerson.get(per.id) || [];
-      const clinical = p.perms.has("clinical.view");
+      const clinical = eps.length > 0 && canViewEpisodeClinical(state, eps[0].id);
       const m = (I.membershipsByPerson.get(per.id) || [])[0];
       const b = (I.bookingsByPerson.get(per.id) || []).find((x) => x.status === "confirmed");
       const base = `${personName(per)} (${per.id}) is on ${PROGRAMME_BY_ID[per.programmeId].name}. ${eps.length ? `Attended on ${fmtDate(eps[0].collectedAt)}.` : b ? `Booked for ${fmtDayMonth(I.sessionById.get(b.sessionId)!.date)} at ${b.slotStart}.` : m?.stage === "onboarding" ? "Questionnaire in progress, no confirmed booking yet." : "Invited, not started."}`;
@@ -276,6 +278,7 @@ export function answerQuery(state: PhState, q: string): Answer {
     }
     case "quality": {
       if (!p.perms.has("clinical.view")) return restricted("Data quality detail on clinical episodes", state);
+      if (!canViewEpisodeClinical(state, "PH-E-0201")) return restricted("This data quality item is on an episode outside your clinic assignments. Its detail", state, "the reviewing clinician and the nurses who staffed that clinic");
       const ep = I.episodeById.get("PH-E-0201");
       const ldl = ep ? (I.obsByEpisode.get(ep.id) || []).find((o) => o.code === "LDL") : undefined;
       return {
@@ -405,7 +408,9 @@ export function agentThread(state: PhState, id: AgentId): ThreadItem[] {
       return [
         stamp("Today 05:40 (simulated)"),
         ...(clinical
-          ? openIssues.map((d) => agent(`${d.title}. ${d.detail}`, undefined, d.episodeId ? [open("Open the review", linkFor("episode", d.episodeId))] : undefined))
+          ? openIssues.map((d) => (d.episodeId && !canViewEpisodeClinical(state, d.episodeId)
+            ? agent("one data quality item is open on an episode outside your clinic assignments. Detail is limited to its clinical team.")
+            : agent(`${d.title}. ${d.detail}`, undefined, d.episodeId ? [open("Open the review", linkFor("episode", d.episodeId))] : undefined)))
           : [agent(`${plural(openIssues.length, "data quality item")} open on clinical episodes. Details are limited to clinical roles.`)]),
         ...(openIssues.length ? [] : [agent("no open data quality issues.")]),
       ];
@@ -441,10 +446,9 @@ export function agentSuggestions(state: PhState, id: AgentId): string[] {
     case "watchdog": return ["Which reminders failed today?", "Which clinics run today?", "Which clinic has spare capacity?"];
     case "booking": return ["Which clinic has spare capacity?"];
     case "lab": return persona(state).perms.has("imports.view") ? [quar ? `Show the ${word(quar)} lab import ${quar === 1 ? "exception" : "exceptions"}.` : "Show the lab import batch."] : [];
-    case "drafting": return clinical ? ["Why was LDL 3.2 shown as normal?"] : [];
+    case "drafting": return clinical && canViewEpisodeClinical(state, "PH-E-0201") ? ["Why was LDL 3.2 shown as normal?"] : [];
     case "reporting": return persona(state).perms.has("reports.build") ? ["Prepare the Sisk programme report."] : [];
-    case "quality": return clinical ? ["Why was LDL 3.2 shown as normal?", "How does the Blood Pressure template block work?"] : ["How does the Blood Pressure template block work?"];
+    case "quality": return clinical && canViewEpisodeClinical(state, "PH-E-0201") ? ["Why was LDL 3.2 shown as normal?", "How does the Blood Pressure template block work?"] : ["How does the Blood Pressure template block work?"];
   }
 }
 
-void expectedTests; void episodeFlags; void holdQueue; void can; void storyViews;

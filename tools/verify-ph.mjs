@@ -31,7 +31,7 @@ try {
   eq("sessions", [s.sessions.length, s.sessions.filter((x) => x.programmeId === "PRG-SISK-26").length, s.sessions.filter((x) => x.programmeId === "PRG-SF-26").length, s.sessions.filter((x) => x.programmeId === "PRG-IBM-26").length], [19, 12, 4, 3]);
   check("25 slots per session", s.sessions.every((x) => M.sessionSlots(x).length === 25));
   const slots = M.sessionSlots(s.sessions[0]);
-  check("breaks not bookable", !slots.some((x) => ["10:30", "10:45" === x.start ? "x" : "10:30", "12:30", "12:45", "14:30"].includes(x.start)) || true);
+  check("breaks not bookable", !slots.some((x) => ["10:30", "12:30", "12:45", "14:30"].includes(x.start)) && slots.some((x) => x.start === "10:45") && slots.some((x) => x.start === "13:00"));
   check("no slot starts inside a break", slots.every((x) => !(x.start >= "10:30" && x.start < "10:45") && !(x.start >= "12:30" && x.start < "13:00") && !(x.start >= "14:30" && x.start < "14:45")));
   eq("first and last slot", [slots[0].start, slots[24].start, slots[24].end], ["09:00", "16:00", "16:15"]);
   const D = M.todayStats(s);
@@ -138,8 +138,13 @@ try {
   check("release event", s.activity.some((e) => e.summary === "Neil released report PH-E-0101 v1."));
   check("availability notice has no results", s.messages.filter((m) => m.episodeId === "PH-E-0101").every((m) => !/\d/.test(m.subject)));
   check("report access separate from delivery", M.currentReleased(s, "PH-E-0101").accessedAt === null);
+  check("staff view is not logged as participant access", !run(act.viewReportInPortal("PH-E-0101")).ok && M.currentReleased(s, "PH-E-0101").accessedAt === null);
+  run(act.setPortalPerson("PH-P-0002")); run(act.setPersona("participant"));
+  check("participant cannot open another person's report", !run(act.viewReportInPortal("PH-E-0101")).ok);
+  run(act.setPortalPerson("PH-P-0001"));
   run(act.viewReportInPortal("PH-E-0101"));
   check("access recorded", !!M.currentReleased(s, "PH-E-0101").accessedAt);
+  run(act.setPersona("neil"));
   check("routine shortcut blocked for ronan", !run(act.releaseRoutine("PH-E-0201")).ok);
   check("routine shortcut blocked for held", !run(act.releaseRoutine("PH-E-0103")).ok);
   run(act.setAdvice("PH-E-0201", "Sample advice. Please discuss with your GP."));
@@ -170,6 +175,8 @@ try {
   check("attempt keeps it open", run(act.logAttempt("FU-0001", "phone", "no_answer", "")).ok && s.followUps[0].status === "open");
   check("cannot close without acknowledgement", !run(act.closeFollowUp("FU-0001", "reached_advice_given", "Spoke with the participant", false)).ok);
   check("cannot close with a bogus outcome", !run(act.closeFollowUp("FU-0001", "sms_delivered", "Delivered SMS", true)).ok);
+  check("reached outcome needs a spoke attempt", !run(act.closeFollowUp("FU-0001", "reached_advice_given", "Spoke with the participant", true)).ok);
+  run(act.logAttempt("FU-0001", "phone", "spoke", "Reached"));
   check("closes with outcome", run(act.closeFollowUp("FU-0001", "reached_advice_given", "Spoke with the participant and gave advice", true)).ok);
   eq("maeve moved on", ep("PH-E-0103").reportState, "ready_for_review");
   s = createInitialState();
@@ -191,6 +198,10 @@ try {
   const free = M.freeSlots(s, ibmToday.id);
   eq("ibm free slots", free.length, 15);
   const slot = free.find((f) => f.start === "11:15") || free[5];
+  check("staff without bookings.manage cannot book", !run(act.setPersona("martina")) || !run(act.createBooking("PH-P-0802", ibmToday.id, slot.start)).ok);
+  run(act.setPersona("participant"));
+  check("participant cannot act for another person", !run(act.portalSaveDraft("PH-P-0802", 5, {})).ok && !run(act.cancelBooking(s.bookings.find((b) => b.personId !== "PH-P-0801" && b.status === "confirmed" && b.attendance === "booked").id)).ok);
+  check("participant cannot add tasks or acknowledge DQ", !run(act.addTask("x", "neil", null)).ok && !run(act.acknowledgeDq("DQ-0001")).ok);
   const before = run(act.createBooking("PH-P-0801", ibmToday.id, slot.start));
   check("booking blocked before consent and questionnaire", !before.ok && /required questionnaire and consent/.test(before.message));
   check("cannot complete with sections missing", !run(act.portalComplete("PH-P-0801", { service: true, data: true })).ok);
@@ -214,6 +225,7 @@ try {
   const orlaNow = s.bookings.find((b) => b.personId === "PH-P-0801" && b.status === "confirmed");
   eq("reschedule chain", [s.bookings.find((b) => b.id === orlaBooking.id).status, orlaNow.replaces], ["cancelled", orlaBooking.id]);
   // nurse workspace
+  check("participant feeds are empty", M.activityFeed(s).length === 0 && M.directoryRows(s).length === 0 && M.storyViews(s).length === 0 && M.answerQuery(s, "Aisling Byrne").scenario === "restricted");
   run(act.setPersona("fiona"));
   check("fiona cannot check in at a clinic she is not assigned to", !run(act.confirmIdentity(orlaNow.id, "09/06/1993", orlaNow.id)).ok);
   run(act.setPersona("liz"));
@@ -227,6 +239,8 @@ try {
   cap = s.captureDrafts[orlaNow.id];
   const stale = run(act.saveCapture(orlaNow.id, cap.rev - 1, { measures: { heightM: { value: 1.65, state: "recorded" } } }));
   check("save conflict surfaced", !stale.ok && stale.conflict === true);
+  check("blank recorded value is missing", run(act.saveCapture(orlaNow.id, cap.rev, { measures: { heightM: { value: null, state: "recorded" } } })).ok && M.captureMissing(s.captureDrafts[orlaNow.id]).includes("heightM"));
+  cap = s.captureDrafts[orlaNow.id];
   check("save measures", run(act.saveCapture(orlaNow.id, cap.rev, { measures: { heightM: { value: 1.65, state: "recorded" }, weightKg: { value: 70, state: "recorded" }, bpSys: { value: 188, state: "recorded" }, bpDia: { value: 104, state: "recorded" } } })).ok);
   check("legitimate abnormal bp accepted", s.captureDrafts[orlaNow.id].measures.bpSys.value === 188);
   eq("bmi", M.bmiOf(s.captureDrafts[orlaNow.id]), 25.7);
@@ -238,29 +252,49 @@ try {
   eq("after completion", [M.totalCounts(s).attended, M.totalCounts(s).episodes, M.totalCounts(s).awaiting, M.totalCounts(s).released, M.totalCounts(s).booked], [226, 226, 16, 184, 366]);
   eq("not released", s.episodes.find((e) => e.bookingId === orlaNow.id).reportState, "awaiting_results");
   eq("pending tests stay visible", M.pendingTests(s, s.episodes.find((e) => e.bookingId === orlaNow.id)).length, 5);
+  const orlaEp = s.episodes.find((e) => e.bookingId === orlaNow.id).id;
+  check("liz cannot load results without imports.view", run(act.setPersona("anita")) && !run(act.deliverSampleResults(orlaEp)).ok);
+  run(act.setPersona("neil"));
+  check("sample results delivered", run(act.deliverSampleResults(orlaEp)).ok && s.episodes.find((e) => e.id === orlaEp).reportState === "ready_for_review");
+  check("delivery idempotent", !run(act.deliverSampleResults(orlaEp)).ok);
+  run(act.ackFlags(orlaEp)); run(act.setAdvice(orlaEp, "Sample advice for Orla.")); run(act.toggleReviewCheck(orlaEp, "advice")); run(act.toggleReviewCheck(orlaEp, "preview"));
+  check("orla released", run(act.releaseReport(orlaEp)).ok);
+  run(act.setPersona("participant"));
+  check("orla portal report", run(act.viewReportInPortal(orlaEp)).ok && !!M.currentReleased(s, orlaEp).accessedAt);
   // cancellation updates capacity
   s = createInitialState();
   run(act.setPersona("brenda"));
   const someBooking = M.activeBookings(s, ibmToday.id)[0];
   check("cancel ok", run(act.cancelBooking(someBooking.id, "Participant request")).ok);
   eq("capacity after cancel", [M.totalCounts(s).booked, M.sessionStats(s, ibmToday.id).booked], [364, 9]);
+  const failedRem = M.failedReminders(s)[0];
+  check("cancel withdraws a failed reminder", run(act.cancelBooking(failedRem.bookingId, "Participant request")).ok && s.messages.find((m) => m.id === failedRem.id).status === "cancelled" && !run(act.retryReminder(failedRem.id)).ok);
+  eq("reminder counts after cancel", [M.reminderStats(s).logical, M.reminderStats(s).failed], [44, 1]);
+  const future = M.freeSlots(s, "CLN-IBM-20261012")[0];
+  const ib = s.bookings.find((b) => b.sessionId === "CLN-IBM-20261005" && b.status === "confirmed");
+  run(act.rescheduleBooking(ib.id, "CLN-IBM-20261012", future.start));
+  const nb = s.bookings.find((b) => b.replaces === ib.id);
+  check("future booking queues one reminder", s.messages.filter((m) => m.bookingId === nb.id && m.kind === "reminder" && m.status === "queued").length === 1);
+  check("cancel cancels the queued reminder", run(act.cancelBooking(nb.id, "Test")).ok && s.messages.filter((m) => m.bookingId === nb.id && m.status === "queued").length === 0);
+  eq("baseline reminders untouched", M.reminderStats(createInitialState()).logical, 45);
   s = createInitialState();
 
   /* ---------- session edits ---------- */
   run(act.setPersona("brenda"));
   const sisk8 = s.sessions.find((x) => x.id === "CLN-SISK-20261008");
   const pv = M.previewSessionEdit(s, sisk8.id, { end: "15:00" });
-  check("shortening the day impacts bookings, none deleted", pv.impacted.length >= 0 && pv.ok === (pv.impacted.length === 0));
-  const bad = run(act.applySession(sisk8.id, { nurseId: "fiona" }));
-  check("nurse overlap detection", true);
-  void bad;
+  const late = M.activeBookings(s, sisk8.id).filter((b) => b.slotStart >= "14:45").length;
+  check("shortening the day impacts bookings, none deleted", pv.impacted.length === late && late > 0 && !pv.ok && M.activeBookings(s, sisk8.id).length === 14);
+  check("nurse overlap detection", M.scheduleOverlaps(s).length === 0 && !run(act.applySession("CLN-SF-20261005", { supportIds: ["fiona"] })).ok);
+  check("non-nurse rejected", !run(act.applySession("CLN-IBM-20261012", { nurseId: "martina" })).ok);
+  check("completed session cannot be edited", !run(act.applySession("CLN-SISK-20260914", { nurseId: "liz" })).ok && !M.previewSessionEdit(s, "CLN-SISK-20260914", { nurseId: "liz" }).ok);
   const overlapSession = M.previewSessionEdit(s, "CLN-IBM-20261005", { nurseId: "fiona" });
   check("overlap flagged for today", overlapSession.overlaps.length > 0);
   check("overlap blocks apply", !run(act.applySession("CLN-IBM-20261005", { nurseId: "fiona" })).ok);
   const dateMove = run(act.applySession("CLN-SISK-20261012", { date: "2026-10-13" }));
   check("date move with bookings blocked", !dateMove.ok);
   const shorten = M.previewSessionEdit(s, "CLN-SISK-20261008", { end: "12:00" });
-  check("impact listed before applying", shorten.impacted.length >= 0);
+  check("impact listed before applying", shorten.impacted.length > 0);
   const shortenRes = run(act.applySession("CLN-SISK-20261008", { end: "12:00" }));
   check("silent deletion impossible", shorten.impacted.length === 0 || !shortenRes.ok);
   s = createInitialState();
@@ -289,8 +323,10 @@ try {
 
   /* ---------- employer report ---------- */
   run(act.setPersona("martina"));
+  const leak = run(act.setCohort("ER-SISK-01", { programmeId: "PRG-SISK-26", site: "all", ageBand: "all", gender: "non_binary", from: null, to: null }));
+  check("small cohort size never stated", /fewer than 5/.test(leak.message) && !/\b3 participants/.test(JSON.stringify(s.activity.slice(-2))) && M.reportMetrics(s, s.employerReports[0]).size === 0 && M.reportMetrics(s, s.employerReports[0]).sizeHidden);
   const blocked = run(act.setCohort("ER-SISK-01", { programmeId: "PRG-SISK-26", site: "Sisk Dublin Site B", ageBand: "55+", gender: "all", from: null, to: null }));
-  check("six-person cohort blocked", blocked.tone === "warn" && /6 participants/.test(blocked.message));
+  check("six-person cohort blocked", blocked.tone === "warn" && /6 participants/.test(blocked.message) && s.activity.some((e) => e.summary === "Sisk employer export blocked: selected cohort has 6 participants."));
   check("export blocked before approval", !run(act.createExport("ER-SISK-01", "pdf")).ok);
   check("programme level view works", run(act.useProgrammeLevel("ER-SISK-01")).ok);
   eq("cohort restored", M.employerMetrics(s, "PRG-SISK-26", s.employerReports[0].cohort, s.employerReports[0].dataAsOf).size, 126);
@@ -321,6 +357,9 @@ try {
   check("nurses cannot create codes", !run(act.createCode("PRG-IBM-26", "Nope", "2026-10-12", "")).ok);
   run(act.setPersona("stephen"));
   const draftIbm = s.invitationDrafts[0];
+  s.memberships.find((m) => m.personId === draftIbm.recipientIds[0]).stage = "booked";
+  check("approval enforces its prerequisites", !run(act.decideInvitation(draftIbm.id, true, draftIbm.recipientIds)).ok);
+  s.memberships.find((m) => m.personId === draftIbm.recipientIds[0]).stage = "onboarding";
   check("send needs confirmed recipients", !run(act.decideInvitation(draftIbm.id, true, [])).ok);
   const sendOk = run(act.decideInvitation(draftIbm.id, true, draftIbm.recipientIds));
   check("simulated send", sendOk.ok && s.messages.filter((m) => m.kind === "invitation").length === draftIbm.recipientIds.length);
@@ -356,6 +395,12 @@ try {
       }
     }
   }
+  s = createInitialState();
+  run(act.setPersona("anita"));
+  check("anita cannot read PH-E-0201 values", !/3\.2/.test(M.answerQuery(s, "Why was LDL 3.2 shown as normal?").text) && !M.activityFeed(s).some((v) => /3\.2/.test(v.text)) && !JSON.stringify(M.agentThread(s, "quality")).includes("3.2") && !M.personTimeline(s, "PH-P-0501").some((t) => /mmol/.test(t.detail)));
+  check("anita sees only own release approvals", M.approvalViews(s).filter((a) => a.type === "report_release" && a.visible).every((a) => M.canViewEpisodeClinical(s, a.target.id)));
+  run(act.setPersona("brenda"));
+  check("brenda hold shows clinical action only", M.holdQueue(s).find((h) => h.category === "clinical_action").label === "Clinical action assigned" && M.batchRows(s, "BATCH-20261002-01").every((r) => r.valueText === ""));
   s = createInitialState();
   run(act.setPersona("ian"));
   check("support cannot read lab import detail", M.answerQuery(s, "Show the three lab import exceptions.").scenario === "restricted");

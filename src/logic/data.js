@@ -74,34 +74,6 @@ const ONTO_NODES = [
 
 const ONTO_EDGES = [[500,300,300,190],[500,300,700,190],[500,300,250,430],[500,300,690,430],[700,190,850,320],[690,430,390,95],[690,430,620,95]];
 
-const REC_TEMPLATES = [
-  ["Field sheet","Records","Labelled fields in a grid — the default for a person, organisation or location.",
-   "M5 5.5h14v13H5v-13Z M5 10h14 M12 10v8.5","grid"],
-  ["Contact card","Records","A portrait, key fields and every linked record in one compact panel.",
-   "M12 11.5a3.4 3.4 0 1 0 0-6.8 3.4 3.4 0 0 0 0 6.8Z M5.5 19c.8-3 3.3-4.7 6.5-4.7s5.7 1.7 6.5 4.7","card"],
-  ["Directory","Records","A sortable table of many records at once, built for lists.",
-   "M4.5 6.5h15 M4.5 12h15 M4.5 17.5h15 M4.5 6.5h.01 M4.5 12h.01 M4.5 17.5h.01","rows"],
-  ["Timeline","Case work","Ordered events with who did what and when. Good for a case or a claim.",
-   "M12 3.5v17 M12 7.5h6 M12 13h-6 M12 18h6","timeline"],
-  ["Kanban board","Case work","Cards in columns by status. For anything that moves through stages.",
-   "M5 5h4.5v14H5V5Z M9.75 5h4.5v9h-4.5V5Z M14.5 5H19v6h-4.5V5Z","kanban"],
-  ["Checklist","Case work","Ticked steps in order, with an owner and a due date on each.",
-   "M5 6.5h2l1.4 1.4L11 5.5 M5 12.5h2l1.4 1.4 2.6-2.4 M5 18.5h2l1.4 1.4 2.6-2.4 M15 6.5h4 M15 12.5h4 M15 18.5h4","checklist"],
-  ["Ledger","Finance","Rows and running totals. For anything with amounts and dates.",
-   "M4 6h16 M4 12h16 M4 18h16 M9 3.5v17","ledger"],
-  ["Invoice","Finance","Line items, totals and a status — built to be sent, not just stored.",
-   "M7 3.5h10v17H7v-17Z M9.5 8h5 M9.5 11.5h5 M9.5 15h3","invoice"],
-  ["Document","Notes","Long-form text with linked records pulled out down the side.",
-   "M7 3.5h7l5 5v12H7v-17Z M14 3.7v5h5 M10 13h6 M10 16.5h4","document"],
-  ["Gallery","Notes","A wall of images and files with a caption on each — for a site or a job.",
-   "M4.5 6h6v6h-6V6Z M13.5 6h6v6h-6V6Z M4.5 14h6v4h-6v-4Z M13.5 14h6v4h-6v-4Z","gallery"],
-  ["Map & locations","Ops","A pinboard of places, with the record's fields beside each pin.",
-   "M12 21s6.5-5.6 6.5-11a6.5 6.5 0 1 0-13 0C5.5 15.4 12 21 12 21Z M12 12.8a2.6 2.6 0 1 0 0-5.2 2.6 2.6 0 0 0 0 5.2Z","map"],
-  ["Schedule","Ops","A calendar of bookings against this record, with recurring rules.",
-   "M8 4v3 M16 4v3 M4.5 9.5h15 M6.4 6h11.2A1.9 1.9 0 0 1 19.5 8v10a1.9 1.9 0 0 1-1.9 1.9H6.4A1.9 1.9 0 0 1 4.5 18V8A1.9 1.9 0 0 1 6.4 6Z","schedule"]
-];
-const REC_TEMPLATE_CATS = ["All","Records","Case work","Finance","Notes","Ops"];
-
 /* ---- admin hub ---- */
 /* ---- admin hub: 13 settings areas in five groups ---- */
 const PEOPLE = [
@@ -111,44 +83,6 @@ const PEOPLE = [
   ["Niamh Cronin","Trade counter","niamh@kilbridegroup.ie","Ballincollig","active","Standard","3 h ago"],
   ["Dermot Casey","Buyer · Casey Builders","dermot@caseybuilders.ie","—","external","External","2 days ago"],
   ["Liam Dunne","Owner · Dunne & Sons","liam@dunneandsons.ie","—","inactive","External","19 days ago"]
-];
-const ROLE_LEVELS = ["Admin","Manager","Standard","External"];
-const PERM_KEYS = [["view","View records"],["edit","Edit records"],["approve","Approve payments"]];
-const GRANT_DEFS = [
-  ["view","View records","Read anything in scope"],
-  ["edit","Edit records","Create and change records"],
-  ["approve","Approve decisions","Say yes to parked work"],
-  ["pay","Release payments","Send money out"],
-  ["export","Export data","Download and share out"],
-  ["agents","Manage agents","Create and grant agents"],
-  ["settings","Change settings","Modules, roles, integrations"],
-  ["audit","Read the audit log","Every action, everyone"]
-];
-const ROLE_SCOPES = ["All records","Their location","Assigned only"];
-const DEFAULT_PERMS = {Admin:{view:true,edit:true,approve:true}, Manager:{view:true,edit:true,approve:true},
-  Standard:{view:true,edit:true,approve:false}, External:{view:true,edit:false,approve:false}};
-const INTEGRATIONS = [
-  {name:"Gmail", blurb:"Mail in and out of Pulse — threads attach to the record they mention, and drafts wait for your yes.", tint:"#ea4335", status:"connected", statusKind:"ok",
-   glyph:"M4 7.2 12 13 20 7.2 M4 7.2v10.6h16V7.2 M4 7.2 8.5 4h7L20 7.2",
-   lastSync:"2 min ago", usage:"340 emails/day", auth:"OAuth 2.0", scopes:["Read","Send"]},
-  {name:"Xero", blurb:"Invoices, payments and credit notes sync both ways, so the ledger and the record spine never drift.", tint:"#13b5ea", status:"disconnected", statusKind:"bad",
-   glyph:"M4.5 12a7.5 7.5 0 0 1 12.8-5.3 M19.5 12a7.5 7.5 0 0 1-12.8 5.3 M17.3 4v3.3h-3.3 M6.7 20v-3.3H10",
-   lastSync:"27 Feb — token expired", usage:"148 invoices queued", auth:"OAuth 2.0", scopes:["Read","Write"]},
-  {name:"Sage", blurb:"Nightly read of the chart of accounts and balances, mapped onto Pulse organisations.", tint:"#00d639", status:"read only", statusKind:"warn",
-   glyph:"M4 8 12 4.5 20 8 12 11.5 4 8Z M4 13 12 16.5 20 13 M4 18 12 21.5 20 18",
-   lastSync:"14 min ago", usage:"9 accounts synced nightly", auth:"API key", scopes:["Read"]},
-  {name:"HubSpot", blurb:"Contacts, companies and deals stay matched to Pulse records without a second address book.", tint:"#ff7a59", status:"connected", statusKind:"ok",
-   glyph:"M12 9.6a2.4 2.4 0 1 0 0 4.8 2.4 2.4 0 0 0 0-4.8Z M12 4v3.4 M12 16.6V20 M4 12h3.4 M16.6 12H20 M6.5 6.5l2.4 2.4 M15.1 15.1l2.4 2.4 M17.5 6.5l-2.4 2.4 M8.9 15.1l-2.4 2.4",
-   lastSync:"6 min ago", usage:"1.1k contacts synced", auth:"OAuth 2.0", scopes:["Read","Write"]},
-  {name:"WhatsApp Business", blurb:"Send updates and chase messages from the record, logged against it as they go.", tint:"#25d366", status:"write only", statusKind:"warn",
-   glyph:"M4 19.5 5.3 15A7.7 7.7 0 1 1 8.6 18.2L4 19.5Z M8.6 10.3c0 3 2.4 5.4 5.4 5.4",
-   lastSync:"11 min ago", usage:"62 messages/day", auth:"API key", scopes:["Send"]},
-  {name:"Resend", blurb:"Transactional email for everything Pulse generates — reminders, briefings and receipts.", tint:"var(--accent)", status:"write only", statusKind:"warn",
-   glyph:"M3.5 12 20.5 4 16 20l-3.4-6.6L3.5 12Z",
-   lastSync:"38 min ago", usage:"210 emails/day", auth:"API key", scopes:["Send"]},
-  {name:"Composio", blurb:"One connector for the long tail of tools, so a new system does not need a new build.", tint:DIM, status:"not connected", statusKind:"off",
-   glyph:"M9 3v5 M15 3v5 M6 8h12v3.5a6 6 0 0 1-12 0V8Z M12 17.5V21",
-   lastSync:"—", usage:"—", auth:"—", scopes:[]}
 ];
 
 /* Background catalogue. Each entry is pure CSS so a tile is the real thing at
@@ -213,23 +147,6 @@ const THEMES = [
   {id:"mist", label:"Mist", group:"Light", bg:"#eef1f4", surface:"#ffffff", ink:"#141e20", accent:"#0e9f6e"},
   {id:"sand", label:"Sand", group:"Light", bg:"#f6f1e6", surface:"#fffdf7", ink:"#221d12", accent:"#7d5fd6"}
 ];
-
-const ADMIN_ICONS = {
-  people:"M12 12.5a3.6 3.6 0 1 0 0-7.2 3.6 3.6 0 0 0 0 7.2Z M5 20.2c.9-3.1 3.6-4.9 7-4.9s6.1 1.8 7 4.9",
-  teams:"M9 12a3.2 3.2 0 1 0 0-6.4A3.2 3.2 0 0 0 9 12Z M16.5 12.5a2.6 2.6 0 1 0 0-5.2 2.6 2.6 0 0 0 0 5.2Z M2.6 19.6c.8-2.8 3.2-4.4 6.4-4.4s5.6 1.6 6.4 4.4 M17 15.4c2.2.4 3.7 1.8 4.3 4.2",
-  structure:"M4.5 20V6.4A1.4 1.4 0 0 1 5.9 5h6.2a1.4 1.4 0 0 1 1.4 1.4V20 M13.5 10.5h4.6A1.4 1.4 0 0 1 19.5 12v8 M3 20h18 M7.5 8.5h2.5 M7.5 12h2.5",
-  shield:"M12 3.6 19.5 6v6.1c0 4-3.1 6.9-7.5 8.3-4.4-1.4-7.5-4.3-7.5-8.3V6L12 3.6Z M9.2 12.2l2 2 3.6-3.7",
-  agent:"M2 12h4l2.5-6 3.5 12 3-8 2 2h5",
-  flow:"M18.5 8.5A5 5 0 0 0 8.9 7.3 3.8 3.8 0 0 0 6 14.6 M8 17.5l3.2 3.2 M11.2 20.7l3.2-3.2 M11.2 20.7V9.6",
-  plug:"M9 3.5v5 M15 3.5v5 M6.5 8.5h11v3a5.5 5.5 0 0 1-11 0v-3Z M12 17v3.5",
-  modules:"M6.6 4.4h10.8a2.2 2.2 0 0 1 2.2 2.2v10.8a2.2 2.2 0 0 1-2.2 2.2H6.6a2.2 2.2 0 0 1-2.2-2.2V6.6a2.2 2.2 0 0 1 2.2-2.2Z M4.4 9.6h15.2 M9.6 19.6V9.6",
-  health:"M3 12.5h3.4l2-5 3 10 2.2-5H21",
-  lock:"M6.5 10.5h11a1.5 1.5 0 0 1 1.5 1.5v7a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 5 19v-7a1.5 1.5 0 0 1 1.5-1.5Z M8.5 10.5V7.5a3.5 3.5 0 0 1 7 0v3",
-  audit:"M8 3.5h8l3.5 3.5v13a1.5 1.5 0 0 1-1.5 1.5H6a1.5 1.5 0 0 1-1.5-1.5V5A1.5 1.5 0 0 1 6 3.5h2Z M9 12h6 M9 16h4",
-  brand:"M12 3.5 14.6 9l6.4.6-4.8 4.2 1.4 6.2-5.6-3.3-5.6 3.3 1.4-6.2L3 9.6 9.4 9 12 3.5Z",
-  bell:"M6 8.5a6 6 0 0 1 12 0c0 6.5 2.6 8.5 2.6 8.5H3.4S6 15 6 8.5Z M10.3 20.5a1.94 1.94 0 0 0 3.4 0",
-  data:"M4.5 7.5c0-1.7 3.4-3 7.5-3s7.5 1.3 7.5 3-3.4 3-7.5 3-7.5-1.3-7.5-3Z M4.5 7.5v9c0 1.7 3.4 3 7.5 3s7.5-1.3 7.5-3v-9 M4.5 12c0 1.7 3.4 3 7.5 3s7.5-1.3 7.5-3"
-};
 
 const ADMIN_CARDS = [
   {id:"people", group:"ORGANISATION", title:"People & access", icon:"people", tint:"#6ad0f0",
@@ -361,9 +278,6 @@ const ADMIN_GROUPS = [
 ];
 
 /* ---- activity feeds ---- */
-const SRC_TINT = {Gmail:"#f07a9d", Pulse:"var(--accent)", Sage:"#6ad0f0", WhatsApp:"#5fe0a8",
-  HubSpot:"#f0994b", Xero:"#8fa6ff", Agent:"var(--accent)"};
-const SRC_ABBR = {Gmail:"GM", Pulse:"PL", Sage:"SG", WhatsApp:"WA", HubSpot:"HS", Xero:"XR", Agent:"AI"};
 
 const DATA_EVENTS = [
   ["New customer created","McKenna Transport was added from a web enquiry.","Web form","McKenna Transport","Pulse","completed"],
@@ -452,109 +366,11 @@ const ITEMS = {
 };
 const ORDER = ["sync","po","visit","auto","task"];
 
-const ANSWERS = {
-  credit:{tool:"core_search", effect:"read",
-    text:"Three organisations are over their agreed limit this morning, and €41.2k of the balance is past 60 days. Dunne & Sons is the one to act on: days-to-pay went from 12 to 74 since May while order volume held steady.",
-    cols:["Organisation","Balance","Over","Oldest"],
-    rows:[["Dunne & Sons","€28,410","€8,410","74d"],["Fitzgerald Heating","€9,240","€2,240","63d"],["Riverside Devs","€3,560","€560","61d"]],
-    actions:[["Draft chase emails",1],["Open Dunne & Sons",0]]},
-  jobs:{tool:"core_tasks_find", effect:"read",
-    text:"Eleven tasks are past their due date. Two slipped on Friday when Van 04 went off the road at Ballincollig; the other nine are waiting on stock. Ballincollig carries seven of the eleven, well above its usual share.",
-    cols:["Task","Subject","Late","Owner"],
-    rows:[["Boiler swap follow-up","Ó Riain, Glanmire","4d","S. Byrne"],["Bathroom fit sign-off","Casey Builders","3d","T. Walsh"],["Rad replace invoice","Kelleher, Cobh","2d","S. Byrne"]],
-    actions:[["Reassign the two van tasks",1],["Open Work → Overdue",0]]},
-  chase:{tool:"core_email_draft", effect:"write", confirm:true,
-    confirmSummary:"Send one chase email to accounts@dunneandsons.ie referencing INV-10428 (€28,410, 74 days), offering two instalments to 30 September.",
-    text:"Drafted. This is a write tool, so I have not sent it — the proposal is stored with a hash of the exact arguments, and confirming replays those stored arguments rather than anything from your yes.",
-    actions:[["Confirm and send",1],["Edit draft",0]]},
-  sync:{tool:"core_operations_health", effect:"read",
-    text:"The Xero connection failed at 02:14 with an expired refresh token — last authorised 27 February. Nothing was lost: 148 invoices are queued and post once reconnected. This is the third token failure this year, so it is worth moving the connection to the service account.",
-    actions:[["Open System health",1],["Assign to Aoife",0]]},
-  visits:{tool:"site_visits_find", effect:"read",
-    text:"Four site visits are booked this week and one has no installer against it. That tool is contributed by the site-visits module, not core — installing the module is what gave me the ability to answer this.",
-    cols:["Visit","Organisation","When","Status"],
-    rows:[["Boiler service","Casey Builders","Wed 09:00","scheduled"],["Survey","Ó Riain","Wed 14:00","scheduled"],["Depot check","Ballincollig","Thu 09:00","unassigned"]],
-    actions:[["Assign the unassigned visit",1],["Open Site visits",0]]},
-  fallback:{tool:"core_search", effect:"read",
-    text:"I can answer that from the records you have access to. Everything I reach goes through a registered tool with a declared permission — there is no SQL tool — and a record you may not see comes back as not found rather than forbidden.",
-    actions:[["Show me what you can do",0]]}
-};
-
 // Turns a plain-English filter name into a full dashboard area — the "primitive
 // vibe-coding" bit: no real backend, just a seeded generator so the same phrase
 // always produces the same numbers, with direction and vocabulary nudged by
 // keywords in the text (expansion/growth trends up, risk/issue trends down, a
 // region/cost/people/ops/customer word picks which metrics show).
-function synthesizeCustomArea(name){
-  const trimmed = (name || "").trim();
-  if (!trimmed) return null;
-  let seed = 0;
-  for (let i = 0; i < trimmed.length; i++) seed = (seed * 31 + trimmed.charCodeAt(i)) >>> 0;
-  const rnd = (n) => (((seed >>> (n % 24)) ^ (seed << ((n * 7) % 13))) >>> 0) % 997 / 997;
-  const low = trimmed.toLowerCase();
-  const has = (...words) => words.some(w => low.indexOf(w) > -1);
-  const growth = has("expansion","growth","launch","scale","pilot","new site","open","opening","grow");
-  const risk = has("risk","issue","delay","problem","complaint","fault","incident","churn","decline");
-  const dir = risk ? -1 : (growth ? 1 : (rnd(2) > 0.45 ? 1 : -1));
-
-  let vocab = "generic";
-  if (has("scotland","ireland","wales","england","region","dublin","belfast","cork","galway","london","glasgow","edinburgh"))
-    vocab = "region";
-  else if (has("cost","spend","budget","saving","margin")) vocab = "cost";
-  else if (has("staff","hiring","team","recruit","headcount")) vocab = "people";
-  else if (has("supplier","stock","inventory","warehouse","fleet")) vocab = "ops";
-  else if (has("customer","client","retention","account")) vocab = "customer";
-
-  const V = {
-    region:   {labels:["New enquiries","Orders won","Revenue","Site coverage"], unit:"EUR — 30 DAYS"},
-    cost:     {labels:["Spend","Cost per job","Savings found","Budget used"], unit:"EUR — 30 DAYS"},
-    people:   {labels:["Headcount","Open roles","Time to hire","Retention"], unit:"PEOPLE"},
-    ops:      {labels:["Stock cover","Lead time","Stockouts","Reorders raised"], unit:"DAYS"},
-    customer: {labels:["Active accounts","Repeat rate","Churn","NPS"], unit:"ACCOUNTS"},
-    generic:  {labels:["Volume","Rate","Cost","Coverage"], unit:"ACTIVITY — 30 DAYS"}
-  }[vocab];
-
-  const months = ["Sep","Oct","Nov","Dec","Jan","Feb","Mar","Apr","May","Jun","Jul","Aug"];
-  let v0 = 40 + Math.floor(rnd(1) * 220);
-  const chart = months.map((m, i) => {
-    v0 = Math.max(8, Math.round(v0 * (1 + dir * (0.03 + rnd(i + 3) * 0.07))));
-    return [m, v0, String(v0)];
-  });
-  const metrics = V.labels.map((label, i) => {
-    const val = 20 + Math.floor(rnd(i + 5) * 400);
-    const pct = 2 + Math.round(rnd(i + 9) * 18);
-    const up = dir > 0 ? rnd(i + 12) > 0.25 : rnd(i + 12) > 0.7;
-    const bars = [0,1,2,3,4,5,6,7,8].map(k => 0.3 + rnd(i * 3 + k) * 0.7);
-    return [label, i === 1 ? pct + "%" : String(val), (up ? "+" : "\u2212") + pct + (i === 1 ? "pt" : "%"), up ? "up" : "down", "vs last month", bars];
-  });
-  const capName = trimmed.replace(/\b\w/g, c => c.toUpperCase());
-  const split = [
-    [capName + " \u2014 direct", String(Math.round(v0 * 0.5)), "48%", 1],
-    ["Existing pipeline", String(Math.round(v0 * 0.3)), "31%", 0],
-    ["Everything else", String(Math.round(v0 * 0.2)), "21%", 0]
-  ];
-  const table = [1,2,3].map(w => [capName + " \u2014 week " + w, String(20 + Math.floor(rnd(20 + w) * 200)),
-    (dir > 0 ? "+" : "\u2212") + (3 + Math.floor(rnd(23 + w) * 14)) + "%", "Auto-tagged from records mentioning \u201c" + low + "\u201d"]);
-  table.push(["Everything else", String(20 + Math.floor(rnd(30) * 200)), "\u2014", "Baseline"]);
-  return {
-    id: trimmed, label: capName, color: "var(--accent)", owner: "CUSTOM FILTER",
-    description: "Generated from \u201c" + trimmed + "\u201d \u2014 a plain-English filter, not a registered metric set. Refine it and Pulse will tighten this up.",
-    kind: "columns", chartTitle: capName + " over time", chartUnit: V.unit,
-    chart, splitTitle: "Where \u201c" + low + "\u201d shows up", split,
-    tableCols: ["Item","Value","Change","Note"], table,
-    metrics, legend: [capName, "Pipeline", "Other"]
-  };
-}
-
-function pickAnswer(q){
-  const s = q.toLowerCase();
-  if (/visit|site visit|installer/.test(s)) return ANSWERS.visits;
-  if (/chase|email|draft|send/.test(s)) return ANSWERS.chase;
-  if (/credit|limit|debtor|owe|outstanding|dunne/.test(s)) return ANSWERS.credit;
-  if (/task|late|overdue|slip|work/.test(s)) return ANSWERS.jobs;
-  if (/sync|xero|integration|token|fail|broke|health/.test(s)) return ANSWERS.sync;
-  return ANSWERS.fallback;
-}
 
 const ORGS = [
   ["Dunne & Sons Ltd","Customer","€28,410","74 days","on stop"],
@@ -563,17 +379,6 @@ const ORGS = [
   ["Munster Plumbing Supplies","Supplier","—","—","active"],
   ["Riverside Developments","Customer","€3,560","61 days","watch"],
   ["Glanmire Mechanical","Customer","€1,180","8 days","active"]
-];
-const TEAMS = [
-  ["Accounts","3 members","Aoife Nolan","core:approval:decide"],
-  ["Installers","9 members","Séamus Byrne","core:task:update"],
-  ["Trade counter","6 members","Niamh Cronin","core:person:view"],
-  ["Management","2 members","Martin Kilbride","all core permissions"]
-];
-const LOCATIONS = [
-  ["Head office","Little Island, Cork","14 staff","active"],
-  ["Ballincollig depot","Ballincollig, Cork","14 staff","lease review"],
-  ["Mallow yard","Mallow, Cork","4 staff","active"]
 ];
 
 /* Seven Precision Health agents. State, preview and conversation are read live from the shared store. */
@@ -584,17 +389,6 @@ const AGENT_DEFS = PH_AGENT_DEFS.map(a => ({
   get preview(){ return agentPreview(phStore.getState(), a.id); },
   get thread(){ return agentThread(phStore.getState(), a.id); }
 }));
-
-const KPI_DEFS = {
-  revenue:{label:"Revenue", value:"€412,800", delta:"+6.2%", dir:"up", hint:"30 days", hero:true},
-  cash:{label:"Cash collected", value:"€368,140", delta:"+4.1%", dir:"up", hint:"30 days"},
-  overdue:{label:"Overdue debt", value:"€41,200", delta:"+€8,410", dir:"down", hint:"60 days+"},
-  margin:{label:"Gross margin", value:"31.4%", delta:"−0.6pt", dir:"down", hint:"vs last month"},
-  jobs:{label:"Jobs completed", value:"126", delta:"+4", dir:"up", hint:"30 days"},
-  nps:{label:"Repeat rate", value:"68%", delta:"+3pt", dir:"up", hint:"customers ordering again"},
-  pipeline:{label:"Open pipeline", value:"€212,400", delta:"+11%", dir:"up", hint:"quoted, not won"},
-  utilisation:{label:"Installer hours", value:"84%", delta:"−2pt", dir:"down", hint:"billable share"}
-};
 
 const ASPECT_DEFS = [
   {id:"sales", label:"Sales", color:"var(--accent)", owner:"NIAMH CRONIN", description:"Counter, trade accounts and quotes out the door.",
@@ -663,12 +457,6 @@ const ASPECT_DEFS = [
      ["First-visit fix","82%","+4pt","up","of callbacks",[.5,.54,.56,.6,.6,.66,.7,.74,.8]],
      ["Warranty cost","€3,140","−€420","up","30 days",[.7,.66,.62,.6,.54,.5,.46,.44,.4]],
      ["Repeat faults","3","−1","up","same site",[.5,.5,.46,.4,.4,.36,.3,.3,.26]]]}
-];
-
-const FILTER_GROUPS = [
-  {title:"AREA", items:["Sales","Development","Marketing","Operations","Finance","Support"]},
-  {title:"SPINE", items:["Location","Team","Person","Organisation","Module"]},
-  {title:"TIME", items:["This week","This month","This quarter","Year to date"]}
 ];
 
 const OPS_DEFS = [
@@ -751,11 +539,6 @@ const OPS_DEFS = [
    runs:[["1 Aug 07:00","3m 42s","ok","1 pack","€0.09"],["1 Jul 07:00","3m 51s","ok","1 pack","€0.09"]]}
 ];
 
-const OPS_FILTERS = [
-  ["all","All"], ["routine","Agent routines"], ["automation","Automations"],
-  ["report","Scheduled reports"], ["task","Recurring tasks"], ["approval","Needs approval"], ["failed","Failed"]
-];
-
 const WORK_SECTIONS = [
   {id:"tasks", label:"Tasks", blurb:"Everything assigned to you or your team, in one permission-filtered list.",
    views:["All tasks","Due tasks","Review","Done"], filters:["Due date","Any status","Anyone","Any due date"]},
@@ -782,66 +565,13 @@ const WORK_TASKS = [
    due:"Filed Friday", late:false, client:"Head office", day:"Fri", mins:"2 hours", view:"Done", done:true}
 ];
 
-const WORKFLOWS = [
-  {name:"Overdue invoice reminder", state:"live", trigger:"schedule · daily 08:00",
-   actions:[["notify.email","write"],["tasks.create","write"]], lastRun:"Today 08:00",
-   result:"6 of 10 sent · partial", resultKind:"warn", runSummary:"11 ok · 3 partial",
-   runs:["ok","ok","partial","ok","ok","ok","partial","ok","ok","ok","ok","ok","partial","partial"]},
-  {name:"Approval routing over €10k", state:"live", trigger:"event · core.approval.created",
-   actions:[["approvals.route","read"],["notify.inbox","write"]], lastRun:"Today 08:54",
-   result:"ok", resultKind:"ok", runSummary:"14 ok",
-   runs:["ok","ok","ok","ok","ok","ok","ok","ok","ok","ok","ok","ok","ok","ok"]},
-  {name:"Unassigned visit escalation", state:"live", trigger:"event · site-visits.visit.created",
-   actions:[["notify.inbox","write"]], lastRun:"Today 07:00",
-   result:"ok", resultKind:"ok", runSummary:"9 ok · 1 failed",
-   runs:["idle","idle","ok","ok","failed","ok","ok","ok","idle","ok","ok","ok","ok","ok"]},
-  {name:"Xero invoice sync", state:"failing", trigger:"schedule · hourly",
-   actions:[["xero.post","external"]], lastRun:"Today 02:14",
-   result:"invalid_grant · dead-lettered", resultKind:"bad", runSummary:"4 failed",
-   runs:["ok","ok","ok","ok","ok","ok","ok","ok","ok","ok","failed","failed","failed","failed"]}
-];
-
-const SCHEDULES = [
-  {id:"s1", name:"Morning briefing", cadence:"Every weekday · 07:00", next:"Tomorrow 07:00", owner:"Briefing agent", on:true, day:1},
-  {id:"s2", name:"Overdue invoice reminder", cadence:"Daily · 08:00", next:"Tomorrow 08:00", owner:"Credit Control", on:true, day:1},
-  {id:"s3", name:"Xero invoice sync", cadence:"Hourly", next:"Paused", owner:"Ops Watchdog", on:false, day:0},
-  {id:"s4", name:"Weekly stock check", cadence:"Thursdays · 09:00", next:"Thu 09:00", owner:"Stock Watch", on:true, day:3},
-  {id:"s5", name:"Month-end close", cadence:"Last working day · 17:00", next:"Fri 17:00", owner:"Month-end close", on:true, day:4}
-];
-
 const WIDGET_DEFS = [["clinics","Today's clinics"],["imports","Import exceptions"],["review","Reports awaiting review"],["capacity","Capacity and reminders"],["work","My work"],["activity","Recent activity"]];
-const WORK_WIDGETS = [
-  {id:"queue", label:"My queue", value:"8", hint:"assigned to you", icon:"work", queue:"mine"},
-  {id:"late", label:"Running late", value:"11", hint:"past their due date", icon:"health", queue:"overdue"},
-  {id:"unassigned", label:"Unassigned", value:"1", hint:"nobody owns it yet", icon:"teams", queue:"unassigned"},
-  {id:"week", label:"Next 7 days", value:"4", hint:"due this week", icon:"visits", queue:"upcoming"}
-];
+
 const PERSONALITIES = ["Straight-talking","Warm","Formal","Dry"];
 const ANSWER_STYLES = ["Short answers","Show the working","Ask before acting"];
 /* Every context source and every registered tool the agent could be granted —
    the builder shows the whole catalogue, grouped, rather than a sample. */
-const CONTEXT_DEFS = [
-  ["Organisations","records","Accounts, limits, payment behaviour"],
-  ["People","records","Contacts and internal staff"],
-  ["Files","records","Indexed documents and certificates"],
-  ["Tasks","work","Queues, owners, due dates"],
-  ["Site visits","work","Bookings, installers, outcomes"],
-  ["Approvals","work","What is waiting on a decision"],
-  ["Invoices","money","Issued, paid, past due"],
-  ["Quotes","money","Sent, accepted, expired"],
-  ["Payments","money","Receipts and allocations"],
-  ["Activity log","system","Every event, agent and human"],
-  ["Modules","system","What this client has installed"],
-  ["Insights","system","Saved metrics and trends"]
-];
-const CONTEXT_SOURCES = CONTEXT_DEFS.map(c => c[0]);
-const SKILL_DEFS = [
-  ["Search records","read"],["Summarise activity","read"],["Read invoices","read"],
-  ["Read site visits","read"],["Check permissions","read"],
-  ["Draft email","write"],["Create task","write"],["Update record","write"],
-  ["Schedule visit","write"],["Raise approval","write"],
-  ["Send email","external"],["Send WhatsApp","external"],["Post to Xero","external"],["Push to HubSpot","external"]
-];
+
 /* The two questions the agent asks back once it knows the job. */
 const TRAIN_PHASES = [
   ["Reading the whole ontology", "4,820 records"],
@@ -906,7 +636,6 @@ function hexRGB(hex){
   _hexCache[hex] = v;
   return v;
 }
-
 
 function buildGraph(){
   const rnd = mulberry(20260902);
@@ -1091,22 +820,11 @@ export {
   FILE_TREE,
   ONTO_NODES,
   ONTO_EDGES,
-  REC_TEMPLATES,
-  REC_TEMPLATE_CATS,
   PEOPLE,
-  ROLE_LEVELS,
-  PERM_KEYS,
-  GRANT_DEFS,
-  ROLE_SCOPES,
-  DEFAULT_PERMS,
-  INTEGRATIONS,
   BG_DEFS,
   THEMES,
-  ADMIN_ICONS,
   ADMIN_CARDS,
   ADMIN_GROUPS,
-  SRC_TINT,
-  SRC_ABBR,
   DATA_EVENTS,
   PEOPLE_EVENTS,
   AI_EVENTS,
@@ -1114,29 +832,15 @@ export {
   NAV,
   ITEMS,
   ORDER,
-  ANSWERS,
-  synthesizeCustomArea,
-  pickAnswer,
   ORGS,
-  TEAMS,
-  LOCATIONS,
   AGENT_DEFS,
-  KPI_DEFS,
   ASPECT_DEFS,
-  FILTER_GROUPS,
   OPS_DEFS,
-  OPS_FILTERS,
   WORK_SECTIONS,
   WORK_TASKS,
-  WORKFLOWS,
-  SCHEDULES,
   WIDGET_DEFS,
-  WORK_WIDGETS,
   PERSONALITIES,
   ANSWER_STYLES,
-  CONTEXT_DEFS,
-  CONTEXT_SOURCES,
-  SKILL_DEFS,
   TRAIN_PHASES,
   BRIEF_QUESTIONS,
   STATE_LABELS,

@@ -117,3 +117,20 @@ button.phr-check-box:focus-visible { outline: 2px solid var(--accent); outline-o
 .phr-dialog-head { display: flex; align-items: center; gap: 10px; padding: 16px 20px 10px; flex: none; }
 .phr-dialog-body { overflow-y: auto; padding: 4px 20px 16px; min-height: 0; scrollbar-width: thin; }
 .phr-dialog-foot { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; padding: 12px 20px 16px; border-top: 1px solid var(--border); flex: none; }
+
+/* review sheet: dense three-column grid, colour plus text in every cell */
+.phr-sheet { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.phr-sheet-col { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.phr-sheet-cell { border: 1px solid var(--border); border-radius: 9px; padding: 6px 8px 7px; min-width: 0; }
+.phr-sheet-label { font-size: 10.5px; color: var(--faint); line-height: 1.3; overflow-wrap: anywhere; }
+.phr-sheet-value { font-size: 12.5px; line-height: 1.35; margin-top: 2px; overflow-wrap: anywhere; }
+.phr-sheet-unit { font-size: 10.5px; color: var(--dim); margin-left: 4px; }
+.phr-sheet-flag { display: flex; align-items: center; gap: 4px; font-size: 10.5px; font-weight: 600; margin-top: 3px; line-height: 1.3; }
+.phr-sheet-src { font-size: 10px; color: var(--faint); margin-top: 2px; line-height: 1.3; overflow-wrap: anywhere; }
+.phr-sheet-legend { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 10.5px; color: var(--dim); margin-bottom: 8px; }
+.phr-sheet-legend span { display: inline-flex; align-items: center; gap: 5px; }
+.phr-sheet-legend i { width: 10px; height: 10px; border-radius: 3px; border: 1px solid; display: inline-block; }
+.phr-sheet-advice { display: grid; grid-template-columns: 110px minmax(0, 1fr); gap: 0; margin-top: 8px; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+.phr-sheet-advice-label { display: flex; align-items: center; justify-content: center; padding: 8px; font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; text-align: center; }
+.phr-sheet-advice-text { padding: 9px 11px; font-size: 12.5px; line-height: 1.5; color: var(--body); white-space: pre-wrap; background: var(--surface-faint); }
+@container phr (max-width: 520px) { .phr-sheet { grid-template-columns: repeat(2, minmax(0, 1fr)); } .phr-sheet-col:nth-child(3) { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); } .phr-sheet-advice { grid-template-columns: minmax(0, 1fr); } }

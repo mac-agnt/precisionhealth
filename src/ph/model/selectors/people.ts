@@ -3,19 +3,22 @@
    clinical nodes to roles that cannot see clinical content. */
 import type { Booking, Episode, Id, Membership, Person, PhState, Programme } from "../types";
 import { COMPANIES, PROGRAMME_BY_ID } from "../constants";
-import { fmtDate, fmtDateTime, fmtTime } from "../time";
+import { fmtDate } from "../time";
 import type { Iso } from "../time";
 import { PAGES, linkFor } from "../nav";
 import type { NavTarget } from "../nav";
-import { bmiOf, currentReleased, versionsOf } from "./clinical";
-import { can, canViewEpisodeClinical, ix, memo, persona, personName, programmeCounts, today } from "./core";
+import { CLINICAL_DETAIL_HIDDEN, bmiOf, versionsOf } from "./clinical";
+import { canViewEpisodeClinical, ix, memo, membershipOf, persona, personName, staffName } from "./core";
 import { inviteeStatusLabel } from "./ops";
 
 /* ---- directory ---- */
 export type DirectoryStage = "all" | "invited" | "onboarding" | "upcoming" | "attended";
 export interface DirectoryRow {
   person: Person;
+  /** The membership of the person's own programme. */
   membership: Membership;
+  /** Every programme membership. A person can be on more than one programme; each keeps its own state. */
+  memberships: Membership[];
   programme: Programme;
   stage: Exclude<DirectoryStage, "all">;
   stageLabel: string;
@@ -23,17 +26,19 @@ export interface DirectoryRow {
   nextWhen: string;
   episodeIds: Id[];
 }
+/** One row per person, on their own programme. Staff only: the participant preview gets nothing. */
 export function directoryRows(state: PhState): DirectoryRow[] {
   return memo(state, "dir", () => {
+    if (persona(state).isParticipant) return [];
     const I = ix(state);
     return state.persons.map((p) => {
-      const m = (I.membershipsByPerson.get(p.id) || [])[0];
+      const m = membershipOf(state, p.id)!;
       const eps = I.episodesByPerson.get(p.id) || [];
       const upcoming = (I.bookingsByPerson.get(p.id) || []).filter((b) => b.status === "confirmed" && b.attendance !== "completed" && b.attendance !== "no_show")
         .sort((a, b) => (I.sessionById.get(a.sessionId)!.date < I.sessionById.get(b.sessionId)!.date ? -1 : 1))[0] || null;
       const stage: DirectoryRow["stage"] = eps.length ? "attended" : upcoming ? "upcoming" : m.stage === "onboarding" ? "onboarding" : "invited";
       return {
-        person: p, membership: m, programme: I.programmeById.get(p.programmeId)!, stage, stageLabel: inviteeStatusLabel(state, p.id),
+        person: p, membership: m, memberships: I.membershipsByPerson.get(p.id) || [m], programme: I.programmeById.get(p.programmeId)!, stage, stageLabel: inviteeStatusLabel(state, p.id),
         nextBooking: upcoming, nextWhen: upcoming ? `${fmtDate(I.sessionById.get(upcoming.sessionId)!.date)}, ${upcoming.slotStart}` : "", episodeIds: eps.map((e) => e.id),
       };
     });
@@ -56,11 +61,17 @@ export function directory(state: PhState, f: { q?: string; stage?: DirectoryStag
 
 /* ---- person timeline ---- */
 export interface TimelineItem { at: Iso; kind: string; title: string; detail: string; clinical: boolean; target?: NavTarget }
+/**
+ * A person's history across every programme they are on. Result values, calculations, correction
+ * wording and follow-up detail appear only for roles that may see that episode's clinical content.
+ * In the participant preview only the participant's own timeline is available, without clinical items.
+ */
 export function personTimeline(state: PhState, personId: Id): TimelineItem[] {
   const I = ix(state);
-  const m = (I.membershipsByPerson.get(personId) || [])[0];
+  const p = persona(state);
+  if (p.isParticipant && personId !== state.session.portalPersonId) return [];
   const out: TimelineItem[] = [];
-  if (m) out.push({ at: m.invitedAt, kind: "invitation", title: "Invited to the programme", detail: `${I.programmeById.get(m.programmeId)?.name}. Invitation code is managed centrally.`, clinical: false });
+  for (const m of I.membershipsByPerson.get(personId) || []) out.push({ at: m.invitedAt, kind: "invitation", title: "Invited to the programme", detail: `${I.programmeById.get(m.programmeId)?.name}. Invitation code is managed centrally.`, clinical: false });
   for (const b of I.bookingsByPerson.get(personId) || []) {
     const s = I.sessionById.get(b.sessionId)!;
     out.push({ at: b.questionnaireCompletedAt, kind: "questionnaire", title: "Questionnaire and consent completed", detail: `Form ${b.formTemplateId.replace("tpl-", "")} v${b.formVersion}, consent ${b.consentVersion}. Completed before the booking was confirmed.`, clinical: false });
@@ -68,14 +79,17 @@ export function personTimeline(state: PhState, personId: Id): TimelineItem[] {
     if (b.attendance === "completed") out.push({ at: I.episodeById.get(b.episodeId || "")?.collectedAt || b.createdAt, kind: "attendance", title: "Attended and appointment completed", detail: `Episode ${b.episodeId}. Completing the appointment does not release a report.`, clinical: false });
   }
   for (const e of I.episodesByPerson.get(personId) || []) {
-    for (const o of (I.obsByEpisode.get(e.id) || [])) out.push({ at: o.recordedAt, kind: "observation", title: `Result received: ${o.code}`, detail: `${o.value} ${o.unit}. Source ${o.source.kind === "batch" ? o.source.batchId : "clinic"}.`, clinical: true });
-    const bmi = bmiOf(e.capture);
-    if (bmi != null) out.push({ at: e.capture.completedAt || e.collectedAt, kind: "calculation", title: "BMI calculated", detail: `${bmi} kg/m² from recorded height and weight.`, clinical: true });
+    const show = canViewEpisodeClinical(state, e.id);
+    if (!p.isParticipant) {
+      for (const o of (I.obsByEpisode.get(e.id) || [])) out.push({ at: o.recordedAt, kind: "observation", title: show ? `Result received: ${o.code}` : "Result received", detail: show ? `${o.value} ${o.unit}. Source ${o.source.kind === "batch" ? o.source.batchId : "clinic"}.` : CLINICAL_DETAIL_HIDDEN, clinical: true });
+      const bmi = show ? bmiOf(e.capture) : null;
+      if (bmi != null) out.push({ at: e.capture.completedAt || e.collectedAt, kind: "calculation", title: "BMI calculated", detail: `${bmi} kg/m² from recorded height and weight.`, clinical: true });
+    }
     for (const v of versionsOf(state, e.id)) {
-      if (v.releasedAt) out.push({ at: v.releasedAt, kind: "report", title: `Report v${v.version} released${v.status === "superseded" ? " (superseded)" : ""}`, detail: v.correctionReason || `Released by ${v.releasedBy}.`, clinical: false, target: linkFor("episode", e.id) });
+      if (v.releasedAt) out.push({ at: v.releasedAt, kind: "report", title: `Report v${v.version} released${v.status === "superseded" ? " (superseded)" : ""}`, detail: v.correctionReason ? (show ? v.correctionReason : "Correction released. The reason is limited to clinical roles.") : `Released by ${staffName(state, v.releasedBy)}.`, clinical: false, target: linkFor("episode", e.id) });
       if (v.accessedAt) out.push({ at: v.accessedAt, kind: "report_access", title: `Report v${v.version} opened in the portal`, detail: "Recorded separately from message delivery.", clinical: false });
     }
-    for (const f of I.followUpsByEpisode.get(e.id) || []) out.push({ at: f.dueAt, kind: "followup", title: `Follow-up ${f.id} ${f.status}`, detail: "Clinical follow-up item.", clinical: true, target: linkFor("followup", f.id) });
+    if (!p.isParticipant) for (const f of I.followUpsByEpisode.get(e.id) || []) out.push({ at: f.dueAt, kind: "followup", title: show ? `Follow-up ${f.id} ${f.status}` : "Clinical action assigned", detail: show ? "Clinical follow-up item." : "A clinician owns this item. No clinical detail is shown to this role.", clinical: true, target: linkFor("followup", f.id) });
   }
   for (const msg of state.messages.filter((x) => x.personId === personId)) out.push({ at: msg.at, kind: "message", title: `${msg.kind.replace("_", " ")} ${msg.status}`, detail: `${msg.channel.toUpperCase()} to ${msg.destination}. Simulated.`, clinical: false });
   return out.sort((a, b) => (a.at < b.at ? -1 : a.at > b.at ? 1 : 0));
@@ -107,10 +121,11 @@ export const PH_FILES: PhFile[] = [
   { id: "file-consent", name: "booking_consent_sample.pdf", folder: "Consent", type: "PDF (sample)", owner: "Brenda Madden", linked: { kind: "programme", id: "PRG-SISK-26", label: "Sisk Autumn Screening" }, version: "BC-3", visibility: "all_staff",
     summary: "Sample booking consent. It names Esendex for SMS delivery. Retention wording is flagged for review in Governance." },
 ];
+/** All staff files for every staff role; reporting files for roles that build employer reports; clinical files for clinical roles. */
 export function fileVisible(state: PhState, f: PhFile): boolean {
   const p = persona(state);
   if (f.visibility === "all_staff") return !p.isParticipant;
-  if (f.visibility === "reporting") return p.perms.has("reports.build") || p.perms.has("clinical.view") || p.perms.has("settings.view");
+  if (f.visibility === "reporting") return p.perms.has("reports.build");
   return p.perms.has("clinical.view");
 }
 export const visibleFiles = (state: PhState) => PH_FILES.filter((f) => fileVisible(state, f));
@@ -129,17 +144,31 @@ export const ONTO_CLUSTER_DEFS = [
 export interface OntoEntity { id: string; label: string; cluster: number; count: number; clinical: boolean; example: { label: string; target: NavTarget } | null; blurb: string }
 export interface OntoRelation { id: string; from: string; to: string; label: string; count: number; clinical: boolean; example: { text: string; target: NavTarget } | null }
 export interface OntoModel { entities: OntoEntity[]; relations: OntoRelation[]; totalRecords: number; totalRelationships: number; clusterCounts: number[] }
+/**
+ * Entity and relationship counts for the Records ontology, filtered by role. Clinical nodes need
+ * clinical access, and their examples use an episode this role may see. Import batches and source
+ * rows need the imports permission. The participant preview gets an empty model.
+ */
 export function ontologyModel(state: PhState): OntoModel {
   return memo(state, "onto:" + state.session.personaId, () => {
     const I = ix(state);
     const p = persona(state);
+    if (p.isParticipant) return { entities: [], relations: [], totalRecords: 0, totalRelationships: 0, clusterCounts: ONTO_CLUSTER_DEFS.map(() => 0) };
     const clinicalOk = p.perms.has("clinical.view");
     const importsOk = p.perms.has("imports.view");
-    const ep0: Episode | undefined = state.episodes.find((e) => canViewEpisodeClinical(state, e.id)) || state.episodes[0];
-    const aisling = I.episodeById.get("PH-E-0101") || ep0;
+    // The example episode is Aisling's when this role may see it, otherwise the first episode it may see.
+    const ex: Episode | undefined = canViewEpisodeClinical(state, "PH-E-0101") ? I.episodeById.get("PH-E-0101") : state.episodes.find((e) => canViewEpisodeClinical(state, e.id));
+    const exPerson = ex ? I.personById.get(ex.personId) : undefined;
+    const exObs = ex ? (I.obsByEpisode.get(ex.id) || [])[0] : undefined;
+    const exBmi = ex ? bmiOf(ex.capture) : null;
+    const exReport = state.reportVersions.find((v) => (v.status === "released" || v.status === "superseded") && canViewEpisodeClinical(state, v.episodeId));
+    const exFollowUp = state.followUps.find((f) => canViewEpisodeClinical(state, f.episodeId));
+    const exRow = state.importRows.find((r) => r.observationId);
     const confirmed = state.bookings.filter((b) => b.status === "confirmed");
     const released = state.reportVersions.filter((v) => v.status === "released" || v.status === "superseded").length;
     const assignments = state.sessions.reduce((n, s) => n + 1 + s.supportIds.length, 0);
+    const reminder = state.messages.find((m) => m.kind === "reminder");
+    const notice = state.messages.find((m) => m.kind === "report_available");
     const ents: OntoEntity[] = [
       { id: "company", label: "Company", cluster: 0, count: COMPANIES.length, clinical: false, example: { label: "co-sisk", target: linkFor("company", "co-sisk") }, blurb: "Precision Health, three clients, and two supplier or service records." },
       { id: "programme", label: "Programme", cluster: 1, count: state.programmes.length, clinical: false, example: { label: "PRG-SISK-26", target: linkFor("programme", "PRG-SISK-26") }, blurb: "A contracted screening programme that can span sites and weeks." },
@@ -149,17 +178,16 @@ export function ontologyModel(state: PhState): OntoModel {
       { id: "staff", label: "Staff", cluster: 2, count: state.staff.length, clinical: false, example: { label: "Fiona Fenton", target: linkFor("staff", "fiona") }, blurb: "Eight demonstration profiles. Not total headcount." },
       { id: "assignment", label: "Assignment", cluster: 2, count: assignments, clinical: false, example: { label: "fiona to CLN-SISK-20261005", target: linkFor("session", "CLN-SISK-20261005") }, blurb: "Nurse or support assignment to a session." },
       { id: "person", label: "Person", cluster: 3, count: state.persons.length, clinical: false, example: { label: "PH-P-0001", target: linkFor("person", "PH-P-0001") }, blurb: "Synthetic invitee. Name and email are never keys." },
-      { id: "episode", label: "Screening episode", cluster: 4, count: state.episodes.length, clinical: true, example: aisling ? { label: aisling.id, target: linkFor("episode", aisling.id) } : null, blurb: "One episode per attended appointment in this baseline." },
-      { id: "specimen", label: "Specimen", cluster: 4, count: state.specimens.length, clinical: true, example: aisling ? { label: aisling.specimenIds[0], target: linkFor("episode", aisling.id) } : null, blurb: "Blood specimen. A specimen is not a row and not a person." },
-      { id: "observation", label: "Observation", cluster: 5, count: state.observations.length, clinical: true, example: aisling ? { label: (I.obsByEpisode.get(aisling.id) || [])[0]?.id || "OBS-00001", target: linkFor("episode", aisling.id) } : null, blurb: "A single result with unit, displayed limit and source row." },
-      { id: "calculation", label: "Calculation", cluster: 5, count: state.episodes.filter((e) => bmiOf(e.capture) != null).length, clinical: true, example: aisling ? { label: "BMI for " + aisling.id, target: linkFor("episode", aisling.id) } : null, blurb: "BMI is calculated locally. QRISK3 needs an approved integration." },
+      { id: "episode", label: "Screening episode", cluster: 4, count: state.episodes.length, clinical: true, example: ex ? { label: ex.id, target: linkFor("episode", ex.id) } : null, blurb: "One episode per attended appointment in this baseline." },
+      { id: "specimen", label: "Specimen", cluster: 4, count: state.specimens.length, clinical: true, example: ex ? { label: ex.specimenIds[0], target: linkFor("episode", ex.id) } : null, blurb: "Blood specimen. A specimen is not a row and not a person." },
+      { id: "observation", label: "Observation", cluster: 5, count: state.observations.length, clinical: true, example: ex && exObs ? { label: exObs.id, target: linkFor("episode", ex.id) } : null, blurb: "A single result with unit, displayed limit and source row." },
+      { id: "calculation", label: "Calculation", cluster: 5, count: state.episodes.filter((e) => bmiOf(e.capture) != null).length, clinical: true, example: ex ? { label: "BMI for " + ex.id, target: linkFor("episode", ex.id) } : null, blurb: "BMI is calculated locally. QRISK3 needs an approved integration." },
       { id: "batch", label: "Import batch", cluster: 5, count: state.batches.length, clinical: false, example: { label: "BATCH-20261002-01", target: linkFor("batch", "BATCH-20261002-01") }, blurb: "A laboratory file with accepted, duplicate and quarantined rows." },
       { id: "row", label: "Source row", cluster: 5, count: state.importRows.length, clinical: false, example: { label: "BATCH-20261002-01-R001", target: linkFor("row", "BATCH-20261002-01-R001") }, blurb: "One CSV observation row with provenance." },
-      { id: "report", label: "Report version", cluster: 6, count: released, clinical: true, example: aisling ? { label: aisling.id + "-v1", target: linkFor("episode", aisling.id) } : null, blurb: "Released versions are immutable. A correction creates a new version." },
-      { id: "followup", label: "Follow-up task", cluster: 7, count: state.followUps.length, clinical: true, example: { label: "FU-0001", target: linkFor("followup", "FU-0001") }, blurb: "Clinician-owned. Delivery receipts cannot close it." },
+      { id: "report", label: "Report version", cluster: 6, count: released, clinical: true, example: exReport ? { label: exReport.id, target: linkFor("report", exReport.id) } : null, blurb: "Released versions are immutable. A correction creates a new version." },
+      { id: "followup", label: "Follow-up task", cluster: 7, count: state.followUps.length, clinical: true, example: exFollowUp ? { label: exFollowUp.id, target: linkFor("followup", exFollowUp.id) } : null, blurb: "Clinician-owned. Delivery receipts cannot close it." },
       { id: "notification", label: "Notification", cluster: 7, count: state.messages.length, clinical: false, example: { label: state.messages[0].id, target: linkFor("message", state.messages[0].id) }, blurb: "Confirmation, reminder or report-available message. Simulated." },
     ];
-    const reminders = state.messages.filter((m) => m.kind === "reminder").length;
     const rel = (id: string, from: string, to: string, label: string, count: number, clinical: boolean, example: OntoRelation["example"]): OntoRelation => ({ id, from, to, label, count, clinical, example });
     const rels: OntoRelation[] = [
       rel("co-prog", "Company", "Programme", "contracts", state.programmes.length, false, { text: "co-sisk to PRG-SISK-26", target: linkFor("programme", "PRG-SISK-26") }),
@@ -168,20 +196,22 @@ export function ontologyModel(state: PhState): OntoModel {
       rel("person-member", "Person", "Membership", "belongs to", state.memberships.length, false, { text: `PH-P-0001 to ${state.memberships[0].id}`, target: linkFor("person", "PH-P-0001") }),
       rel("member-prog", "Membership", "Programme", "is a member of", state.memberships.length, false, { text: `${state.memberships[0].id} to ${state.memberships[0].programmeId}`, target: linkFor("programme", state.memberships[0].programmeId) }),
       rel("staff-assign", "Staff", "Assignment", "is assigned", assignments, false, { text: "fiona to CLN-SISK-20261005", target: linkFor("session", "CLN-SISK-20261005") }),
-      rel("notif-booking", "Notification", "Booking", "refers to", state.messages.filter((m) => m.bookingId).length, false, { text: `${state.messages.find((m) => m.kind === "reminder")?.id} to ${state.messages.find((m) => m.kind === "reminder")?.bookingId}`, target: linkFor("message", state.messages.find((m) => m.kind === "reminder")!.id) }),
-      rel("notif-report", "Notification", "Report version", "announces", state.messages.filter((m) => m.kind === "report_available").length, false, { text: "Report-available message carries no results", target: linkFor("message", state.messages.find((m) => m.kind === "report_available")!.id) }),
+      rel("notif-booking", "Notification", "Booking", "refers to", state.messages.filter((m) => m.bookingId).length, false, reminder ? { text: `${reminder.id} to ${reminder.bookingId}`, target: linkFor("message", reminder.id) } : null),
+      rel("notif-report", "Notification", "Report version", "announces", state.messages.filter((m) => m.kind === "report_available").length, false, notice ? { text: "Report-available message carries no results", target: linkFor("message", notice.id) } : null),
       rel("batch-row", "Import batch", "Source row", "contains", state.importRows.length, false, { text: "BATCH-20261002-01 to BATCH-20261002-01-R001", target: linkFor("row", "BATCH-20261002-01-R001") }),
-      rel("person-episode", "Person", "Screening episode", "has", state.episodes.length, true, aisling ? { text: `PH-P-0001 to ${aisling.id}`, target: linkFor("episode", aisling.id) } : null),
-      rel("episode-specimen", "Screening episode", "Specimen", "collects", state.specimens.length, true, aisling ? { text: `${aisling.id} to ${aisling.specimenIds[0]}`, target: linkFor("episode", aisling.id) } : null),
-      rel("specimen-obs", "Specimen", "Observation", "yields", state.observations.length, true, aisling ? { text: `${aisling.specimenIds[0]} to ${(I.obsByEpisode.get(aisling.id) || [])[0]?.id}`, target: linkFor("episode", aisling.id) } : null),
-      rel("row-obs", "Source row", "Observation", "imports as", state.observations.filter((o) => o.source.kind === "batch").length, true, { text: "BATCH-20261002-01-R001 to its observation", target: linkFor("row", "BATCH-20261002-01-R001") }),
-      rel("obs-calc", "Observation", "Calculation", "feeds", state.episodes.filter((e) => bmiOf(e.capture) != null).length, true, aisling ? { text: "Aisling: BMI 22.5", target: linkFor("episode", aisling.id) } : null),
-      rel("episode-report", "Screening episode", "Report version", "produces", released, true, aisling ? { text: `${aisling.id} to ${aisling.id}-v1`, target: linkFor("episode", aisling.id) } : null),
-      rel("episode-fu", "Screening episode", "Follow-up task", "may need", state.followUps.length, true, { text: "PH-E-0103 to FU-0001", target: linkFor("followup", "FU-0001") }),
+      rel("person-episode", "Person", "Screening episode", "has", state.episodes.length, true, ex ? { text: `${ex.personId} to ${ex.id}`, target: linkFor("episode", ex.id) } : null),
+      rel("episode-specimen", "Screening episode", "Specimen", "collects", state.specimens.length, true, ex ? { text: `${ex.id} to ${ex.specimenIds[0]}`, target: linkFor("episode", ex.id) } : null),
+      rel("specimen-obs", "Specimen", "Observation", "yields", state.observations.length, true, ex && exObs ? { text: `${ex.specimenIds[0]} to ${exObs.id}`, target: linkFor("episode", ex.id) } : null),
+      rel("row-obs", "Source row", "Observation", "imports as", state.observations.filter((o) => o.source.kind === "batch").length, true, exRow ? { text: `${exRow.id} to ${exRow.observationId}`, target: linkFor("row", exRow.id) } : null),
+      rel("obs-calc", "Observation", "Calculation", "feeds", state.episodes.filter((e) => bmiOf(e.capture) != null).length, true, ex && exBmi != null ? { text: `${exPerson ? exPerson.given : ex.id}: BMI ${exBmi}`, target: linkFor("episode", ex.id) } : null),
+      rel("episode-report", "Screening episode", "Report version", "produces", released, true, exReport ? { text: `${exReport.episodeId} to ${exReport.id}`, target: linkFor("report", exReport.id) } : null),
+      rel("episode-fu", "Screening episode", "Follow-up task", "may need", state.followUps.length, true, exFollowUp ? { text: `${exFollowUp.episodeId} to ${exFollowUp.id}`, target: linkFor("followup", exFollowUp.id) } : null),
     ];
-    void reminders; void importsOk;
-    const entities = ents.filter((e) => !e.clinical || clinicalOk);
-    const relations = rels.filter((r) => !r.clinical || clinicalOk);
+    // Import batches and source rows need the imports permission, as in global search and the agents.
+    const importNodes = new Set(["batch", "row"]);
+    const importRels = new Set(["batch-row", "row-obs"]);
+    const entities = ents.filter((e) => (!e.clinical || clinicalOk) && (importsOk || !importNodes.has(e.id)));
+    const relations = rels.filter((r) => (!r.clinical || clinicalOk) && (importsOk || !importRels.has(r.id)));
     const clusterCounts = ONTO_CLUSTER_DEFS.map((_, i) => entities.filter((e) => e.cluster === i).reduce((n, e) => n + e.count, 0));
     return { entities, relations, totalRecords: entities.reduce((n, e) => n + e.count, 0), totalRelationships: relations.reduce((n, r) => n + r.count, 0), clusterCounts };
   });
@@ -222,4 +252,3 @@ export function globalSearch(state: PhState, query: string, limit = 24): SearchH
 }
 
 export const knownNames = (state: PhState) => state.persons.map((p) => personName(p));
-void can; void currentReleased; void fmtDateTime; void fmtTime; void programmeCounts; void today;

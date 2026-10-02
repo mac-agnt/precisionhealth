@@ -341,10 +341,10 @@ function RowsCard({ batchId, filter, setFilter, onOpen, selected }: { batchId: s
     if (!query) return true;
     return `${r.id} ${r.specimenKey} ${r.nameInFile} ${r.analyteCode}`.toLowerCase().includes(query);
   });
-  const narrow = w > 0 && w < 640;
+  const narrow = w > 0 && w < 820;
   const cols: Column<ImportRow>[] = [
     { key: "line", header: "Line", align: "right", cell: (r) => <span className="ph-num">{r.line}</span>, sort: (a, b) => a.line - b.line },
-    { key: "spec", header: "Specimen", cell: (r) => <div><div className="phr-mono" style={{ color: "var(--ink)" }}>{r.specimenKey}</div>{narrow ? <div className="phr-sub">{r.analyteCode}</div> : null}</div>, sort: (a, b) => (a.specimenKey < b.specimenKey ? -1 : 1) },
+    { key: "spec", header: "Specimen", cell: (r) => <div><div className="phr-mono" style={{ color: "var(--ink)" }}>{r.specimenKey}</div>{narrow ? <div className="phr-sub">{r.analyteCode}, {showValues ? `${r.valueText} ${r.unit}` : "value hidden"}</div> : null}</div>, sort: (a, b) => (a.specimenKey < b.specimenKey ? -1 : 1) },
     ...(narrow ? [] : [
       { key: "test", header: "Test", cell: (r: ImportRow) => <span className="phr-mono">{r.analyteCode}</span> },
       { key: "val", header: "Result", align: "right" as const, cell: (r: ImportRow) => showValues ? <span className="ph-num">{r.valueText}</span> : <HiddenValue label="Hidden" /> },

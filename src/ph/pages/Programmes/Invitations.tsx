@@ -274,7 +274,7 @@ export default function Invitations() {
               <HBars rows={funnel.map((f, i) => ({ ...f, color: i === 0 ? PALETTE[1] : f.key === "onboarding" ? "var(--warn)" : PALETTE[0] }))} max={c.invited}
                 onSelect={(k) => setStage(k as DirectoryStage)} />
               <div className="ph-faint" style={{ fontSize: 11.5, marginTop: 10, lineHeight: 1.5 }}>
-                {c.invited} invited = {c.notStarted} not started + {c.drafts} in progress + {c.invited - c.notStarted - c.drafts} booked. Selecting Booked lists people with an appointment still to attend.
+                {c.invited} invited = {c.notStarted} not started + {c.drafts} in progress{c.readyToBook ? ` + ${c.readyToBook} ready to book` : ""} + {c.invited - c.notStarted - c.drafts - (c.readyToBook || 0)} booked. Selecting Booked lists people with an appointment still to attend.
               </div>
             </Card>
             <Card>

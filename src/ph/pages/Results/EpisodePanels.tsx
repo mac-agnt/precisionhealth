@@ -151,7 +151,7 @@ export function ResultsTable({ b, showValues }: { b: Bundle; showValues: boolean
                         : <span className="ph-faint" style={{ whiteSpace: "normal" }}>{t.status === "pending" ? "Not yet received" : "Not accounted for"}</span>}
                     </td>
                     <td className="ph-faint" style={{ whiteSpace: "nowrap" }}>{ANALYTES[t.code].limit.text}</td>
-                    <td>{o ? <FlagPill flag={o.flag} /> : <TestStatusPill status={t.status} />}</td>
+                    <td>{o ? <FlagPill flag={o.flag} short={narrow} /> : <TestStatusPill status={t.status} />}</td>
                     {narrow ? null : <td style={{ whiteSpace: "nowrap" }}>{sourceCell(state, t)}</td>}
                   </tr>
                 );

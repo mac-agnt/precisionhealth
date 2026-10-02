@@ -127,7 +127,7 @@ function ActiveCard({ b, onReschedule, onCancel, mode }: { b: Booking; onResched
       <ul className="pp-small" style={{ margin: 0, paddingLeft: 18, display: "flex", flexDirection: "column", gap: 4 }}>
         <li>{confirmation ? `Confirmation sent ${fmtDateTime(confirmation.at)} by ${confirmation.channel === "sms" ? "SMS" : "email"} (simulated).` : "Confirmation recorded."}</li>
         <li>
-          {reminder ? `Reminder sent ${fmtDateTime(reminder.attempts[0]?.at || reminder.at)} (simulated).`
+          {reminder ? (reminder.status === "queued" ? `A reminder is queued for ${fmtDateTime(reminder.at)} (simulated).` : `Reminder sent ${fmtDateTime(reminder.attempts[0]?.at || reminder.at)} (simulated).`)
             : short ? "Booked inside 24 hours, so one confirmation was sent now and no reminder will be sent. No reminder is back-dated."
               : `A reminder is planned for ${fmtWhen(reminderAt, state.clock.nowUtc)} (simulated).`}
         </li>

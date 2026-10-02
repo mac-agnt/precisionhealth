@@ -1,9 +1,10 @@
 /* Core selectors: indexes, persona and permissions, programme counts, session capacity.
    Every number on every page comes from here or the other selector modules. Nothing is typed in. */
 import type {
-  Booking, ClinicSession, Episode, FollowUp, Id, Membership, Observation, Perm, Person, PersonaId, PhState, Programme, ProgrammeId, ReportVersion, Slot, Staff,
+  Booking, ClinicSession, EntityRef, Episode, FollowUp, Id, Membership, Observation, Perm, Person, PersonaId, PhState, Programme, ProgrammeId, ReportVersion, Slot, Staff,
 } from "../types";
-import { PERM_DEFS, PROGRAMME_ORDER, ROLE_LABEL, buildSlots } from "../constants";
+import { NURSE_ROLE_KEYS, PERM_DEFS, PROGRAMME_ORDER, ROLE_LABEL, buildSlots } from "../constants";
+import { isRealDate } from "../capture";
 import { hhmmToMinutes, localDateOf, dublinToUtc } from "../time";
 import type { Hhmm, LocalDate } from "../time";
 
@@ -112,6 +113,43 @@ export function canViewEpisodeClinical(state: PhState, episodeId: Id): boolean {
   return !!e && canViewClinicalForSession(state, e.sessionId);
 }
 
+/**
+ * The screening episode behind an entity reference, or null. Restricted activity events, drawers
+ * and relationship panels use it to apply the per-assignment rule to reports, follow-ups,
+ * bookings, rows and messages as well as to episodes.
+ */
+export function episodeIdOfEntity(state: PhState, ref: EntityRef | null | undefined): Id | null {
+  if (!ref) return null;
+  const I = ix(state);
+  switch (ref.kind) {
+    case "episode": return I.episodeById.has(ref.id) ? ref.id : null;
+    case "report": {
+      const v = state.reportVersions.find((x) => x.id === ref.id);
+      const id = v ? v.episodeId : ref.id.replace(/-v\d+$/, "");
+      return I.episodeById.has(id) ? id : null;
+    }
+    case "followup": return state.followUps.find((f) => f.id === ref.id)?.episodeId || null;
+    case "booking": return I.bookingById.get(ref.id)?.episodeId || null;
+    case "row": {
+      const row = state.importRows.find((r) => r.id === ref.id);
+      return row?.episodeId || state.episodes.find((e) => e.hold?.rowId === ref.id)?.id || null;
+    }
+    case "message": return state.messages.find((m) => m.id === ref.id)?.episodeId || null;
+    default: return null;
+  }
+}
+
+/**
+ * A person's membership of one programme. Without a programme it is the membership for the
+ * person's own programme record, then the first one. People can belong to more than one programme.
+ */
+export function membershipOf(state: PhState, personId: Id, programmeId?: ProgrammeId | null): Membership | undefined {
+  const list = ix(state).membershipsByPerson.get(personId) || [];
+  if (programmeId) return list.find((m) => m.programmeId === programmeId);
+  const home = ix(state).personById.get(personId)?.programmeId;
+  return list.find((m) => m.programmeId === home) || list[0];
+}
+
 /* ---- helpers ---- */
 export const pct = (n: number, d: number): number | null => (d > 0 ? (n / d) * 100 : null);
 /** "76.8%" or "n/a" when the denominator is zero. */
@@ -210,8 +248,12 @@ export interface Counts {
   awaiting: number;
   onHold: number;
   episodes: number;
+  /** Invitees without a confirmed booking who have not started the questionnaire. */
   notStarted: number;
+  /** Invitees without a confirmed booking whose questionnaire is in progress. A draft is not a booking. */
   drafts: number;
+  /** Invitees without a confirmed booking whose questionnaire and consent are complete, for example after a cancellation. */
+  readyToBook: number;
   noShow: number;
   bookedPct: number | null;
   attendedPct: number | null;
@@ -231,9 +273,14 @@ export function programmeCounts(state: PhState, programmeId?: ProgrammeId): Coun
     const c = (st: Episode["reportState"]) => eps.filter((e) => e.reportState === st).length;
     const booked = bookings.length;
     const released = c("released");
+    // invited = booked + drafts + readyToBook + notStarted. Unbooked invitees split by questionnaire state.
+    const unbooked = members.filter((m) => m.stage !== "booked");
     return {
       invited, capacity, booked, attended, noShow, upcoming: booked - attended - noShow, released, ready: c("ready_for_review"), awaiting: c("awaiting_results"), onHold: c("on_hold"),
-      episodes: eps.length, notStarted: members.filter((m) => m.stage === "invited").length, drafts: members.filter((m) => m.stage === "onboarding").length,
+      episodes: eps.length,
+      notStarted: unbooked.filter((m) => m.questionnaire === "not_started").length,
+      drafts: unbooked.filter((m) => m.questionnaire === "draft").length,
+      readyToBook: unbooked.filter((m) => m.questionnaire === "complete").length,
       bookedPct: pct(booked, capacity), attendedPct: pct(attended, booked), releasedPct: pct(released, attended),
     };
   });
@@ -249,11 +296,21 @@ export function sessionCounts(state: PhState, programmeId: ProgrammeId) {
 }
 
 /* ---- scheduling conflicts ---- */
-export interface Overlap { kind: "nurse" | "support"; staffId: string; a: Id; b: Id; date: LocalDate }
+/**
+ * One clash between two sessions at overlapping times on the same day. Staff clashes are "nurse"
+ * (booked nurse at both) or "support" (any pairing that involves a support role). A "room" clash
+ * has no staff member: staffId is empty and room names the shared room.
+ */
+export interface Overlap { kind: "nurse" | "support" | "room"; staffId: string; a: Id; b: Id; date: LocalDate; room?: string }
 function overlapsTime(a: Pick<ClinicSession, "start" | "end">, b: Pick<ClinicSession, "start" | "end">) {
   return hhmmToMinutes(a.start) < hhmmToMinutes(b.end) && hhmmToMinutes(b.start) < hhmmToMinutes(a.end);
 }
-/** Overlapping staff assignments across the schedule, or for one candidate session. */
+const staffRoles = (s: ClinicSession) => [{ id: s.nurseId as string, role: "nurse" as const }, ...s.supportIds.map((id) => ({ id: id as string, role: "support" as const }))];
+/**
+ * Overlapping staff and room assignments across the schedule, or for one candidate session.
+ * Every role pairing is compared in both directions: nurse and nurse, support and nurse, nurse
+ * and support, support and support.
+ */
 export function findOverlaps(sessions: ClinicSession[], candidate?: ClinicSession): Overlap[] {
   const out: Overlap[] = [];
   const pool = candidate ? sessions.filter((s) => s.id !== candidate.id).concat(candidate) : sessions;
@@ -263,13 +320,26 @@ export function findOverlaps(sessions: ClinicSession[], candidate?: ClinicSessio
       if (a.date !== b.date || a.status === "cancelled" || b.status === "cancelled") continue;
       if (candidate && a.id !== candidate.id && b.id !== candidate.id) continue;
       if (!overlapsTime(a, b)) continue;
-      if (a.nurseId === b.nurseId) out.push({ kind: "nurse", staffId: a.nurseId, a: a.id, b: b.id, date: a.date });
-      for (const s of a.supportIds) if (b.supportIds.includes(s) || b.nurseId === s) out.push({ kind: "support", staffId: s, a: a.id, b: b.id, date: a.date });
+      for (const x of staffRoles(a)) {
+        for (const y of staffRoles(b)) {
+          if (x.id === y.id) out.push({ kind: x.role === "nurse" && y.role === "nurse" ? "nurse" : "support", staffId: x.id, a: a.id, b: b.id, date: a.date });
+        }
+      }
+      if (a.room && a.room === b.room) out.push({ kind: "room", staffId: "", room: a.room, a: a.id, b: b.id, date: a.date });
     }
   }
   return out;
 }
+/** Every staff and room clash in the schedule. Empty at baseline. */
 export const scheduleOverlaps = (state: PhState) => memo(state, "overlaps", () => findOverlaps(state.sessions));
+/** Staff clashes only, for copy that talks about people. */
+export const staffOverlaps = (state: PhState) => scheduleOverlaps(state).filter((o) => o.kind !== "room");
+/** Plain words for one clash, seen from the session being edited. */
+export function overlapText(state: PhState, o: Overlap, fromSessionId?: Id): string {
+  const other = fromSessionId && o.a === fromSessionId ? o.b : o.a;
+  if (o.kind === "room") return `${o.room} is already in use by ${other} at the same time.`;
+  return `${staffName(state, o.staffId)} is already assigned to ${other} at the same time.`;
+}
 
 export interface SessionEditPreview {
   slots: Slot[];
@@ -279,9 +349,54 @@ export interface SessionEditPreview {
   overlaps: Overlap[];
   ok: boolean;
   messages: string[];
+  /** Why this session cannot be edited at all (completed, cancelled or in the past), or null. */
+  locked: string | null;
+  /** Every reason the edit would be refused, apart from confirming the move of impacted bookings. */
+  errors: string[];
 }
+export type SessionPatch = Partial<Pick<ClinicSession, "start" | "end" | "breaks" | "slotMinutes" | "nurseId" | "supportIds" | "date" | "room">>;
+
+/** Why a session cannot be edited: completed, cancelled or already in the past. History is never rewritten. */
+export function sessionLockReason(state: PhState, s: ClinicSession): string | null {
+  if (s.status === "completed") return `${s.id} is completed. A completed session cannot be edited, so its history and participant messages stay as they were.`;
+  if (s.status === "cancelled") return `${s.id} is cancelled and cannot be edited.`;
+  if (s.date < today(state)) return `${s.id} has already taken place. A past session cannot be edited.`;
+  return null;
+}
+
+/** Input problems in a session patch: who can be the nurse, support resources, date and clinic times. */
+export function sessionPatchErrors(state: PhState, cur: ClinicSession, patch: SessionPatch): string[] {
+  const errs: string[] = [];
+  const I = ix(state);
+  const okTime = (t: string | undefined) => !!t && /^\d{2}:\d{2}$/.test(t) && hhmmToMinutes(t) < 24 * 60 && Number(t.slice(3)) < 60;
+  if (patch.nurseId !== undefined) {
+    const n = I.staffById.get(patch.nurseId);
+    if (!n) errs.push("Choose a nurse from the staff list.");
+    else if (!NURSE_ROLE_KEYS.includes(n.role)) errs.push(`${n.name} (${ROLE_LABEL[n.role]}) is not a nurse. The booked nurse must be a nursing lead or a clinic nurse.`);
+  }
+  const nurseId = patch.nurseId ?? cur.nurseId;
+  const support = patch.supportIds ?? cur.supportIds;
+  if (patch.supportIds !== undefined) {
+    if (support.some((id) => !I.staffById.has(id))) errs.push("A support resource is not on the staff list.");
+    if (new Set(support).size !== support.length) errs.push("A support resource is listed twice.");
+  }
+  if (support.includes(nurseId)) errs.push("The booked nurse cannot also be a support resource at the same session.");
+  if (patch.date !== undefined) {
+    if (!isRealDate(patch.date)) errs.push("Choose a valid date.");
+    else if (patch.date < today(state)) errs.push("A session cannot move into the past.");
+  }
+  if (patch.room !== undefined && !patch.room.trim()) errs.push("Choose a room.");
+  const start = patch.start ?? cur.start, end = patch.end ?? cur.end;
+  if (!okTime(start) || !okTime(end)) errs.push("Enter the start and end as HH:MM.");
+  else if (hhmmToMinutes(start) >= hhmmToMinutes(end)) errs.push("The clinic must end after it starts.");
+  for (const b of patch.breaks || []) {
+    if (!okTime(b.start) || !okTime(b.end) || hhmmToMinutes(b.start) >= hhmmToMinutes(b.end)) { errs.push("Each break needs a valid start and end, with the end after the start."); break; }
+  }
+  return errs;
+}
+
 /** Preview a session edit. Nothing is deleted: bookings that no longer fit are listed, never silently dropped. */
-export function previewSessionEdit(state: PhState, sessionId: Id, patch: Partial<Pick<ClinicSession, "start" | "end" | "breaks" | "slotMinutes" | "nurseId" | "supportIds" | "date">>): SessionEditPreview {
+export function previewSessionEdit(state: PhState, sessionId: Id, patch: SessionPatch): SessionEditPreview {
   const I = ix(state);
   const cur = I.sessionById.get(sessionId)!;
   const next: ClinicSession = { ...cur, ...patch };
@@ -290,19 +405,37 @@ export function previewSessionEdit(state: PhState, sessionId: Id, patch: Partial
   const bk = activeBookings(state, sessionId);
   const impacted = bk.filter((b) => !starts.has(b.slotStart)).map((b) => ({ booking: b, person: I.personById.get(b.personId), reason: `${b.slotStart} is not a bookable slot after this change` }));
   const overlaps = findOverlaps(state.sessions, next);
+  const locked = sessionLockReason(state, cur);
+  const errors: string[] = [];
+  if (locked) errors.push(locked);
+  errors.push(...sessionPatchErrors(state, cur, patch));
   const messages: string[] = [];
   if (slots.length < bk.length) messages.push(`${bk.length} bookings but only ${slots.length} slots after the change.`);
-  if (overlaps.length) messages.push("Staff assignment overlaps another session at the same time.");
-  if (patch.date && patch.date !== cur.date && bk.length) messages.push("Moving the date reschedules every booked participant. They are listed, not deleted, and each needs a confirmed new slot.");
-  return { slots, capacity: slots.length, booked: bk.length, impacted, overlaps, ok: impacted.length === 0 && overlaps.length === 0 && slots.length >= bk.length && !(patch.date && patch.date !== cur.date && bk.length), messages };
+  if (overlaps.length) {
+    messages.push("Staff assignment overlaps another session at the same time.");
+    overlaps.forEach((o) => errors.push(overlapText(state, o, next.id)));
+  }
+  const moving = patch.date && patch.date !== cur.date && bk.length;
+  if (moving) {
+    messages.push("Moving the date reschedules every booked participant. They are listed, not deleted, and each needs a confirmed new slot.");
+    errors.push("A session with bookings cannot change date. Participants are not silently moved or deleted. Reschedule them individually.");
+  }
+  // People already checked in, in progress, completed or marked absent keep their slot.
+  const started = impacted.filter((x) => x.booking.attendance !== "booked");
+  if (started.length) errors.push(`${plural(started.length, "impacted appointment")} ${started.length === 1 ? "has" : "have"} already started or finished (${started.map((x) => x.booking.id).join(", ")}), so ${started.length === 1 ? "it" : "they"} cannot move to another slot.`);
+  if (slots.length < bk.length) errors.push("There would be fewer slots than bookings.");
+  messages.push(...errors.filter((e) => !messages.includes(e)));
+  return { slots, capacity: slots.length, booked: bk.length, impacted, overlaps, locked, errors, ok: impacted.length === 0 && errors.length === 0, messages };
 }
 
-/** Booked minutes per nurse on a date. */
+/** Booked minutes per nurse on a date, using each session's own slot length. */
 export function nurseWorkload(state: PhState, date: LocalDate) {
   return state.staff.map((s) => {
     const ss = state.sessions.filter((x) => x.date === date && (x.nurseId === s.id || x.supportIds.includes(s.id)) && x.status !== "cancelled");
-    const appts = ss.reduce((n, x) => n + (x.nurseId === s.id ? activeBookings(state, x.id).length : 0), 0);
-    return { staff: s, sessions: ss, appointments: appts, minutes: appts * 15 };
+    const own = ss.filter((x) => x.nurseId === s.id);
+    const appts = own.reduce((n, x) => n + activeBookings(state, x.id).length, 0);
+    const minutes = own.reduce((n, x) => n + activeBookings(state, x.id).length * x.slotMinutes, 0);
+    return { staff: s, sessions: ss, appointments: appts, minutes };
   });
 }
 
