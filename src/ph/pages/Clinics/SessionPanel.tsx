@@ -225,7 +225,7 @@ function SessionEditor({ session: s }: { session: ClinicSession }) {
         </div>
 
         <div style={{ marginTop: 12 }}>
-          <div className="ph-label">Breaks (never bookable)</div>
+          <div className="ph-label">Breaks and unavailable times (never bookable)</div>
           <div className="ph-stack" style={{ gap: 6 }}>
             {form.breaks.map((b, i) => (
               <div key={i} className="ph-row-flex" style={{ gap: 8, flexWrap: "wrap" }}>
@@ -237,8 +237,11 @@ function SessionEditor({ session: s }: { session: ClinicSession }) {
             ))}
             <div><Button size="sm" icon="plus" disabled={disabled} onClick={() => setForm({ ...form, breaks: form.breaks.concat({ start: "15:30", end: "15:45" }) })}>Add break</Button></div>
           </div>
+          <div className="ph-faint" style={{ fontSize: 11.5, marginTop: 8, lineHeight: 1.45 }}>Slots are generated around breaks. A session with booked participants is never changed silently: anyone affected is listed first and moved only when you confirm.</div>
         </div>
       </div>
+
+      <SessionPreview session={s} next={errs.length ? null : next} />
 
       {changed ? (
         <div className="ph-stack" style={{ gap: 10, marginTop: 16, paddingTop: 14, borderTop: "1px solid var(--border)" }}>
@@ -332,6 +335,33 @@ function ProposedSlots({ session, next, moves }: { session: ClinicSession; next:
         <span><span className="clx-swatch clx-seg-active" />Booking moved here</span>
         <span><span className="clx-swatch clx-seg-free" />Free</span>
         <span><span className="clx-swatch clx-seg-break" />Not bookable</span>
+      </div>
+    </div>
+  );
+}
+
+/** Session preview: what the session offers with the values in the form. */
+function SessionPreview({ session, next }: { session: ClinicSession; next: ClinicSession | null }) {
+  const state = usePhState();
+  const cfg = next || session;
+  const slots = sessionSlots(cfg);
+  const prog = state.programmes.find((x) => x.id === session.programmeId);
+  const tpl = state.forms.templates.find((x) => x.id === prog?.templateId);
+  const code = state.invitationCodes.find((c) => c.programmeId === session.programmeId && c.status === "active");
+  const rows: Array<[string, string]> = [
+    ["Questionnaire and clinical form", tpl ? `${tpl.name} v${tpl.currentVersion} for new bookings. Existing bookings keep their version.` : "To confirm"],
+    ["Booking access", code ? `Invitation only, programme roster (${code.code})` : "Invitation only, programme roster"],
+    ["Reminder", `${state.settings.reminderLeadHours} hours before (simulated). Inside that window, a confirmation only.`],
+  ];
+  return (
+    <div style={{ marginTop: 14, paddingTop: 12, borderTop: "1px solid var(--border)" }}>
+      <div className="ph-eyebrow" style={{ marginBottom: 8 }}>Session preview{next ? "" : " (current values)"}</div>
+      <div className="clx-kv" style={{ gridTemplateColumns: "repeat(2, minmax(0, 1fr))", marginBottom: 10 }}>
+        <div><div className="clx-k">Available time</div><div className="clx-v ph-num" style={{ fontSize: 18, fontWeight: 600 }}>{slots.length * cfg.slotMinutes} <span className="ph-faint" style={{ fontSize: 11.5, fontWeight: 400 }}>minutes</span></div></div>
+        <div><div className="clx-k">Capacity</div><div className="clx-v ph-num" style={{ fontSize: 18, fontWeight: 600 }}>{slots.length} <span className="ph-faint" style={{ fontSize: 11.5, fontWeight: 400 }}>appointments</span></div></div>
+      </div>
+      <div className="clx-qa">
+        {rows.map(([k, v]) => [<span key={k + "k"}>{k}</span>, <span key={k + "v"}>{v}</span>])}
       </div>
     </div>
   );

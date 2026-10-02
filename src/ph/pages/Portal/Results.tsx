@@ -142,7 +142,7 @@ function AwaitingCard({ ep }: { ep: Episode }) {
     <Card>
       <div className="pp-row" style={{ marginBottom: 10 }}><Pill tone="info" icon="clock">Not ready yet</Pill><span className="pp-small">{ix(state).programmeById.get(ep.programmeId)?.name}</span></div>
       <h2 className="pp-h3" style={{ fontSize: 16 }}>Your report is not ready yet</h2>
-      <p className="pp-small" style={{ marginTop: 0 }}>A Precision Health clinician reviews every report individually before it is released to you. We will send you a message when it is ready. No results and no draft advice are shown here before then.</p>
+      <p className="pp-small" style={{ marginTop: 0 }}>A Precision Health clinician reviews every report individually before it is released to you. We will send you a message when it is ready. Results will not appear before review, and no draft advice is shown here.</p>
       <ol className="pp-steps" style={{ marginTop: 12 }}>
         {steps.map((st, i) => (
           <li key={st.title} className={"pp-step" + (st.done ? " done" : st.current ? " current" : "")}>
@@ -214,10 +214,13 @@ function ReportView({ d, ep, v, versions, print, setPrint, onBack, onVersion }: 
           <div className="pp-grid">
             <div className="pp-banner"><Icon name="info" size={14} style={{ marginTop: 2, color: "var(--accent)" }} /><span>Fictional sample report for a demonstration. The values are synthetic and this is not medical advice. Ranges are illustrative display limits, interpreted by a clinician.</span></div>
             <Card>
-              <div className="ph-eyebrow" style={{ marginBottom: 4 }}>Screening report, version {v.version}{superseded ? ", superseded" : ""}</div>
-              <h2 className="pp-title" style={{ fontSize: 17 }}>{d.person.given} {d.person.family}</h2>
-              <p className="pp-small" style={{ margin: "4px 0 0" }}>Date of birth {fmtNumericDate(d.person.dob)}. {d.programme.name}, appointment {fmtDate(s.date)}. Reference {ep.id}.</p>
-              <p className="pp-small" style={{ margin: "4px 0 0" }}>Released {fmtDateTime(r.releasedAt)} by {r.clinician}.</p>
+              <div className="pp-row" style={{ flexWrap: "wrap", gap: 8, marginBottom: 4 }}>
+                <span className="ph-eyebrow ph-grow">Reviewed by your clinician</span>
+                {superseded ? <Pill tone="neutral" icon="layers">Superseded version</Pill> : <Pill tone="ok" icon="check">Current version</Pill>}
+              </div>
+              <h2 className="pp-title" style={{ fontSize: 17 }}>{superseded ? "An earlier version of your report" : "Your results are ready"}</h2>
+              <p className="pp-small" style={{ margin: "4px 0 0" }}>{r.clinician}. Released {fmtDateTime(r.releasedAt)}. Report version {v.version}.</p>
+              <p className="pp-small" style={{ margin: "4px 0 0" }}>{d.person.given} {d.person.family}, date of birth {fmtNumericDate(d.person.dob)}. {d.programme.name}, appointment {fmtDate(s.date)}. Reference {ep.id}.</p>
             </Card>
             <Card>
               <div className="pp-row" style={{ flexWrap: "wrap", marginBottom: 8 }}><h3 className="pp-h3" style={{ margin: 0 }}>Your clinician's advice</h3><DemoTag>Sample content</DemoTag></div>
@@ -269,13 +272,18 @@ function ReportView({ d, ep, v, versions, print, setPrint, onBack, onVersion }: 
               <p className="pp-small" style={{ marginTop: 0 }}>{LIMITS_DISCLAIMER} Results are compared with the displayed ranges only. Your clinician interprets them with your answers and measurements.</p>
               <h3 className="pp-h3" style={{ marginTop: 12 }}>Next steps</h3>
               <p className="pp-small" style={{ margin: 0 }}>
-                {r.anyFlag ? "Your clinician has marked some results for discussion. Please arrange a routine appointment with your GP and bring this report." : "No further action is needed from this screening. Keep this report for your records."}{" "}
+                {r.anyFlag ? "Your clinician has marked some results for discussion. Please arrange a routine appointment with your GP. Bring your report with you: print it or save a copy." : "No further action is needed from this screening. Keep this report for your records."}{" "}
                 If you feel unwell, contact your GP. In an emergency, call 112 or 999.
               </p>
             </Card>
+            <div className="pp-banner"><Icon name="info" size={14} style={{ marginTop: 2 }} /><span>A screening result is not a diagnosis. Results are one part of your health picture and should be discussed with your GP.</span></div>
           </div>
           <div className="pp-grid">
             <VersionHistory versions={versions} openId={v.id} onVersion={onVersion} />
+            <Card>
+              <h3 className="pp-h3">Questions about your report?</h3>
+              <p className="pp-small" style={{ margin: 0 }}>Contact Precision Health for help understanding the screening process. This portal is not an urgent-care service.</p>
+            </Card>
           </div>
         </div>
       )}
@@ -355,6 +363,7 @@ function PaperReport({ d, ep, v, r, sessionDate }: { d: PortalData; ep: Episode;
       <p className="muted" style={{ margin: 0 }}>{LIMITS_DISCLAIMER}</p>
       <h3>Next steps</h3>
       <p style={{ margin: 0 }}>{r.anyFlag ? "Your clinician has marked some results for discussion. Please arrange a routine appointment with your GP and bring this report." : "No further action is needed from this screening. Keep this report for your records."} If you feel unwell, contact your GP. In an emergency, call 112 or 999.</p>
+      <p style={{ marginTop: 12 }}>A screening result is not a diagnosis. Results are one part of your health picture and should be discussed with your GP.</p>
       <p className="muted" style={{ marginTop: 16, fontSize: 11 }}>Demo · synthetic data. Generated from the participant portal preview. Fictional values for demonstration only.</p>
     </div>
   );

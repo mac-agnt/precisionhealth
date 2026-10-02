@@ -93,55 +93,65 @@ function TeamCard({ team, state }: { team: Team; state: PhState }) {
 
 function AssignmentTable({ state, block }: { state: PhState; block: string | null }) {
   const tasks = visibleTasks(state);
+  const openTasks = (x: Staff) => tasks.filter((t) => t.task.ownerId === x.id && t.status !== "done").length;
+  const teamControl = (x: Staff) => block
+    ? <span>{state.teams.find((t) => t.id === x.team)?.name || x.team}</span>
+    : (
+      <Select aria-label={`Team for ${x.name}`} value={x.team} onChange={(e) => dispatch(act.assignTeam(x.id, e.target.value as TeamId))} style={{ height: 30, fontSize: 12.5, width: 180, maxWidth: "100%" }}>
+        {state.teams.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+      </Select>
+    );
+  const today = (x: Staff) => {
+    const t = staffToday(state, x.id);
+    if (!t.length) return <span className="ph-faint">No clinic today</span>;
+    return t.map((a) => (
+      <div key={a.session.id}>
+        <EntityLink kind="session" id={a.session.id}>{a.as === "nurse" ? "Nurse" : "Support"}, {sessionClient(a.session)} clinic</EntityLink>
+        <div className="phs-note">{a.session.siteName}</div>
+      </div>
+    ));
+  };
+  const profile = (x: Staff) => (
+    <div className="ph-row-flex" style={{ gap: 9 }}>
+      <Avatar name={x.name} tint={x.tint} size={26} />
+      <div style={{ minWidth: 0 }}>
+        <EntityLink kind="staff" id={x.id}>{x.name}</EntityLink>
+        <div className="phs-note">{x.title}</div>
+      </div>
+    </div>
+  );
   const cols: Column<Staff>[] = [
-    {
-      key: "profile", header: "Profile", nowrap: false,
-      cell: (x) => (
-        <div className="ph-row-flex" style={{ gap: 9 }}>
-          <Avatar name={x.name} tint={x.tint} size={26} />
-          <div style={{ minWidth: 0 }}>
-            <EntityLink kind="staff" id={x.id}>{x.name}</EntityLink>
-            <div className="phs-note">{x.title}</div>
-          </div>
-        </div>
-      ),
-    },
-    {
-      key: "team", header: "Team", width: 190,
-      cell: (x) => block
-        ? <span>{state.teams.find((t) => t.id === x.team)?.name || x.team}</span>
-        : (
-          <Select aria-label={`Team for ${x.name}`} value={x.team} onChange={(e) => dispatch(act.assignTeam(x.id, e.target.value as TeamId))} style={{ height: 30, fontSize: 12.5, width: 180 }}>
-            {state.teams.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
-          </Select>
-        ),
-    },
+    { key: "profile", header: "Profile", nowrap: false, cell: profile },
+    { key: "team", header: "Team", width: 190, cell: teamControl },
     { key: "role", header: "Role", nowrap: false, cell: (x) => ROLE_LABEL[x.role] },
-    {
-      key: "today", header: "Clinic today", nowrap: false,
-      cell: (x) => {
-        const t = staffToday(state, x.id);
-        if (!t.length) return <span className="ph-faint">No clinic today</span>;
-        return t.map((a) => (
-          <div key={a.session.id}>
-            <EntityLink kind="session" id={a.session.id}>{a.as === "nurse" ? "Nurse" : "Support"}, {sessionClient(a.session)} clinic</EntityLink>
-            <div className="phs-note">{a.session.siteName}</div>
-          </div>
-        ));
-      },
-    },
-    {
-      key: "tasks", header: "Open tasks", align: "right",
-      cell: (x) => <span className="ph-num">{tasks.filter((t) => t.task.ownerId === x.id && t.status !== "done").length}</span>,
-    },
+    { key: "today", header: "Clinic today", nowrap: false, cell: today },
+    { key: "tasks", header: "Open tasks", align: "right", cell: (x) => <span className="ph-num">{openTasks(x)}</span> },
   ];
   return (
-    <DataTable
-      rows={state.staff}
-      columns={cols}
-      rowKey={(x) => x.id}
-      caption="Team assignments for the eight demonstration profiles"
-      footerNote="demonstration profiles. Open tasks count only tasks your role can see."
-    />
+    <div className="phs-cq">
+      <div className="phs-wide-only">
+        <DataTable
+          rows={state.staff}
+          columns={cols}
+          rowKey={(x) => x.id}
+          caption="Team assignments for the eight demonstration profiles"
+          footerNote="demonstration profiles. Open tasks count only tasks your role can see."
+        />
+      </div>
+      <div className="phs-narrow-only ph-pad" style={{ paddingTop: 6 }}>
+        <ul className="phs-list">
+          {state.staff.map((x) => (
+            <li key={x.id}>
+              {profile(x)}
+              <div className="ph-row-flex" style={{ marginTop: 8, flexWrap: "wrap", gap: 8 }}>
+                <span className="phs-note">Team</span>{teamControl(x)}
+              </div>
+              <div className="phs-small" style={{ marginTop: 6, color: "var(--body)" }}>{ROLE_LABEL[x.role]}. {openTasks(x)} open task{openTasks(x) === 1 ? "" : "s"} you can see.</div>
+              <div className="phs-small" style={{ marginTop: 4 }}>{today(x)}</div>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </div>
   );
 }

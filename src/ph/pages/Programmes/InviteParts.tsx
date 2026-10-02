@@ -150,7 +150,7 @@ export function DraftReview({ draft, onClose }: { draft: InvitationDraft; onClos
       </Drawer>
       <Modal open={rejecting} onClose={() => setRejecting(false)} title="Reject this invitation draft?"
         footer={<><Button onClick={() => setRejecting(false)}>Cancel</Button><Button variant="danger" icon="x" onClick={reject}>Reject draft</Button></>}>
-        <div style={{ fontSize: 12.5, color: "var(--body)", lineHeight: 1.5 }}>
+        <div className="prg-modal" style={{ fontSize: 12.5, color: "var(--body)", lineHeight: 1.5 }}>
           Nothing is sent. {preparer} can prepare a new list from eligible invitees who are not booked.
         </div>
       </Modal>
@@ -264,7 +264,7 @@ export function CreateCode({ pid, onClose }: { pid: ProgrammeId; onClose: () => 
   return (
     <Modal open onClose={onClose} title="Create an invitation code" width={520}
       footer={<><Button onClick={onClose}>Cancel</Button><Button variant="primary" icon="plus" onClick={submit}>Create code</Button></>}>
-      <div className="ph-stack" style={{ gap: 12 }}>
+      <div className="ph-stack prg-modal" style={{ gap: 12 }}>
         <div className="ph-dim" style={{ fontSize: 12.5, lineHeight: 1.5 }}>
           Codes are created centrally. A code lets an eligible person start onboarding in the portal; it never reveals the employer's participant list. This creates a local record only. Nothing is sent.
         </div>
@@ -295,7 +295,7 @@ export function RevokeCode({ codeId, onClose }: { codeId: string; onClose: () =>
   return (
     <Modal open onClose={onClose} title={`Revoke ${code.code}?`}
       footer={<><Button onClick={onClose}>Cancel</Button><Button variant="danger" icon="x" onClick={go}>Revoke code</Button></>}>
-      <div className="ph-stack" style={{ gap: 8, fontSize: 12.5, color: "var(--body)", lineHeight: 1.5 }}>
+      <div className="ph-stack prg-modal" style={{ gap: 8, fontSize: 12.5, color: "var(--body)", lineHeight: 1.5 }}>
         <div>The code stops working for new onboarding. People already on the roster keep their place and their bookings.</div>
         <div className="ph-dim"><Icon name="info" size={12} /> This changes a local demo record only. Nothing is sent.</div>
       </div>

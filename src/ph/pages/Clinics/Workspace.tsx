@@ -7,9 +7,9 @@ import type { ReactNode } from "react";
 import type { ClinicalCapture, Episode, MeasureKey, NavTarget } from "../../model";
 import {
   BP_REVIEW_LIMIT, IDENTITY_HELP, LIMITS_DISCLAIMER, MEASURE_RULES, QRISK3, REPORT_STATE_LABEL, act, ageOn, expectedTests, fmtDateLong, fmtDateTime, fmtNumericDate,
-  fmtTime, linkFor, parseIrishDate, staffName,
+  fmtTime, linkFor, measureError, parseIrishDate, staffName,
 } from "../../model";
-import { dispatch, usePhState } from "../../store";
+import { dispatch, usePersona, usePhState } from "../../store";
 import { useNav } from "../../nav-context";
 import { Button, Card, CardHeader, Checklist, DemoTag, EntityLink, Field, Icon, Pill, RestrictedNotice, Select, TextInput, Textarea } from "../../ui";
 import type { Tone } from "../../ui";
@@ -17,7 +17,7 @@ import type { ApptRow } from "./selectors";
 import { bookingForm, captureRule, checkInRule, nextEpisodeNumber, pad4, placeLabel, urineRequired } from "./selectors";
 import { ApptPill, ClxModal, ProgTag } from "./shared";
 import { QuestionnaireReview, consentSummary } from "./Questionnaire";
-import { LabelPreviewModal } from "./LabelPreview";
+import { LabelPreviewModal, SpecimenLabelPreview } from "./LabelPreview";
 import {
   MEASURE_HINT, URINE_ABSENT, URINE_KEYS, URINE_LABEL, URINE_RESULTS, formBmi, formErrors, formMissing, fromCapture, numericValue, positiveDipstick, useCaptureForm,
 } from "./captureForm";
@@ -131,6 +131,7 @@ function PlannedCard({ row }: { row: ApptRow }) {
 /* ---- capture in progress ---- */
 function LiveCapture({ row, draft }: { row: ApptRow; draft: ClinicalCapture }) {
   const state = usePhState();
+  const p = usePersona();
   const b = row.booking;
   const rule = captureRule(state, row.session);
   const editable = rule.ok;
@@ -187,7 +188,7 @@ function LiveCapture({ row, draft }: { row: ApptRow; draft: ClinicalCapture }) {
     <>
       <WsHeader row={row} dobConfirmed={identityOk}
         episodeLabel={<span><span className="ph-faint">Issued on completion.</span> Next in sequence: <span className="ph-mono">PH-E-{pad4(next)}</span></span>}
-        pills={<SavePill status={f.status} editable={editable} dirty={f.dirty} />}
+        pills={<>{identityOk ? <Pill tone="ok" icon="shield">Identity verified</Pill> : null}<SavePill status={f.status} editable={editable} dirty={f.dirty} /></>}
         actions={editable ? <>
           <Button icon="print" disabled={!identityOk} title={identityOk ? "Preview the specimen label and A4 lab request" : "Confirm identity first. Labels carry the participant's identifiers."} onClick={() => setLabelOpen(true)}>Preview labels</Button>
           <Button variant="primary" icon="check" disabled={!canComplete} title={canComplete ? "Complete the appointment" : `Still needed: ${blockers.join("; ")}`} onClick={() => setConfirmOpen(true)}>Complete appointment</Button>
@@ -207,7 +208,13 @@ function LiveCapture({ row, draft }: { row: ApptRow; draft: ClinicalCapture }) {
         <div className="ph-stack">
           <IdentityCard row={row} cap={draft} editable={editable} run={run} />
           <MeasuresCard row={row} values={values} errors={errors} editable={editable}
-            onField={(k, field) => f.update((v) => ({ ...v, measures: { ...v.measures, [k]: field } }))} cap={draft} />
+            onField={(k, field) => f.update((v) => ({ ...v, measures: { ...v.measures, [k]: field } }))} cap={draft}
+            footer={<>
+              <div className="ph-faint" style={{ fontSize: 11.5 }}>
+                {draft.savedAt ? `Saved at ${fmtTime(draft.savedAt)}.` : "Not saved yet."} {editable ? `Recording as ${p.name}, ${p.title}.` : `Viewing as ${p.name}.`}
+              </div>
+              {editable ? <RepeatReading onAdd={(line) => f.update((v) => ({ ...v, notes: v.notes ? `${v.notes}\n${line}` : line }))} at={fmtTime(state.clock.nowUtc)} /> : null}
+            </>} />
           <UrineCard row={row} values={values} editable={editable} needUrine={needUrine}
             onUrine={(k, val) => f.update((v) => ({ ...v, urine: { ...v.urine, [k]: val } }))}
             onNotes={(t) => f.update((v) => ({ ...v, notes: t }))} />
@@ -399,8 +406,8 @@ function IdentityCard({ row, cap, editable, run }: { row: ApptRow; cap: Clinical
 const ANTHRO: MeasureKey[] = ["heightM", "weightKg", "waistCm"];
 const BP: MeasureKey[] = ["bpSys", "bpDia", "pulse"];
 
-function MeasuresCard({ row, values, errors, editable, onField, cap }: {
-  row: ApptRow; values: FormValues; errors: Partial<Record<MeasureKey | "bp", string>>; editable: boolean; onField: (k: MeasureKey, f: MeasureField) => void; cap: ClinicalCapture;
+function MeasuresCard({ row, values, errors, editable, onField, cap, footer }: {
+  row: ApptRow; values: FormValues; errors: Partial<Record<MeasureKey | "bp", string>>; editable: boolean; onField: (k: MeasureKey, f: MeasureField) => void; cap: ClinicalCapture; footer?: ReactNode;
 }) {
   const state = usePhState();
   const { version } = bookingForm(state, row.booking);
@@ -428,7 +435,41 @@ function MeasuresCard({ row, values, errors, editable, onField, cap }: {
         {BP.map((k) => <MeasureRow key={k} k={k} field={values.measures[k]} error={errors[k] || (k === "bpDia" ? errors.bp : undefined)} disabled={!editable} onChange={(fd) => onField(k, fd)}
           flag={bpReview && (k === "bpSys" || k === "bpDia") && !errors.bp ? `Review required at the displayed limit of ${BP_REVIEW_LIMIT.text}. Kept as entered for clinician review.` : undefined} />)}
       </div>
+      <div className="clx-banner" style={{ marginTop: 10 }}>
+        <Icon name="info" size={14} style={{ color: "var(--accent)", marginTop: 2 }} />
+        <span>Plausible abnormal values can be recorded. Validation errors (a value outside what can be entered) are distinct from clinical flags (a recorded value shown for clinician review).</span>
+      </div>
+      {footer ? <div className="ph-stack" style={{ gap: 8, marginTop: 10 }}>{footer}</div> : null}
     </Card>
+  );
+}
+
+/** A repeat blood pressure reading, kept in the nurse note so the first reading stays as recorded. */
+function RepeatReading({ onAdd, at }: { onAdd: (line: string) => void; at: string }) {
+  const [open, setOpen] = useState(false);
+  const [sys, setSys] = useState("");
+  const [dia, setDia] = useState("");
+  const [err, setErr] = useState<string | null>(null);
+  const sysId = useId(), diaId = useId();
+  const add = () => {
+    const s = Number(sys.trim()), d = Number(dia.trim());
+    if (!/^\d+$/.test(sys.trim()) || !/^\d+$/.test(dia.trim())) { setErr("Enter both readings as whole numbers."); return; }
+    const e = measureError("bpSys", s) || measureError("bpDia", d) || (s <= d ? "Systolic must be higher than diastolic." : null);
+    if (e) { setErr(e); return; }
+    onAdd(`Repeat blood pressure at ${at}: ${s}/${d} mmHg, measured.`);
+    setSys(""); setDia(""); setErr(null); setOpen(false);
+  };
+  if (!open) return <div><Button size="sm" icon="plus" onClick={() => setOpen(true)}>Add a repeat measurement</Button></div>;
+  return (
+    <div className="ph-card-flat clx-cq" style={{ padding: "12px 14px" }}>
+      <div className="ph-faint" style={{ fontSize: 11.5, marginBottom: 8 }}>Repeat blood pressure. It is added to the nurse note for the reviewing clinician; the first reading stays as recorded.</div>
+      <div className="clx-idrow">
+        <Field label="Systolic (mmHg)" htmlFor={sysId}><TextInput id={sysId} value={sys} inputMode="numeric" onChange={(e) => setSys(e.target.value)} /></Field>
+        <Field label="Diastolic (mmHg)" htmlFor={diaId}><TextInput id={diaId} value={dia} inputMode="numeric" onChange={(e) => setDia(e.target.value)} /></Field>
+        <div className="ph-wrap"><Button size="sm" variant="primary" disabled={!sys.trim() || !dia.trim()} onClick={add}>Add to note</Button><Button size="sm" variant="ghost" onClick={() => { setOpen(false); setErr(null); }}>Cancel</Button></div>
+      </div>
+      {err ? <div className="ph-err" role="alert">{err}</div> : null}
+    </div>
   );
 }
 
@@ -532,6 +573,13 @@ function SpecimenCard({ row, identityOk, specimens, labels, editable, onToggle, 
           <Button size="sm" variant="secondary" disabled={!identityOk} title={!identityOk ? lockReason : undefined} onClick={onPreview}>{labels ? "Preview again" : "Preview"}</Button>
         </li>
       </ul>
+      {identityOk ? (
+        <div style={{ marginTop: 14 }}>
+          <div className="ph-row-flex" style={{ marginBottom: 8 }}><span className="ph-eyebrow ph-grow">Specimen label</span><Pill tone="neutral" icon="eye">Preview</Pill></div>
+          <SpecimenLabelPreview row={row} episode={null} />
+          <div style={{ marginTop: 10 }}><Button size="sm" icon="print" onClick={onPreview}>Print label and request</Button></div>
+        </div>
+      ) : null}
     </Card>
   );
 }
@@ -626,8 +674,13 @@ function CompletedView({ row, episode: ep }: { row: ApptRow; episode: Episode })
             {specs.map((x) => <div key={x.id} style={{ fontSize: 12.5 }}><span className="ph-mono">{x.id}</span> <span className="ph-faint">{x.type}, {x.status}{x.labelPrinted ? ", label printed" : ""}</span></div>)}
           </Card>
           <Card>
-            <CardHeader title="Identity at the appointment" />
-            <Checklist items={cap.identity.map((x) => ({ label: `${x.label}: ${x.confirmedValue || "not recorded"}`, done: x.confirmed }))} />
+            <CardHeader title="Pre-screening checks" />
+            <Checklist items={[
+              { label: "Identity confirmed using two identifiers", done: cap.identity.every((x) => x.confirmed), note: cap.identity.map((x) => `${x.label}: ${x.confirmedValue || "not recorded"}`).join("; ") },
+              { label: "Consent and questionnaire complete before booking", done: row.membership?.questionnaire === "complete" && row.membership?.consent === "complete", note: `Consent ${row.booking.consentVersion}` },
+              { label: "Questionnaire reviewed at the appointment", done: !!cap.checklist.questionnaire, note: cap.checklist.questionnaire ? undefined : "Not recorded as reviewed" },
+              { label: "All expected results accounted for", done: pending.length === 0, note: pending.length ? `${pending.length} pending: ${pending.map((x) => x.code).join(", ")}` : undefined },
+            ]} />
           </Card>
         </div>
       </div>

@@ -21,6 +21,12 @@ export type Bundle = NonNullable<ReturnType<typeof episodeBundle>>;
 export function EpisodeHeader({ b, right }: { b: Bundle; right?: ReactNode }) {
   const state = usePhState();
   const ready = b.episode.readyAt;
+  const idHold = !!b.episode.hold && HOLD_CATEGORY[b.episode.hold.kind] === "identity";
+  const idOk = !idHold && b.episode.capture.identity.every((c) => c.confirmed);
+  const visible = b.episode.reportState === "released" && !!b.released;
+  const summary = b.episode.reportState === "ready_for_review"
+    ? `${b.flags.length ? `${b.flags.length === 1 ? "One finding requires" : `${b.flags.length} findings require`} individual review` : "No findings are flagged for review"}. No report is visible to the participant yet.`
+    : visible ? `Report v${b.released!.version} is visible to the participant.` : "No report is visible to the participant.";
   return (
     <Card pad="sm">
       <div className="ph-row-flex" style={{ alignItems: "flex-start", gap: 10, flexWrap: "wrap" }}>
@@ -28,9 +34,10 @@ export function EpisodeHeader({ b, right }: { b: Bundle; right?: ReactNode }) {
           <div className="phr-row" style={{ gap: 8 }}>
             <h2 className="ph-h1" style={{ fontSize: 18 }}>{b.name}</h2>
             <ReportStatePill state={b.episode.reportState} />
+            {idOk ? <Pill tone="ok" icon="shield">Identity verified</Pill> : <Pill tone="warn" icon="alert">Identity not verified</Pill>}
             <Pill tone="neutral" icon={null}>{b.programme.code}</Pill>
           </div>
-          <div className="phr-sub" style={{ marginTop: 3 }}>{b.programme.name}. Fictional participant.</div>
+          <div className="phr-sub" style={{ marginTop: 3 }}>{b.programme.name}. Fictional participant. {summary}</div>
         </div>
         {right ? <div className="phr-row" style={{ flex: "none" }}>{right}</div> : null}
       </div>
@@ -192,7 +199,7 @@ export function MeasuresCard({ b, showValues }: { b: Bundle; showValues: boolean
       <div className="phr-banner" style={{ marginTop: 10, alignItems: "flex-start" }}>
         <div className="ph-grow">
           <div className="phr-row" style={{ gap: 6 }}><b>{QRISK3.title}</b><Pill tone="neutral" icon="lock">Approved integration required</Pill></div>
-          <div className="phr-note" style={{ marginTop: 4 }}>{QRISK3.text}</div>
+          <div className="phr-note" style={{ marginTop: 4 }}>{QRISK3.text} Integration is gated on licensing, validated inputs and approval for the intended population. No score has been generated.</div>
           <div className="phr-sub" style={{ marginTop: 4 }}>Inputs the integration would need: {QRISK3.inputsNeeded.join("; ")}.</div>
         </div>
       </div>

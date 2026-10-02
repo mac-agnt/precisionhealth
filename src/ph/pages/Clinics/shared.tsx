@@ -11,9 +11,8 @@ import type { GlyphName, Tone } from "../../ui";
 import type { ApptStatus, ReadyItem } from "./selectors";
 
 /* ---- overlays ----
-   .ph-page keeps a filter from its entry animation, which makes it the containing block for
-   position: fixed children. Overlays are portalled to the theme root so they cover the viewport
-   and keep the theme tokens. */
+   The kit's Drawer and Modal portal themselves to the theme root. Portal is kept for the print
+   copy of the lab request, which must sit outside the page so print styles can place it. */
 function themeRoot(): HTMLElement | null {
   if (typeof document === "undefined") return null;
   return (document.querySelector("[data-theme]") as HTMLElement | null) || document.body;
@@ -22,21 +21,8 @@ export function Portal({ children }: { children: ReactNode }) {
   const [target] = useState(themeRoot);
   return target ? createPortal(children, target) : null;
 }
-export function ClxDrawer(props: Parameters<typeof Drawer>[0]) {
-  if (!props.open) return null;
-  return <Portal><Drawer {...props} /></Portal>;
-}
-/** A modal that also stacks above an open drawer. */
-export function ClxModal(props: Parameters<typeof Modal>[0]) {
-  if (!props.open) return null;
-  return (
-    <Portal>
-      <div style={{ position: "fixed", top: 0, left: 0, width: 0, height: 0, zIndex: 75 }}>
-        <Modal {...props} />
-      </div>
-    </Portal>
-  );
-}
+export const ClxDrawer = Drawer;
+export const ClxModal = Modal;
 
 /** Width of an element, kept up to date. 0 until measured. */
 export function useWidth<T extends HTMLElement>(): [RefObject<T>, number] {

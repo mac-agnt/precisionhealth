@@ -14,7 +14,7 @@ import { PrintableReport, SlideDeck } from "./ExportViews";
 import type { ExportInput } from "./ExportViews";
 import { PAPER_PAL } from "./ReportParts";
 import { sizeText } from "./disclosure";
-import { Note, StatusPill } from "./common";
+import { EmployerSafeNote, Note, StatusPill } from "./common";
 
 type Format = "pdf" | "pptx";
 const FORMAT_LABEL: Record<Format, string> = { pdf: "Browser print preview (Save as PDF)", pptx: "PowerPoint preview (not a .pptx file)" };
@@ -171,6 +171,7 @@ function Preview({ r }: { r: EmployerReport }) {
       <Note icon="shield">
         Both formats read the same snapshot ({fmtDateTime(x.snapshotAt)}): the same cohort of {sizeText(m.size, x.threshold)}, the same funnel, the same suppressed cells and the same approved narrative.
       </Note>
+      <div style={{ marginTop: 12 }}><EmployerSafeNote /></div>
     </Card>
   );
 }

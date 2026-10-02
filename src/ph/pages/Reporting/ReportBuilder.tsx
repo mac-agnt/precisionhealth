@@ -4,7 +4,7 @@
    Neil approves the clinical narrative, approval freezes the snapshot behind every export. */
 import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
-import { AGE_BANDS, GENDER_LABEL, PROGRAMME_BY_ID, act, bandLabel, exportMetrics, fmtDate, fmtDateTime, isProgrammeLevel, staffName } from "../../model";
+import { AGE_BANDS, GENDER_LABEL, PROGRAMME_BY_ID, act, bandLabel, defaultCohort, exportMetrics, fmtDate, fmtDateTime, isProgrammeLevel, staffName } from "../../model";
 import type { CohortDef, EmployerMetrics, EmployerReport, GenderRecorded } from "../../model";
 import { useNav } from "../../nav-context";
 import { dispatch, usePersona, usePhState } from "../../store";
@@ -12,9 +12,9 @@ import {
   Button, Card, CardHeader, Checklist, DemoTag, EmptyState, EntityLink, Field, Funnel, Icon, Modal, PageHeader, Pill, RestrictedNotice, Select, Split, TextInput, Textarea,
 } from "../../ui";
 import { BreakdownBlock, IndicatorList, MethodologyList } from "./ReportParts";
-import { blockReason, setCohortSafe, sizeText } from "./disclosure";
+import { safeReason, setCohortSafe, sizeText } from "./disclosure";
 import { newerReleasesSafe, refreshSnapshotSafe } from "./snapshot";
-import { Note, StatusPill } from "./common";
+import { EmployerSafeNote, Note, StatusPill } from "./common";
 
 const GENDER_ORDER: GenderRecorded[] = ["woman", "man", "non_binary", "prefer_not_to_say", "not_recorded"];
 
@@ -76,7 +76,7 @@ function BuilderFor({ r }: { r: EmployerReport }) {
         <DisclosureBanner r={r} m={m} canBuild={canBuild} locked={locked} />
         <Split
           main={<Canvas r={r} m={m} showClinical={showClinical} text={text} setText={setText} canBuild={canBuild} />}
-          side={<><CohortCard r={r} canBuild={canBuild} locked={locked} /><WorkflowCard r={r} m={m} canBuild={canBuild} canApprove={canApprove} dirty={dirty} /><SnapshotCard r={r} canBuild={canBuild} locked={locked} /></>}
+          side={<><EmployerSafeNote /><CohortCard r={r} canBuild={canBuild} locked={locked} /><WorkflowCard r={r} m={m} canBuild={canBuild} canApprove={canApprove} dirty={dirty} /><SnapshotCard r={r} canBuild={canBuild} locked={locked} /></>}
         />
       </div>
     </div>
@@ -95,7 +95,7 @@ function DisclosureBanner({ r, m, canBuild, locked }: { r: EmployerReport; m: Em
           <Icon name="lock" size={18} style={{ color: "var(--warn)", marginTop: 2 }} />
           <div className="ph-grow" style={{ minWidth: 220 }}>
             <div style={{ fontSize: 14, fontWeight: 600, color: "var(--ink)" }}>Employer output blocked for this cohort</div>
-            <div style={{ fontSize: 12.5, color: "var(--body)", marginTop: 4, lineHeight: 1.5 }}>{blockReason(m.size, min, threshold)}</div>
+            <div style={{ fontSize: 12.5, color: "var(--body)", marginTop: 4, lineHeight: 1.5 }}>{safeReason(m, min, threshold)}</div>
             <div className="ph-dim" style={{ fontSize: 12, marginTop: 6, lineHeight: 1.5 }}>
               Nothing from this selection is shown: no breakdowns, indicators or figures. The selection was logged for governance ({r.blockedAttempts} blocked {r.blockedAttempts === 1 ? "selection" : "selections"} on this report).
             </div>
@@ -251,9 +251,13 @@ function CohortCard({ r, canBuild, locked }: { r: EmployerReport; canBuild: bool
     dispatch(setCohortSafe(r.id, next));
   };
   const why = !canBuild ? `${p.name} (${p.roleLabel}) cannot change the cohort.` : locked ? "The report is approved, so the cohort is frozen with the snapshot." : null;
+  // After the disclosure review the cohort can still change, but the report returns to draft.
+  const toProgrammeLevel = () => dispatch(r.status === "reviewed" ? setCohortSafe(r.id, defaultCohort(r.programmeId)) : act.useProgrammeLevel(r.id));
   return (
     <Card>
-      <CardHeader title="Cohort definition" sub="One defined cohort feeds every chart, table, narrative figure and export." />
+      <CardHeader title="Cohort definition" sub="One defined cohort feeds every chart, table, narrative figure and export."
+        right={<Pill tone="ok" icon="shield">Disclosure checks on</Pill>} />
+      {canBuild && r.status === "reviewed" ? <div className="ph-help" style={{ marginTop: -4, marginBottom: 10 }}>Changing the cohort returns the report to draft. The disclosure review is then completed again.</div> : null}
       <div style={{ display: "grid", gap: 12 }}>
         <Field label="Programme" htmlFor="phr-prog" help="Fixed for this report.">
           <TextInput id="phr-prog" value={prog.name} readOnly disabled />
@@ -286,7 +290,7 @@ function CohortCard({ r, canBuild, locked }: { r: EmployerReport; canBuild: bool
         </div>
         {dateErr ? <div className="ph-err" role="alert">{dateErr}</div> : null}
         <div className="ph-wrap">
-          <Button icon="layers" disabled={disabled || isProgrammeLevel(c)} onClick={() => dispatch(act.useProgrammeLevel(r.id))}>Programme-level view</Button>
+          <Button icon="layers" disabled={disabled || isProgrammeLevel(c)} onClick={toProgrammeLevel}>Programme-level view</Button>
           {isProgrammeLevel(c) ? <Pill tone="info" icon="check">Programme level</Pill> : null}
         </div>
       </div>
@@ -339,11 +343,13 @@ function WorkflowCard({ r, m, canBuild, canApprove, dirty }: { r: EmployerReport
             {approveBlock ? <div className="ph-help" style={{ marginTop: 0 }}>{approveBlock}</div> : null}
           </>
         ) : (
-          <>
-            <div className="ph-dim" style={{ fontSize: 12, lineHeight: 1.5 }}>Snapshot frozen. The cohort, figures and narrative behind every export are locked.</div>
-            <Button variant="primary" icon="print" onClick={() => nav.go({ page: "Reporting", tab: "exports", params: { report: r.id } })}>Open export previews</Button>
-          </>
+          <div className="ph-dim" style={{ fontSize: 12, lineHeight: 1.5 }}>Snapshot frozen. The cohort, figures and narrative behind every export are locked.</div>
         )}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))", gap: 8, marginTop: 2 }}>
+          <Button icon="print" disabled={!approved} title={approved ? undefined : "Available after clinician approval"} onClick={() => nav.go({ page: "Reporting", tab: "exports", params: { report: r.id, format: "pdf" } })}>PDF preview</Button>
+          <Button icon="layers" disabled={!approved} title={approved ? undefined : "Available after clinician approval"} onClick={() => nav.go({ page: "Reporting", tab: "exports", params: { report: r.id, format: "pptx" } })}>PowerPoint preview</Button>
+        </div>
+        {!approved ? <div className="ph-help" style={{ marginTop: 0 }}>Clinical approval is required before export. Both previews then open from the same frozen snapshot.</div> : null}
       </div>
       {approval ? <Note icon="check">Approval request <EntityLink kind="approval" id={approval.id} /> in Work, Approvals tracks the same steps ({approval.status}).</Note> : null}
     </Card>

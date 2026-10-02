@@ -10,10 +10,10 @@ import { usePhState } from "../../store";
 import { Button, Card, CardHeader, DataTable, DemoTag, EntityLink, Icon, Pill, Stacked } from "../../ui";
 import type { Column } from "../../ui";
 import type { SessionStats } from "../../model";
-import { SessionStatusPill, StaffLine, VersionPill, WindowBar } from "./common";
+import { Note, SessionStatusPill, StaffLine, Stat, VersionPill, WindowBar } from "./common";
 import {
   DRAFT_STATUS, REPORT_STATUS_LABEL, currentOf, draftOf, milestones, ownersOf, pendingOf, programmeReports, programmeSessions, reportMilestoneJobs,
-  shortSite, stageCounts, windowInfo,
+  sessionConfig, shortSite, stageCounts, windowInfo,
 } from "./model";
 import { workflowSegments } from "./palette";
 import { WeeklyProgress } from "./Weekly";
@@ -104,6 +104,37 @@ function ClinicTable({ pid }: { pid: ProgrammeId }) {
       </div>
       <div style={{ borderTop: "1px solid var(--border)" }}>
         <DataTable rows={rows} columns={cols} rowKey={(r) => r.session.id} pageSize={25} caption="Clinic instances" onRowClick={(r) => nav.go(linkFor("session", r.session.id))} />
+      </div>
+    </Card>
+  );
+}
+
+/** The clinic-day configuration every session of the programme is generated from. */
+function SessionPreview({ pid }: { pid: ProgrammeId }) {
+  const s = usePhState();
+  const p = ix(s).programmeById.get(pid)!;
+  const cfg = sessionConfig(s, pid);
+  if (!cfg) return null;
+  const at = s.appointmentTypes.find((a) => a.id === p.appointmentTypeId);
+  const t = s.forms.templates.find((x) => x.id === p.templateId);
+  return (
+    <Card>
+      <CardHeader title="Session preview" sub={cfg.uniform ? `The clinic day used by all ${cfg.sessions} sessions. Slots are derived from it.` : "The next session's clinic day. Sessions in this programme differ."} />
+      <div className="prg-stats prg-stats-2">
+        <Stat label="Available time" value={cfg.availableMinutes} sub="bookable minutes per session" />
+        <Stat label="Capacity" value={cfg.capacity} sub={`${cfg.slotMinutes}-minute appointments`} />
+      </div>
+      <div className="prg-kv">
+        <div><span>Clinic window</span><span>{cfg.start} to {cfg.end}</span></div>
+        <div><span>Breaks</span><span>{cfg.breaks.length ? cfg.breaks.map((b) => `${b.start} to ${b.end}`).join(", ") : "None"}</span></div>
+        <div><span>Appointment type</span><span>{at ? `${at.name}, ${at.minutes} minutes` : p.appointmentTypeId}</span></div>
+        <div><span>Questionnaire and form</span><span>{t ? `${t.name} v${t.currentVersion}` : p.templateId}</span></div>
+        <div><span>Consent</span><span>{cfg.consentVersions.length ? cfg.consentVersions.join(", ") : "No bookings yet"}</span></div>
+        <div><span>Booking access</span><span>Invitation only, code {p.inviteCode}</span></div>
+        <div><span>Reminder</span><span>{s.settings.reminderLeadHours} hours before</span></div>
+      </div>
+      <div style={{ marginTop: 10 }}>
+        <Note tone="neutral" icon="info">Slots are generated around breaks, and breaks are never bookable. A session with bookings cannot be changed silently: an edit lists the affected appointments first and nothing is deleted.</Note>
       </div>
     </Card>
   );
@@ -284,6 +315,7 @@ export function ProgrammeDetail({ pid }: { pid: ProgrammeId }) {
           <ActivityCard pid={pid} />
         </div>
         <div>
+          <SessionPreview pid={pid} />
           <TemplateCard pid={pid} />
           <InvitationsCard pid={pid} />
           <MilestoneCard pid={pid} />

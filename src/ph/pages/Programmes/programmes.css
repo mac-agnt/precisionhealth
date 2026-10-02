@@ -9,8 +9,9 @@
 .ph-page.prg-page { animation: prgPageIn .4s var(--ease) both; }
 @keyframes prgPageIn { from { opacity: 0; } to { opacity: 1; } }
 /* The shared popIn animation ends at transform: none, which cancels the modal's
-   translate(-50%, -50%) centring. Keep the centring inside the entrance animation. */
-.prg-page .ph-modal { animation: prgModalIn .26s var(--ease) both; }
+   translate(-50%, -50%) centring. Modals now portal to the shell root, so this module marks
+   its own modal bodies with .prg-modal and keeps the centring inside the entrance animation. */
+.prg-page .ph-modal, .ph-modal:has(.prg-modal) { animation: prgModalIn .26s var(--ease) both; }
 @keyframes prgModalIn { from { opacity: 0; transform: translate(-50%, calc(-50% - 6px)) scale(.97); } to { opacity: 1; transform: translate(-50%, -50%); } }
 
 .prg-cq { container-type: inline-size; container-name: prg; min-width: 0; display: flex; flex-direction: column; gap: 14px; }
@@ -69,6 +70,13 @@
 .prg-stat-l { font-size: 10.5px; color: var(--faint); }
 .prg-stat-v { font-size: 20px; font-weight: 600; letter-spacing: -.5px; color: var(--ink); line-height: 1.15; margin-top: 3px; }
 .prg-stat-s { font-size: 10.5px; color: var(--dim); margin-top: 3px; line-height: 1.35; }
+
+.prg-stats-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.prg-kv { display: flex; flex-direction: column; margin-top: 12px; }
+.prg-kv > div { display: flex; gap: 12px; align-items: baseline; padding: 8px 0; border-top: 1px solid var(--border); font-size: 12px; line-height: 1.4; }
+.prg-kv > div > span:first-child { color: var(--dim); flex: none; }
+.prg-kv > div > span:last-child { color: var(--ink); margin-left: auto; text-align: right; min-width: 0; }
+.prg-tags { display: flex; flex-wrap: wrap; gap: 6px; }
 
 /* programme window bar with a mark for today */
 .prg-winbar { position: relative; height: 8px; border-radius: 999px; background: var(--track); }
@@ -211,6 +219,6 @@
 .prg-draft-msg { font-size: 12px; color: var(--dim); line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 
 @media (prefers-reduced-motion: reduce) {
-  .ph-page.prg-page, .prg-page .ph-modal, .prg-pv-q[data-cond="1"] { animation-duration: .01ms !important; }
+  .ph-page.prg-page, .prg-page .ph-modal, .ph-modal:has(.prg-modal), .prg-pv-q[data-cond="1"] { animation-duration: .01ms !important; }
   .prg-seg, .prg-tpl, .prg-sec { transition-duration: .01ms !important; }
 }

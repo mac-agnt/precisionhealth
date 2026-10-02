@@ -233,11 +233,14 @@ function SlotPicker({ d, current, confirmLabel, ready, onConfirm, intro, go }: {
       <hr className="pp-hr" />
       <div className="pp-wrap" style={{ alignItems: "center" }}>
         <span className="ph-grow" style={{ minWidth: 180, color: pick ? "var(--ink)" : "var(--faint)", fontSize: 13 }}>
-          {pick && pickedSession ? <>Selected: <strong>{fmtWeekdayDate(pickedSession.date)} at {pick.start}</strong>, {pickedSession.siteName}</> : "No time selected."}
+          {pick && pickedSession ? <>Selected: <strong>{fmtWeekdayDate(pickedSession.date)}, {pick.start} to {slotGrid(state, pickedSession.id).find((x) => x.start === pick.start)?.end}</strong>, {pickedSession.siteName}{pickedSession.siteName.includes(pickedSession.room) ? "" : `, ${pickedSession.room}`}</> : "No time selected."}
         </span>
         <Button variant="primary" icon="check" onClick={confirm}>{confirmLabel}</Button>
       </div>
       {err ? <div className="ph-err" role="alert">{err}</div> : null}
+      <p className="pp-small" style={{ margin: "10px 0 0" }}>
+        {current ? "Your new time is confirmed by a simulated message." : "A confirmation is sent when you confirm (simulated). A reminder follows 24 hours before, unless you book within 24 hours of the appointment."} Cannot find a suitable time? Contact Precision Health support.
+      </p>
       {blocked && !ready ? (
         <div className="pp-callout warn" role="alert" style={{ marginTop: 12 }}>
           <Icon name="alert" size={14} style={{ marginTop: 2, color: "var(--warn)" }} />

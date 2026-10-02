@@ -13,7 +13,8 @@ import type { Episode, ImportRow, Observation, PhState } from "../../model";
 import { dispatch, usePhState } from "../../store";
 import { Button, Checkbox, DemoTag, Drawer, EntityLink, Field, Pill, RestrictedNotice, Select, TextInput, Textarea } from "../../ui";
 import { Banner, EventList, HiddenValue, Kv, OverlayPortal, QUARANTINE_LABEL, ReportStatePill, RowStatePill, SecTitle, fmtValue } from "./shared";
-import { CHECK_LABEL, collectionRecord, episodeBySpecimen, eventsFor, observationIndex, participantCheck, rowIndex } from "./select";
+import { checkLabel, collectionRecord, episodeBySpecimen, eventsFor, observationIndex, participantCheck, rowIndex } from "./select";
+import type { ParticipantCheck } from "./select";
 import { confirmUnitWithReason } from "./actions";
 
 const METHODS = [
@@ -92,7 +93,7 @@ function RowBody({ row }: { row: ImportRow }) {
         <SecTitle>Checks</SecTitle>
         <Kv items={[
           { k: "Unique key (specimen + test)", v: <><span className="phr-mono">{row.specimenKey} + {row.analyteCode}</span><div className="phr-sub">{row.state === "duplicate" ? "Already imported. Skipped, no second observation." : row.state === "quarantined" ? "Not imported while held." : "New key, imported once."}</div></> },
-          { k: "Participant check", v: <><CheckPill status={check.status} /><div className="phr-sub">{check.fileDob || check.recordDob ? `File ${check.fileDob ? fmtNumericDate(check.fileDob) : "none"}, record ${check.recordDob ? fmtNumericDate(check.recordDob) : "none"}` : "No record to compare"}</div></> },
+          { k: "Participant check", v: <><CheckPill check={check} /><div className="phr-sub">{check.fileDob || check.recordDob ? `File ${check.fileDob ? fmtNumericDate(check.fileDob) : "none"}, record ${check.recordDob ? fmtNumericDate(check.recordDob) : "none"}` : "No record to compare"}</div></> },
           { k: "Specimen identifier", v: check.episode ? <>On collection record <span className="phr-mono">{check.episode.specimenIds[0]}</span></> : <span style={{ color: "var(--warn)" }}>Not on any collection record</span> },
           { k: "Unit", v: unitDiffers ? <span style={{ color: "var(--warn)" }}>Differs from the template. No silent conversion.</span> : "Matches the template unit" },
         ]} />
@@ -111,9 +112,10 @@ function RowBody({ row }: { row: ImportRow }) {
   );
 }
 
-function CheckPill({ status }: { status: ReturnType<typeof participantCheck>["status"] }) {
-  const look = status === "match" ? { tone: "ok" as const, icon: "check" as const } : status === "missing" ? { tone: "neutral" as const, icon: "info" as const } : { tone: "warn" as const, icon: "alert" as const };
-  return <Pill tone={look.tone} icon={look.icon}>{CHECK_LABEL[status]}</Pill>;
+function CheckPill({ check }: { check: ParticipantCheck }) {
+  const ok = check.status === "match" && check.nameMatch !== false;
+  const look = ok ? { tone: "ok" as const, icon: "check" as const } : check.status === "missing" ? { tone: "neutral" as const, icon: "info" as const } : { tone: "warn" as const, icon: "alert" as const };
+  return <Pill tone={look.tone} icon={look.icon}>{checkLabel(check)}</Pill>;
 }
 
 function StatusLine({ row, obs, dupOf, dupRowLine }: { row: ImportRow; obs: Observation | null; dupOf: Observation | null; dupRowLine: string | null }) {

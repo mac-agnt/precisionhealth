@@ -4,7 +4,7 @@
    as completed. Logical reminders and provider attempts are counted separately. */
 import { useState } from "react";
 import {
-  PROGRAMME_BY_ID, PROGRAMME_ORDER, STORY_DEFS, addDays, failedReminders, fmtDayMonth, fmtTime, fmtWeekdayDate, fmtWhen, ix, linkFor,
+  PROGRAMME_BY_ID, PROGRAMME_ORDER, STORY_DEFS, addDays, dublinToUtc, failedReminders, fmtDayMonth, fmtTime, fmtWeekdayDate, fmtWhen, ix, linkFor,
   nurseWorkload, personName, programmeCounts, rate, reminderStats, scheduleOverlaps, sessionStats, sessionsBetween, slotGrid, staffName, startOfWeek, today,
   todaySessions, todayStats,
 } from "../../model";
@@ -37,6 +37,7 @@ export default function ClinicOperations() {
   const sessions = todaySessions(s);
   const stats = sessions.map((x) => sessionStats(s, x.id));
   const firstStart = sessions.map((x) => x.start).sort()[0];
+  const opened = !!firstStart && Date.parse(dublinToUtc(today(s), firstStart)) <= Date.parse(s.clock.nowUtc);
   const checkedIn = stats.reduce((n, x) => n + x.checkedIn + x.inProgress, 0);
   const wk = weekTotals(s, startOfWeek(today(s)));
 
@@ -44,7 +45,7 @@ export default function ClinicOperations() {
     { key: "booked", label: "Booked today", value: D.booked, icon: "calendar", sub: `of ${D.capacity} slots (${rate(D.booked, D.capacity)}) at ${D.sessions} clinics` },
     { key: "available", label: "Available today", value: D.available, icon: "layers", sub: "Unfilled slots in today's clinics. Potential capacity, not revenue." },
     { key: "arrived", label: "Checked in now", value: checkedIn, icon: "user",
-      sub: `${D.completed} completed, ${D.notArrived} not yet arrived.${firstStart ? ` First clinic opens at ${firstStart}.` : ""}` },
+      sub: `${D.completed} completed, ${D.notArrived} not yet arrived.${firstStart ? (opened ? ` Clinics opened at ${firstStart}.` : ` First clinic opens at ${firstStart}.`) : ""}` },
     { key: "reminders", label: "Reminders delivered", value: `${R.delivered} of ${R.logical}`, icon: "sms", tone: R.failed ? "bad" : "ok", status: R.failed ? `${R.failed} failed` : "All delivered",
       sub: `${R.attempts} provider attempts, counted separately`, hint: "Open failed reminders in Participants, Communications",
       onClick: () => nav.go({ page: "Participants", tab: "communications", params: { filter: "failed" } }) },

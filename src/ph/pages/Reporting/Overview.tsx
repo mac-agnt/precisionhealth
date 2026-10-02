@@ -11,7 +11,6 @@ import { useNav } from "../../nav-context";
 import { usePhState } from "../../store";
 import { Button, Card, CardHeader, DataTable, DemoTag, EntityLink, Kpi, KpiStrip, PALETTE, PageHeader, Pill, Segmented, Split, Stacked } from "../../ui";
 import type { Column } from "../../ui";
-import { sizeText } from "./disclosure";
 import { newerReleasesSafe } from "./snapshot";
 import { Note, STATUS_LABEL, StatusPill } from "./common";
 
@@ -44,7 +43,7 @@ export default function Overview() {
     { key: "cohort", header: "Cohort", nowrap: false, cell: (r) => {
       const m = exportMetrics(s, r);
       return m.blocked
-        ? <Pill tone="warn" icon="lock">Blocked, {sizeText(m.size, threshold)}</Pill>
+        ? <Pill tone="warn" icon="lock" title="Below the minimum cohort for employer output">Blocked, below {s.settings.minCohort}</Pill>
         : <span style={{ display: "block", minWidth: 150 }}><span className="ph-num" style={{ color: "var(--ink)" }}>{m.size}</span> released reports<span className="ph-faint" style={{ display: "block", fontSize: 11 }}>{isProgrammeLevel(r.cohort) ? "Programme level" : "Filtered cohort"}</span></span>;
     } },
     { key: "reviewer", header: "People", cell: (r) => (

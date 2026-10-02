@@ -5,8 +5,8 @@ import type {
   NavTarget, Perm, PhState, Programme, ProgrammeId, ScheduledJob, SessionStats, Staff, TemplateBlockRef,
 } from "../../model";
 import {
-  PERM_DEFS, PROGRAMME_ORDER, addDays, daysBetween, directory, fmtDate, fmtDayMonth, ix, localDateOf, memo, programmeCounts, sessionStats,
-  startOfWeek, today,
+  PERM_DEFS, PROGRAMME_ORDER, addDays, daysBetween, directory, fmtDate, fmtDayMonth, hhmmToMinutes, ix, localDateOf, memo, programmeCounts, sessionSlots,
+  sessionStats, startOfWeek, today,
 } from "../../model";
 
 /* ---- people and permissions ---- */
@@ -66,6 +66,34 @@ export function programmeSessions(state: PhState, pid: ProgrammeId): SessionStat
 export const upcomingSessions = (state: PhState, pid: ProgrammeId) => programmeSessions(state, pid).filter((s) => s.session.date >= today(state));
 export const sessionStatusOf = (s: SessionStats): "today" | "completed" | "scheduled" =>
   s.isToday ? "today" : s.isPast || s.session.status === "completed" ? "completed" : "scheduled";
+
+/** The clinic-day configuration behind a programme's sessions: window, breaks, bookable minutes and slots. */
+export interface SessionConfig {
+  sessions: number;
+  uniform: boolean;
+  start: string;
+  end: string;
+  breaks: Array<{ start: string; end: string }>;
+  slotMinutes: number;
+  availableMinutes: number;
+  capacity: number;
+  consentVersions: string[];
+}
+export function sessionConfig(state: PhState, pid: ProgrammeId): SessionConfig | null {
+  return memo(state, "prg:cfg:" + pid, () => {
+    const ss = state.sessions.filter((x) => x.programmeId === pid && x.status !== "cancelled");
+    if (!ss.length) return null;
+    const ref = ss.find((x) => x.date >= today(state)) || ss[0];
+    const key = (x: ClinicSession) => JSON.stringify([x.start, x.end, x.breaks, x.slotMinutes]);
+    const s0 = hhmmToMinutes(ref.start), s1 = hhmmToMinutes(ref.end);
+    const breakMinutes = ref.breaks.reduce((n, b) => n + Math.max(0, Math.min(hhmmToMinutes(b.end), s1) - Math.max(hhmmToMinutes(b.start), s0)), 0);
+    return {
+      sessions: ss.length, uniform: ss.every((x) => key(x) === key(ref)), start: ref.start, end: ref.end, breaks: ref.breaks, slotMinutes: ref.slotMinutes,
+      availableMinutes: s1 - s0 - breakMinutes, capacity: sessionSlots(ref).length,
+      consentVersions: [...new Set(state.bookings.filter((b) => b.programmeId === pid && b.status === "confirmed").map((b) => b.consentVersion))],
+    };
+  });
+}
 
 /** Short site label: "Site A" for Sisk, otherwise the room. */
 export function shortSite(s: ClinicSession): string {

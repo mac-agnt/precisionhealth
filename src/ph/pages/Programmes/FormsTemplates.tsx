@@ -199,7 +199,7 @@ export default function FormsTemplates() {
       <Modal open={confirm && !!pending && !!approval} onClose={() => setConfirm(false)} title={`Publish ${t.name} v${pending?.version || ""}?`} width={560}
         footer={<><Button onClick={() => setConfirm(false)}>Cancel</Button><Button variant="primary" icon="check" onClick={() => decide(true)}>Approve and publish</Button></>}>
         {pending ? (
-          <div className="ph-stack" style={{ gap: 10, fontSize: 12.5, color: "var(--body)", lineHeight: 1.5 }}>
+          <div className="ph-stack prg-modal" style={{ gap: 10, fontSize: 12.5, color: "var(--body)", lineHeight: 1.5 }}>
             <div>Publishing makes v{pending.version} the version used for new bookings. Nothing already collected changes.</div>
             <ul style={{ margin: 0, paddingLeft: 18, display: "flex", flexDirection: "column", gap: 5 }}>
               <li>New bookings {usage.programmes.length ? `for ${usage.programmes.map((x) => x.name).join(", ")} ` : ""}use v{pending.version}.</li>

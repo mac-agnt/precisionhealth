@@ -126,8 +126,11 @@ function QuestionnaireFlow({ d, m, go }: { d: PortalData; m: Membership; go: (v:
   return (
     <div className="pp-main" ref={rootRef}>
       <div>
-        <h1 className="pp-title">Your health questionnaire</h1>
-        <p className="pp-lead">{done} of {SECTIONS.length} sections saved. Answers are saved as you go, so you can stop and come back. Booking opens when the questionnaire and the required consent choices are complete.</p>
+        <div className="pp-row" style={{ flexWrap: "wrap", gap: 8 }}>
+          <h1 className="pp-title ph-grow">Your health questionnaire</h1>
+          {m.draft ? <Pill tone="info" icon="check">Draft saved</Pill> : null}
+        </div>
+        <p className="pp-lead">{done} of {SECTIONS.length} sections saved. Your answers help your clinician prepare. They are saved as you go, so you can stop and come back. Booking opens when the questionnaire and the required consent choices are complete.</p>
       </div>
       <nav className="pp-parts" aria-label="Questionnaire parts">
         {parts.map((label, i) => (
@@ -157,13 +160,18 @@ function QuestionnaireFlow({ d, m, go }: { d: PortalData; m: Membership; go: (v:
           {SECTIONS[step - 1].questions.filter((q) => visible(q, answers)).map((q) => (
             <QuestionField key={q.key} q={q} value={answers[q.key]} error={errors[q.key]} onChange={(v) => set(q.key, v)} />
           ))}
+          {SECTIONS[step - 1].questions.some((q) => q.showIf) ? <div className="pp-banner" style={{ marginTop: 4 }}><Icon name="info" size={13} style={{ marginTop: 2 }} /><span>Additional questions appear only when they are relevant to your answers.</span></div> : null}
           <div className="pp-wrap" style={{ marginTop: 14 }}>
-            <Button variant="primary" icon="arrow" onClick={() => saveSection(step, true)}>Save and continue</Button>
+            <Button variant="primary" icon="arrow" onClick={() => saveSection(step, true)}>{step >= SECTIONS.length ? "Continue to review" : `Continue to ${SECTIONS[step].title.toLowerCase()}`}</Button>
             <Button onClick={() => saveSection(step, false)}>Save and finish later</Button>
             <Button variant="ghost" icon="chevronLeft" onClick={() => goStep(step - 1)}>Back</Button>
           </div>
         </Card>
       )}
+      <div className="pp-callout warn" role="note">
+        <Icon name="alert" size={14} style={{ marginTop: 2, color: "var(--warn)" }} />
+        <span><strong style={{ color: "var(--ink)" }}>Not an urgent-care service.</strong> Do not use this questionnaire to get urgent medical help. If you need help now, call 112 or 999.</span>
+      </div>
     </div>
   );
 }
@@ -253,7 +261,7 @@ function DetailsAndConsent({ d, answers, set, errors, onSave, onLater }: { d: Po
             <Checkbox checked={answers.consentSms === true} onChange={(v) => set("consentSms", v)} label={<><strong style={{ color: "var(--ink)", fontWeight: 600 }}>Optional.</strong> Send me appointment messages by SMS (Esendex). Without it, messages come by email.</>} />
           </div>
         </div>
-        <p className="pp-small" style={{ margin: "10px 0 0" }}>Sample consent wording for the demo. Your choices are recorded when you submit the questionnaire.</p>
+        <p className="pp-small" style={{ margin: "10px 0 0" }}>Sample consent wording (BC-3) and privacy notice for the demo. Final wording needs clinical and data protection approval. Your choices are recorded when you submit the questionnaire.</p>
         <div className="pp-wrap" style={{ marginTop: 14 }}>
           <Button variant="primary" icon="arrow" onClick={onSave}>Save and continue</Button>
           <Button onClick={onLater}>Finish later</Button>

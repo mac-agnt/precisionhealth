@@ -105,6 +105,14 @@ export default function Organisation() {
         </div>
 
         <ClinicDay state={s} />
+        <Card>
+          <CardHeader title="Booking, reminder and reporting rules" sub={`Shared by all ${s.programmes.length} programmes in this demo.`} right={<DemoTag>Fictional configuration</DemoTag>} />
+          <DefList items={[
+            { label: "Booking access", value: "Invitation codes are created centrally by administrators. Consent and the pre-screening questionnaire must be complete before a booking can be confirmed." },
+            { label: "Reminders", value: `${s.settings.reminderLeadHours} hours before each clinic, by the participant's preferred channel. Delivery is simulated.` },
+            { label: "Employer reporting", value: `Released reports only. Cohorts smaller than ${s.settings.minCohort} are blocked, and groups smaller than ${s.settings.suppressionThreshold} are suppressed.` },
+          ]} />
+        </Card>
         <ProgrammeConfig state={s} />
         <AppointmentTypes state={s} />
       </div>

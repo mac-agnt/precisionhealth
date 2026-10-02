@@ -17,12 +17,14 @@ import {
   Split, Stacked,
 } from "../../ui";
 import type { Column } from "../../ui";
-import { Count, HiddenValue, Kv, QUARANTINE_LABEL, RowStatePill, useWidth } from "./shared";
-import { CHECK_LABEL, openUnitIssues, participantCheck, rowIndex, validationSummary } from "./select";
+import { Banner, Count, HiddenValue, Kv, QUARANTINE_LABEL, RowStatePill, useWidth } from "./shared";
+import { checkLabel, openUnitIssues, participantCheck, rowIndex, validationSummary } from "./select";
 import type { CheckStatus } from "./select";
 import { RowDrawer } from "./RowDrawer";
 
 type RowFilter = "all" | "imported" | "resolved" | "duplicate" | "quarantined" | "unit" | "dob";
+/** Columns in the bundled Eurofins CSV, in file order. */
+const CSV_COLUMNS = ["Specimen ID", "Surname/Initial", "DOB", "Analyte", "Result", "Unit", "Result date"] as const;
 const FILTERS: RowFilter[] = ["all", "imported", "resolved", "duplicate", "quarantined", "unit", "dob"];
 
 export default function Imports() {
@@ -74,6 +76,13 @@ function ImportsWorkspace() {
         <Kpi label="Specimen records" value={<Count n={stats.specimens} unit="specimens" />} sub="Labelled separately from rows and people" icon="flask" />
       </KpiStrip>
 
+      {stats.quarantined ? (
+        <div style={{ marginTop: 12 }}>
+          <Banner tone="warn" icon="alert" action={<Button size="sm" onClick={() => setFilter("quarantined")}>Show held rows</Button>}>
+            <b>{stats.quarantined === 1 ? "1 row needs" : `${stats.quarantined} rows need`} identity resolution.</b> Rows with conflicting identifiers are never attached automatically. Review each against the laboratory source before resolving.
+          </Banner>
+        </div>
+      ) : null}
       {showPv && pv ? <div style={{ marginTop: 12 }}><ReuploadCard onHide={() => setHidePreview(pv.loadedAt + pv.committed)} /></div> : null}
 
       <div style={{ marginTop: 14 }}>
@@ -115,7 +124,7 @@ function ReuploadCard({ onHide }: { onHide: () => void }) {
           {c.alreadySeen} rows were already imported, skipped as duplicates or resolved, so they are not imported again. {c.unresolved} rows stay quarantined and are not committed. Confirming commits only accepted or resolved rows that are new: {c.newRows}.
         </div>
         <div className="phr-row" style={{ flex: "none" }}>
-          {pv.committed ? <span className="phr-sub">No observations created twice.</span> : <Button variant="primary" icon="check" onClick={() => dispatch(act.commitImportPreview())}>Confirm import</Button>}
+          {pv.committed ? <span className="phr-sub">No observations created twice.</span> : <Button variant="primary" icon="check" onClick={() => dispatch(act.commitImportPreview())}>Commit accepted rows ({c.newRows} new)</Button>}
           <Button variant="ghost" onClick={onHide}>Hide</Button>
         </div>
       </div>
@@ -131,7 +140,10 @@ function BatchSummary({ s }: { s: BatchStats }) {
     <Card>
       <CardHeader eyebrow={`${s.batch.lab}, ${s.partial ? "partially imported" : "imported in full"}`} title={<span className="phr-mono" style={{ fontSize: 14 }}>{s.batch.id}</span>}
         sub={<span className="phr-mono" style={{ fontSize: 11.5 }}>{s.batch.filename}</span>}
-        right={s.partial ? <Pill tone="warn" icon="alert">{s.quarantined} rows held</Pill> : <Pill tone="ok" icon="check">Complete</Pill>} />
+        right={<>
+          {s.partial ? <Pill tone="warn" icon="alert">{s.quarantined} rows held</Pill> : <Pill tone="ok" icon="check">Complete</Pill>}
+          <Button size="sm" variant="ghost" icon="list" onClick={() => document.getElementById("phr-mapping")?.scrollIntoView({ behavior: "smooth", block: "start" })}>View column mapping</Button>
+        </>} />
       <Stacked total={s.rows} segments={[
         { label: "Imported on arrival", value: v.importedOnArrival, color: "var(--accent)" },
         { label: "Resolved by a person", value: v.resolved, color: "var(--ok)" },
@@ -236,17 +248,17 @@ function MappingCard({ batchId }: { batchId: string }) {
   const showValue = p.perms.has("clinical.view");
   const agentEvent = state.activity.find((e) => e.actor.kind === "agent" && e.actor.id === "lab" && e.entity && e.entity.id === batchId);
   const map: Array<{ col: string; field: string; sample: ReactNode; rule: string }> = first ? [
-    { col: "Specimen ID", field: "Specimen identifier", sample: <span className="phr-mono">{first.specimenKey}</span>, rule: "Exact match to a collection record. Never fuzzy-matched." },
-    { col: "Surname/Initial", field: "Name check", sample: first.nameInFile, rule: "Minimal identity check only. A name is never a key." },
-    { col: "DOB", field: "Participant check", sample: first.dobInFile ? fmtNumericDate(first.dobInFile) : "None", rule: "Must equal the booking record, or the row is quarantined." },
-    { col: "Analyte", field: "Test code", sample: <span className="phr-mono">{first.analyteCode}</span>, rule: "Specimen plus test is the unique key. A repeat is skipped as a duplicate." },
-    { col: "Result", field: "Observation value", sample: showValue ? first.valueText : <HiddenValue label="Hidden" />, rule: "Kept exactly as received." },
-    { col: "Unit", field: "Unit", sample: first.unit, rule: "Must match the template unit. A different unit holds the episode; nothing is converted silently." },
-    { col: "Result date", field: "Result time", sample: `${fmtNumericDate(first.resultAt)} ${fmtTime(first.resultAt)}`, rule: "Stored in UTC, shown in Dublin time." },
+    { col: CSV_COLUMNS[0], field: "Specimen identifier", sample: <span className="phr-mono">{first.specimenKey}</span>, rule: "Exact match to a collection record. Never fuzzy-matched." },
+    { col: CSV_COLUMNS[1], field: "Name check", sample: first.nameInFile, rule: "Minimal identity check only. A name is never a key." },
+    { col: CSV_COLUMNS[2], field: "Participant check", sample: first.dobInFile ? fmtNumericDate(first.dobInFile) : "None", rule: "Must equal the booking record, or the row is quarantined." },
+    { col: CSV_COLUMNS[3], field: "Test code", sample: <span className="phr-mono">{first.analyteCode}</span>, rule: "Specimen plus test is the unique key. A repeat is skipped as a duplicate." },
+    { col: CSV_COLUMNS[4], field: "Observation value", sample: showValue ? first.valueText : <HiddenValue label="Hidden" />, rule: "Kept exactly as received." },
+    { col: CSV_COLUMNS[5], field: "Unit", sample: first.unit, rule: "Must match the template unit. A different unit holds the episode; nothing is converted silently." },
+    { col: CSV_COLUMNS[6], field: "Result time", sample: `${fmtNumericDate(first.resultAt)} ${fmtTime(first.resultAt)}`, rule: "Stored in UTC, shown in Dublin time." },
   ] : [];
   return (
     <Card pad={false}>
-      <div style={{ padding: "14px 16px 4px" }}>
+      <div id="phr-mapping" style={{ padding: "14px 16px 4px", scrollMarginTop: 12 }}>
         <CardHeader title="Column mapping"
           sub={agentEvent ? `Draft prepared by Lab Reconciliation ${fmtWhen(agentEvent.at, state.clock.nowUtc)}. It maps columns and explains exceptions; it never matches a person or commits data.` : "Prepared by Lab Reconciliation as a draft. It maps columns only; it never matches a person or commits data."}
           right={<DemoTag>Agent draft</DemoTag>} />
@@ -291,7 +303,7 @@ function ValidationCard({ batchId, onFilter }: { batchId: string; onFilter: (f: 
     <Card>
       <CardHeader title="Validation summary" sub={`Derived from the ${v.rows} rows of this batch.`} />
       <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: 10 }}>
-        {line(true, `${v.rows} rows read, 7 columns mapped`, `${v.specimens} specimen records, ${new Set(batchRows(state, batchId).map((r) => r.analyteCode)).size} test codes. ${v.nonNumeric ? `${v.nonNumeric} non-numeric values.` : "Every value is numeric."}`)}
+        {line(true, `${v.rows} rows read, ${CSV_COLUMNS.length} columns mapped`, `${v.specimens} specimen records, ${new Set(batchRows(state, batchId).map((r) => r.analyteCode)).size} test codes. ${v.nonNumeric ? `${v.nonNumeric} non-numeric values.` : "Every value is numeric."}`)}
         {line(v.duplicates === 0, "Unique key (specimen + test)", `${v.newKeys} new keys. ${v.duplicates} rows already imported, skipped as duplicates.`, v.duplicates ? "duplicate" : undefined)}
         {line(v.dob.mismatch + v.dob.missing === 0, "Participant check (date of birth)", `${v.dob.match} match the booking record, ${v.dob.mismatch} mismatch, ${v.dob.missing} without a date of birth.`, v.dob.mismatch ? "dob" : undefined)}
         {line(v.dob.unknown === 0, "Specimen identifier", `${v.rows - v.dob.unknown} on a collection record, ${v.dob.unknown} not on any record.`, v.dob.unknown ? "quarantined" : undefined)}
@@ -337,7 +349,7 @@ function RowsCard({ batchId, filter, setFilter, onOpen, selected }: { batchId: s
       { key: "test", header: "Test", cell: (r: ImportRow) => <span className="phr-mono">{r.analyteCode}</span> },
       { key: "val", header: "Result", align: "right" as const, cell: (r: ImportRow) => showValues ? <span className="ph-num">{r.valueText}</span> : <HiddenValue label="Hidden" /> },
       { key: "unit", header: "Unit", cell: (r: ImportRow) => r.unit === ANALYTES[r.analyteCode].unit ? r.unit : <span style={{ color: "var(--warn)" }}>{r.unit}</span> },
-      { key: "check", header: "Participant check", cell: (r: ImportRow) => { const c = participantCheck(state, r).status; return <Pill tone={CHECK_TONE[c].tone} icon={CHECK_TONE[c].icon}>{CHECK_LABEL[c]}</Pill>; } },
+      { key: "check", header: "Participant check", cell: (r: ImportRow) => { const c = participantCheck(state, r); const look = c.status === "match" && c.nameMatch === false ? CHECK_TONE.mismatch : CHECK_TONE[c.status]; return <Pill tone={look.tone} icon={look.icon}>{checkLabel(c)}</Pill>; } },
       { key: "ep", header: "Episode", cell: (r: ImportRow) => r.episodeId ? <EntityLink kind="episode" id={r.episodeId} /> : <span className="ph-faint">None</span> },
     ]),
     { key: "state", header: "State", cell: (r) => <RowStatePill state={r.state} /> },
@@ -353,7 +365,7 @@ function RowsCard({ batchId, filter, setFilter, onOpen, selected }: { batchId: s
       </div>
       <DataTable rows={shown} columns={cols} rowKey={(r) => r.id} onRowClick={(r) => onOpen(r.id)} selectedKey={selected} pageSize={25}
         empty={<EmptyState title="No rows match" icon="search">Clear the search or choose another filter.</EmptyState>}
-        footerNote={showValues ? undefined : "Result values are hidden for this role."} />
+        footerNote={`Matched on the unique specimen and test key; date of birth and name are cross-checked, never used to match.${showValues ? "" : " Result values are hidden for this role."}`} />
     </Card>
   );
 }

@@ -6,13 +6,13 @@
 import { Fragment, useState } from "react";
 import type { ReactNode } from "react";
 import {
-  PAGES, PAGE_BY_ID, PERM_DEFS, PH_FILES, ROLE_LABEL, act, activityFeed, canViewEpisodeClinical, globalSearch, ix, navAttention, ontologyModel, persona, personName, visibleFiles,
+  GOVERNANCE_STATUS_LABEL, PAGES, PAGE_BY_ID, PERM_DEFS, PH_FILES, ROLE_LABEL, act, activityFeed, canViewEpisodeClinical, globalSearch, ix, navAttention, ontologyModel, persona, personName, visibleFiles,
 } from "../../model";
 import type { NavTarget, PageId, PersonaId, PhState, RoleKey, SearchHit } from "../../model";
 import { dispatch, usePersona, usePhState } from "../../store";
 import { useNav } from "../../nav-context";
-import { Avatar, Button, Card, CardHeader, Icon, Pill, SearchBox, Split } from "../../ui";
-import { PERM_TOTAL, RolePreview, SettingsHeader, YesNo, joinList, firstNameOf } from "./common";
+import { Avatar, Button, Card, CardHeader, DemoTag, EntityLink, Icon, Kpi, KpiStrip, Pill, SearchBox, Split } from "../../ui";
+import { PERM_TOTAL, ROLE_SCOPE, RolePreview, SettingsHeader, YesNo, joinList, firstNameOf, rolePerms } from "./common";
 
 const ROLES = (Object.keys(ROLE_LABEL) as Array<RoleKey | "participant">).filter((k): k is RoleKey => k !== "participant");
 const GROUPS = Array.from(new Set(PERM_DEFS.map((d) => d.group)));
@@ -149,6 +149,7 @@ export default function Permissions() {
   const nav = useNav();
   const rows = liveRows(s);
   const allowed = p.perms.size;
+  const accessReview = s.settings.governance.find((g) => g.id === "gov-access");
   return (
     <div className="ph-page">
       <SettingsHeader
@@ -163,6 +164,17 @@ export default function Permissions() {
             <span className="phs-strong">Frontend visibility simulation.</span> This is not production server-side security. Authentication is unchanged, and switching role never signs anyone in or out.
           </div>
         </div>
+        <KpiStrip>
+          <Kpi label="Demonstration profiles" value={s.staff.length} sub="A demo roster, not the total headcount" icon="users" />
+          <Kpi label="Roles" value={ROLES.length} sub="Staff roles, plus the participant preview" icon="shield" />
+          <Kpi label="Capabilities" value={PERM_TOTAL} sub="Rows in the role matrix below" icon="list" />
+          <Kpi
+            label="Next access review" value="To confirm" icon="calendar"
+            sub={`No date is set. The register is ${accessReview ? GOVERNANCE_STATUS_LABEL[accessReview.status].toLowerCase() : "not set up"}.`}
+            onClick={() => nav.go({ page: "Settings", tab: "governance", params: { item: "gov-access" } })}
+            hint="Open the access review item in Governance"
+          />
+        </KpiStrip>
         <Split
           main={
             <Card pad={false}>
@@ -219,9 +231,67 @@ export default function Permissions() {
             </>
           }
         />
+        <RoleAssignments />
         <RoleMatrix />
+        <div className="ph-card-flat" style={{ padding: "14px 16px" }}>
+          <div className="phs-strong" style={{ fontSize: 13 }}>Proposed for production, to confirm: no standing production access for developers</div>
+          <div className="phs-body" style={{ marginTop: 4 }}>
+            Exceptional access would be approved, time-limited, purpose-recorded and audited. In this demo, roles without clinical access see neutral summaries in activity feeds instead of clinical detail, as the live table above shows.
+          </div>
+        </div>
       </div>
     </div>
+  );
+}
+
+/** Account, role and scope for every demonstration profile, plus the participant preview. */
+function RoleAssignments() {
+  const s = usePhState();
+  const p = usePersona();
+  const nav = useNav();
+  const portalPerson = ix(s).personById.get(s.session.portalPersonId);
+  const teamName = (id: string) => s.teams.find((t) => t.id === id)?.name || id;
+  return (
+    <Card pad={false}>
+      <div className="ph-pad" style={{ paddingBottom: 4 }}>
+        <CardHeader
+          title="Role assignments"
+          sub="Each demonstration profile, its role and what that role is scoped to. Clinical and administrative capabilities are separate rows in the matrix below."
+          right={<DemoTag title="The eight public profiles with fictional assignments">Illustrative users</DemoTag>}
+        />
+      </div>
+      <div className="ph-tablewrap">
+        <table className="ph-table phs-table">
+          <caption style={{ position: "absolute", width: 1, height: 1, overflow: "hidden", clip: "rect(0 0 0 0)" }}>Role assignments and scope</caption>
+          <thead><tr><th>Account</th><th>Role</th><th>Scope</th><th style={{ width: 80 }}>Preview</th></tr></thead>
+          <tbody>
+            {s.staff.map((x) => {
+              const clinical = rolePerms(x.role).has("clinical.view");
+              return (
+                <tr key={x.id} className={p.id === x.id ? "sel" : undefined}>
+                  <td>
+                    <span style={{ fontSize: 12.5 }}><EntityLink kind="staff" id={x.id}>{x.name}</EntityLink></span>
+                    <div className="phs-note">{x.title}, {teamName(x.team)}</div>
+                  </td>
+                  <td><Pill tone={clinical ? "info" : "neutral"} icon={clinical ? "heart" : "user"}>{ROLE_LABEL[x.role]}</Pill></td>
+                  <td className="phs-small" style={{ color: "var(--body)" }}>{ROLE_SCOPE[x.role]}</td>
+                  <td>{p.id === x.id ? <span className="phs-note">Previewing</span> : <Button size="sm" variant="ghost" onClick={() => dispatch(act.setPersona(x.id))}>Preview</Button>}</td>
+                </tr>
+              );
+            })}
+            <tr>
+              <td>
+                <span style={{ fontSize: 12.5, color: "var(--ink)" }}>Participant portal preview</span>
+                <div className="phs-note">{portalPerson ? `${personName(portalPerson)}, fictional participant` : "Fictional participant"}</div>
+              </td>
+              <td><Pill tone="neutral" icon="user">Participant</Pill></td>
+              <td className="phs-small" style={{ color: "var(--body)" }}>{ROLE_SCOPE.participant}</td>
+              <td><Button size="sm" variant="ghost" onClick={() => nav.openPortal()}>Open</Button></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </Card>
   );
 }
 

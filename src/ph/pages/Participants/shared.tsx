@@ -22,6 +22,13 @@ export function useMeasure<T extends HTMLElement>(): [(el: T | null) => void, nu
     ro.observe(el);
     return () => ro.disconnect();
   }, [el]);
+  // Also re-read after each render, so a parent-driven change (such as the device toggle) applies at
+  // once even where ResizeObserver callbacks are deferred. Same value means no extra render.
+  useLayoutEffect(() => {
+    if (!el) return;
+    const w = Math.round(el.getBoundingClientRect().width);
+    setWidth((cur) => (cur === w ? cur : w));
+  });
   return [setEl, width];
 }
 

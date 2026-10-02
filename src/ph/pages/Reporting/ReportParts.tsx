@@ -43,14 +43,42 @@ export function BreakdownList({ b, pal = THEME_PAL, dense }: { b: MetricBreakdow
   );
 }
 
-/** A breakdown block with its title, denominator and note. */
+/** Ordered categories (the age profile) as columns. A suppressed column has no height and no count. */
+export function BreakdownColumns({ b, pal = THEME_PAL, height = 118 }: { b: MetricBreakdown; pal?: Pal; height?: number }) {
+  const max = Math.max(1, ...b.cells.map((c) => (c.suppressed || c.count === null ? 0 : c.count)));
+  return (
+    <div style={{ display: "flex", alignItems: "flex-end", gap: 10, height: height + 40 }}>
+      {b.cells.map((c) => {
+        const hidden = c.suppressed || c.count === null;
+        return (
+          <div key={c.label} style={{ flex: "1 1 0", minWidth: 0, display: "flex", flexDirection: "column", alignItems: "stretch", justifyContent: "flex-end", height: "100%" }}>
+            <div style={{ textAlign: "center", fontSize: hidden ? 11 : 12.5, fontWeight: hidden ? 400 : 600, fontStyle: hidden ? "italic" : "normal", color: hidden ? pal.dim : pal.ink, marginBottom: 4, lineHeight: 1.25 }}>
+              {hidden || c.count === null ? "Suppressed" : (
+                <span className="ph-num">{c.count}<span style={{ display: "block", color: pal.faint, fontWeight: 400, fontSize: 10.5 }}>{rate(c.count, b.denominator)}</span></span>
+              )}
+            </div>
+            {hidden || c.count === null
+              ? <div className="phr-bar-supp" aria-hidden="true" style={{ height: 6, borderRadius: 4, border: `1px dashed ${pal.border}` }} />
+              : <div className="phr-bar-fill" aria-hidden="true" style={{ height: Math.max(3, (c.count / max) * height), borderRadius: "6px 6px 2px 2px", background: pal.fill }} />}
+            <div style={{ textAlign: "center", fontSize: 11.5, color: pal.body, marginTop: 6, whiteSpace: "nowrap" }}>{c.label}</div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/** A breakdown block with its title, n, denominator and note. The age profile renders as columns. */
 export function BreakdownBlock({ b, pal = THEME_PAL, dense }: { b: MetricBreakdown; pal?: Pal; dense?: boolean }) {
   const hiddenCount = b.cells.filter((c) => c.suppressed).length;
   return (
     <div className="phr-avoid" style={{ minWidth: 0 }}>
-      <div style={{ fontSize: dense ? 12.5 : 13, fontWeight: 600, color: pal.ink }}>{b.title}</div>
-      <div style={{ fontSize: 11.5, color: pal.dim, margin: "2px 0 10px", lineHeight: 1.4 }}>Denominator: {b.denominatorLabel}.</div>
-      <BreakdownList b={b} pal={pal} dense={dense} />
+      <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
+        <span style={{ flex: 1, minWidth: 0, fontSize: dense ? 12.5 : 13, fontWeight: 600, color: pal.ink }}>{b.id === "age" ? "Age profile" : b.title}</span>
+        <span className="ph-num" style={{ flex: "none", fontSize: 11, color: pal.faint }}>n = {b.denominator}</span>
+      </div>
+      <div style={{ fontSize: 11.5, color: pal.dim, margin: "2px 0 10px", lineHeight: 1.4 }}>{b.id === "age" ? `${b.title}. ` : ""}Denominator: {b.denominatorLabel}.</div>
+      {b.id === "age" ? <BreakdownColumns b={b} pal={pal} height={dense ? 92 : 118} /> : <BreakdownList b={b} pal={pal} dense={dense} />}
       <div style={{ fontSize: 11, color: pal.faint, marginTop: 8, lineHeight: 1.45 }}>
         {b.note}{hiddenCount ? " Suppressed cells protect groups smaller than the threshold; where needed another cell is also suppressed so totals cannot reveal them." : ""}
       </div>

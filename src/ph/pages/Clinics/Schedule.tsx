@@ -11,7 +11,7 @@ import { useNav } from "../../nav-context";
 import { Button, Card, CardHeader, Chip, DataTable, EmptyState, Icon, PageHeader, Pill, ProgressBar, Segmented } from "../../ui";
 import type { Column } from "../../ui";
 import { allStaffConflicts, placeLabel, roomClashes, sessionDays, sessionsOnDay, sortSessions, staffConflicts, windowWeeks } from "./selectors";
-import { ProgTag, SlotLegend } from "./shared";
+import { ProgTag, useWidth } from "./shared";
 import { SessionDrawer } from "./SessionPanel";
 
 type View = "week" | "day" | "list" | "rooms";
@@ -99,7 +99,7 @@ function WeekView({ date, selected, onDate, onSelect }: { date: LocalDate; selec
           );
         })}
       </div>
-      <div style={{ marginTop: 14 }}><SlotLegend /></div>
+      <div className="ph-faint" style={{ fontSize: 11.5, marginTop: 12 }}>Each bar shows booked slots out of the slots the session's own clinic day allows. A warning icon marks a staff or room overlap.</div>
     </Card>
   );
 }
@@ -132,6 +132,7 @@ function SessionBlock({ session: s, selected, onSelect }: { session: ClinicSessi
 function DayView({ date, selected, onDate, onSelect }: { date: LocalDate; selected: string; onDate: (d: LocalDate) => void; onSelect: (id: string) => void }) {
   const state = usePhState();
   const nav = useNav();
+  const [gridRef, gridW] = useWidth<HTMLDivElement>();
   const t = today(state);
   const days = sessionDays(state);
   const ss = sessionsOnDay(state, date);
@@ -167,14 +168,16 @@ function DayView({ date, selected, onDate, onSelect }: { date: LocalDate; select
   const rows = Math.ceil((dayEnd - dayStart) / 15);
   const rowOf = (hhmm: string) => Math.floor((hhmmToMinutes(hhmm) - dayStart) / 15) + 2; // row 1 is the header
   const spanOf = (a: string, b: string) => Math.max(1, Math.round((hhmmToMinutes(b) - hhmmToMinutes(a)) / 15));
+  /* Narrow columns show the given name and family initial; the full name is in the tooltip. */
+  const shortNames = gridW > 0 && (gridW - 56) / ss.length < 210;
   return (
     <Card>
       {header}
       <div className="ph-faint" style={{ fontSize: 12, marginBottom: 10 }}>
         {plural(ds.sessions, "clinic")}: {ds.booked} of {ds.capacity} slots booked, {ds.available} available. Rows are 15 minutes. Select a booked slot to open the appointment, or a column heading to open the session.
       </div>
-      <div className="clx-dayscroll">
-        <div className="clx-daygrid" style={{ "--cols": ss.length, gridTemplateRows: `auto repeat(${rows}, 30px)` } as CSSProperties} role="grid" aria-label={`Clinic slots on ${fmtDate(date)}`}>
+      <div className="clx-dayscroll" ref={gridRef}>
+        <div className="clx-daygrid" style={{ "--cols": ss.length, gridTemplateRows: `auto repeat(${rows}, 30px)` } as CSSProperties} aria-label={`Clinic slots on ${fmtDate(date)}`}>
           <div style={{ gridColumn: 1, gridRow: 1 }} />
           {ss.map((s, ci) => {
             const st = sessionStats(state, s.id);
@@ -197,6 +200,7 @@ function DayView({ date, selected, onDate, onSelect }: { date: LocalDate; select
             for (const v of grid) {
               const b = v.booking;
               const who = v.person ? `${v.person.given} ${v.person.family}` : "";
+              const shown = v.person && shortNames ? `${v.person.given} ${v.person.family.charAt(0)}.` : who;
               const style: CSSProperties = { gridColumn: ci + 2, gridRow: `${rowOf(v.start)} / span ${spanOf(v.start, v.end)}` };
               if (b) {
                 const done = b.attendance === "completed";
@@ -205,7 +209,7 @@ function DayView({ date, selected, onDate, onSelect }: { date: LocalDate; select
                   <button key={s.id + v.start} type="button" className={"clx-dcell " + (done ? "done" : "booked") + (v.isPast ? " past" : "")} style={style}
                     onClick={() => nav.go({ page: "Clinics", tab: "appointments", params: { booking: b.id } })} title={`${v.start} to ${v.end}: ${who} (${b.id})`}>
                     <span className="ph-num" style={{ color: "var(--faint)", fontSize: 10.5 }}>{v.start}</span>
-                    <span className="ph-trunc" style={{ flex: 1 }}>{who}</span>
+                    <span className="ph-trunc" style={{ flex: 1 }}>{shown}</span>
                     {done ? <Icon name="check" size={12} style={{ color: "var(--ok)" }} /> : inn ? <Icon name="user" size={12} style={{ color: "var(--accent)" }} /> : null}
                   </button>,
                 );

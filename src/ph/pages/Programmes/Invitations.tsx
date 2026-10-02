@@ -309,14 +309,20 @@ export default function Invitations() {
                 linkText={`Your link: portal.precisionhealth.example.invalid/i/${prog.inviteCode}`} />
             </Card>
             <Card>
-              <CardHeader title="How invitations work" />
-              <ul style={{ margin: 0, paddingLeft: 18, fontSize: 12, color: "var(--body)", lineHeight: 1.6, display: "flex", flexDirection: "column", gap: 4 }}>
+              <CardHeader title="Access restrictions" />
+              <div style={{ fontSize: 12.5, color: "var(--ink)", lineHeight: 1.5 }}>Only participants enrolled in {prog.name} can see and book its sessions.</div>
+              <div className="prg-tags" style={{ marginTop: 10 }}>
+                <span className="prg-tag prg-tag-on">Programme-scoped invitations</span>
+                <span className="prg-tag">Expiring codes and links</span>
+                <span className="prg-tag">Changes recorded in Activity</span>
+              </div>
+              <ul style={{ margin: "12px 0 0", paddingLeft: 18, fontSize: 12, color: "var(--body)", lineHeight: 1.6, display: "flex", flexDirection: "column", gap: 4 }}>
                 <li>Codes and links are created and revoked centrally by administrators.</li>
                 <li>A code lets an eligible person start onboarding. Completing an invitation never reveals the employer's participant list.</li>
                 <li>Drafts need approval by programme oversight, who confirms every recipient before a simulated send.</li>
                 <li>Messages carry logistics only, never health information.</li>
               </ul>
-              <div style={{ marginTop: 10 }}><Note tone="neutral" icon="info">No message leaves this demo. Every send is recorded as simulated.</Note></div>
+              <div style={{ marginTop: 10 }}><Note tone="neutral" icon="info">A frontend simulation, not authentication. No message leaves this demo; every send is recorded as simulated.</Note></div>
             </Card>
           </div>
         </div>

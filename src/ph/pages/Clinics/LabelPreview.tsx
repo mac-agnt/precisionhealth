@@ -112,6 +112,12 @@ function RequestSheet({ d }: { d: LabelData }) {
   );
 }
 
+/** The specimen label alone, for the workspace side panel. */
+export function SpecimenLabelPreview({ row, episode }: { row: ApptRow; episode: Episode | null }) {
+  const state = usePhState();
+  return <SpecimenLabel d={labelData(state, row, episode)} />;
+}
+
 export function LabelPreviewModal({ open, onClose, row, episode, onMarkChecked, marked }: {
   open: boolean; onClose: () => void; row: ApptRow; episode: Episode | null; onMarkChecked?: () => void; marked?: boolean;
 }) {
@@ -122,7 +128,7 @@ export function LabelPreviewModal({ open, onClose, row, episode, onMarkChecked, 
     <>
       <ClxModal open={open} onClose={onClose} width={760} title="Specimen label and laboratory request"
         footer={<>
-          <Button icon="print" onClick={() => window.print()} title="Opens the browser print dialog for a local preview. Nothing is sent to a laboratory.">Print preview</Button>
+          <Button icon="print" onClick={() => window.print()} title="Opens the browser print dialog for a local preview. Nothing is sent to a laboratory.">Print label and request</Button>
           {onMarkChecked && !marked ? <Button variant="primary" icon="check" onClick={onMarkChecked}>Mark labels checked</Button> : null}
           <Button variant="ghost" onClick={onClose}>Close</Button>
         </>}>

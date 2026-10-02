@@ -52,7 +52,7 @@ function buildChecklist(b: Bundle, mode: "review" | "correction", canAct: boolea
         disabled={!it.done && !adviceText} reason="Write or insert advice first." />);
     } else if (it.key === "preview") {
       rows.push(<CheckRow key={it.key} done={it.done} label={it.label} onToggle={canAct ? () => dispatch(act.toggleReviewCheck(id, "preview")) : undefined}
-        disabled={!it.done && !previewSeen} reason="Open the participant preview first." />);
+        disabled={!it.done && !previewSeen} reason="Preview the participant report first." />);
     } else {
       rows.push(<CheckRow key={it.key} done={it.done} label={it.label} note={it.note} />);
     }
@@ -88,19 +88,19 @@ export function ReleaseCard({ b, mode, canAct, previewSeen }: { b: Bundle; mode:
           <Button variant="primary" icon="send" disabled={!ready}
             title={ready ? undefined : open.length ? "Open items: " + open.map((x) => x.label).join("; ") : "Not ready for release"}
             onClick={() => dispatch(mode === "review" ? act.releaseReport(id) : act.releaseCorrection(id))}>
-            {mode === "review" ? `Release report v${nextVersion}` : `Release corrected v${nextVersion}`}
+            {mode === "review" ? `Finalise and release v${nextVersion}` : `Release corrected v${nextVersion}`}
           </Button>
           {!ready ? <div className="phr-sub">{stateOk ? `Complete the open items first: ${open.map((x) => x.label.toLowerCase()).join("; ")}.` : mode === "review" ? "Only an episode that is ready for review can be released." : "Start a correction with a reason first."}</div> : null}
           {mode === "review" ? (
             <div style={{ borderTop: "1px solid var(--border)", paddingTop: 10 }}>
-              <Button icon="check" disabled={!routineOk} onClick={() => dispatch(act.releaseRoutine(id))}
+              <Button icon={routineOk ? "check" : "lock"} disabled={!routineOk} onClick={() => dispatch(act.releaseRoutine(id))}
                 title={routineOk ? "Releases this one episode. Never in bulk." : routineReasons.join(" ")}>
-                Routine release, one click
+                {routineOk ? "Routine release, one click" : "Routine shortcut unavailable"}
               </Button>
               <div className="phr-sub" style={{ marginTop: 5 }}>
                 {routineOk
                   ? "Available: every expected result is in, nothing is flagged and nothing is on hold. Uses your advice, or the approved routine wording if none is written. One episode per click, never in bulk."
-                  : `Not available. ${routineReasons.join(" ")}`}
+                  : `${b.flags.length ? "Flagged findings require individual review. " : ""}${routineReasons.join(" ")}`}
               </div>
               {urgent ? <div className="phr-sub" style={{ marginTop: 5, color: "var(--warn)" }}>A clinician-assigned urgent follow-up is recorded on this episode ({b.episode.followUpIds.join(", ")}). Check its outcome before choosing the release route.</div> : null}
             </div>
@@ -236,7 +236,7 @@ function AdviceEditor({ b, editable }: { b: Bundle; editable: boolean }) {
 export function AdviceCard({ b, editable, mode }: { b: Bundle; editable: boolean; mode: "review" | "correction" }) {
   return (
     <Card pad="sm">
-      <SecTitle right={<span className="phr-sub">{mode === "correction" ? "Starts from the released advice" : "Clinician-owned"}</span>}>Advice</SecTitle>
+      <SecTitle right={<>{b.draft ? <Pill tone="info" icon="edit">Draft</Pill> : null}<span className="phr-sub">{mode === "correction" ? "Starts from the released advice" : "Clinician-owned"}</span></>}>Participant advice</SecTitle>
       <AdviceEditor key={b.episode.id + ":" + mode} b={b} editable={editable} />
     </Card>
   );
@@ -250,7 +250,8 @@ export function PreviewCard({ b, onOpen, seen, mode }: { b: Bundle; onOpen: () =
   const visible = b.episode.reportState === "released" && !b.draft;
   return (
     <Card pad="sm">
-      <SecTitle right={<Button size="sm" icon="eye" onClick={onOpen}>Open preview</Button>}>Participant report</SecTitle>
+      <SecTitle>Participant report</SecTitle>
+      <div style={{ marginBottom: 8 }}><Button size="sm" icon="eye" onClick={onOpen}>Preview participant report</Button></div>
       <ul style={{ margin: 0, paddingLeft: 18, fontSize: 12, lineHeight: 1.6, color: "var(--body)" }}>
         <li>Advice page: {advice.trim() ? "written" : "not written yet"}</li>
         <li>Your answers: questionnaire, self-reported</li>

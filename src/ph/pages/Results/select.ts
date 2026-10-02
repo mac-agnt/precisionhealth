@@ -17,23 +17,30 @@ export function rowIndex(state: PhState): Map<Id, ImportRow> {
 
 /* ---- participant check: the date of birth on the row against the booking record ---- */
 export type CheckStatus = "match" | "mismatch" | "missing" | "unknown";
-export interface ParticipantCheck { status: CheckStatus; fileDob: string | null; recordDob: string | null; episode: Episode | null; person: Person | null }
-/** Exact specimen lookup only. A name is never used to find a person. */
+export interface ParticipantCheck { status: CheckStatus; fileDob: string | null; recordDob: string | null; episode: Episode | null; person: Person | null; nameMatch: boolean | null }
+/** Exact specimen lookup only. A name is never used to find a person; it is only cross-checked. */
 export function participantCheck(state: PhState, row: ImportRow): ParticipantCheck {
   const spec = specimenIndex(state).get(row.specimenKey);
   const I = ix(state);
   const episode = spec ? I.episodeById.get(spec.episodeId) || null : null;
   const person = episode ? I.personById.get(episode.personId) || null : null;
-  if (!person) return { status: "unknown", fileDob: row.dobInFile, recordDob: null, episode: null, person: null };
-  if (!row.dobInFile) return { status: "missing", fileDob: null, recordDob: person.dob, episode, person };
-  return { status: row.dobInFile === person.dob ? "match" : "mismatch", fileDob: row.dobInFile, recordDob: person.dob, episode, person };
+  if (!person) return { status: "unknown", fileDob: row.dobInFile, recordDob: null, episode: null, person: null, nameMatch: null };
+  const nameMatch = row.nameInFile.trim().toLowerCase() === `${person.family}, ${person.given[0]}`.toLowerCase();
+  if (!row.dobInFile) return { status: "missing", fileDob: null, recordDob: person.dob, episode, person, nameMatch };
+  return { status: row.dobInFile === person.dob ? "match" : "mismatch", fileDob: row.dobInFile, recordDob: person.dob, episode, person, nameMatch };
 }
 export const CHECK_LABEL: Record<CheckStatus, string> = {
-  match: "Date of birth matches",
-  mismatch: "Date of birth mismatch",
-  missing: "No date of birth in file",
-  unknown: "No collection record",
+  match: "DOB and name match",
+  mismatch: "Date of birth differs",
+  missing: "Identity not verified",
+  unknown: "Specimen not recognised",
 };
+/** Wording in the style of the supplier concept: date of birth first, name as a cross-check only. */
+export function checkLabel(c: ParticipantCheck): string {
+  if (c.status === "match") return c.nameMatch ? "DOB and name match" : "DOB matches, name differs";
+  if (c.status === "missing") return "Identity not verified: no date of birth";
+  return CHECK_LABEL[c.status];
+}
 
 /* ---- validation summary for one batch, derived from its rows ---- */
 export interface Validation {

@@ -28,6 +28,19 @@ export function rolesLabelFor(perm: Perm, word = "or"): string {
 }
 export const PERM_TOTAL = PERM_DEFS.length;
 
+/** What each role is scoped to, in plain words. Kept consistent with PERM_DEFS and the store's
+    clinical visibility rule (reviewers and nursing leads see all sessions, capture roles their own). */
+export const ROLE_SCOPE: Record<RoleKey | "participant", string> = {
+  clinical_review: "Clinical values for all sessions. Review, release and correction of individual reports.",
+  nursing_lead: "Clinical values for all sessions. Capture, follow-up outcomes and bookings.",
+  clinical_capture: "Clinical values for assigned sessions only. Capture at appointments.",
+  operations: "Logistics, bookings, invitations and import counts. Minimal identity, no clinical values.",
+  programme_oversight: "Programmes, capacity, approvals, employer reporting and settings. No clinical values.",
+  programme_reporting: "Aggregate employer reporting. No clinical values.",
+  wellness_support: "Clinic logistics and minimal identity. No clinical values.",
+  participant: "Own released reports only, in the portal preview.",
+};
+
 /* ---- clinic assignments, derived from sessions so a schedule change shows everywhere ---- */
 export interface StaffSession { session: ClinicSession; as: "nurse" | "support" }
 export function staffSessions(s: PhState, staffId: StaffId): StaffSession[] {

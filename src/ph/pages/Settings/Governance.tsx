@@ -5,13 +5,13 @@
    versions show here straight away. */
 import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
-import { ANALYTES, BP_REVIEW_LIMIT, GOVERNANCE_STATUS_LABEL, LIMITS_DISCLAIMER, PLANNING_ASSUMPTIONS, ROLE_LABEL, act, fmtDate } from "../../model";
+import { ANALYTES, BP_REVIEW_LIMIT, GOVERNANCE_STATUS_LABEL, LIMITS_DISCLAIMER, PLANNING_ASSUMPTIONS, ROLE_LABEL, act, activityFeed, fmtDate } from "../../model";
 import type { FormTemplate, FormTemplateVersion, GovernanceItem, PhState, Staff } from "../../model";
 import { dispatch, usePhState } from "../../store";
 import { useNav } from "../../nav-context";
 import { Card, CardHeader, Chip, DataTable, EntityLink, Icon, Pill, Select, Split } from "../../ui";
 import type { Column, GlyphName, Tone } from "../../ui";
-import { SettingsHeader, YesNo, rolePerms, useEditBlock } from "./common";
+import { ActivityList, SettingsHeader, YesNo, rolePerms, useEditBlock } from "./common";
 
 type GStatus = GovernanceItem["status"];
 /* Never green: none of these states is a pass. */
@@ -127,6 +127,15 @@ export default function Governance() {
                 </ul>
               </Card>
               <Card>
+                <CardHeader
+                  title="Recent audit events"
+                  sub="The latest entries in the shared, append-only activity history, filtered for your role."
+                  right={<button type="button" className="ph-link" style={{ fontSize: 12 }} onClick={() => nav.go({ page: "Activity", tab: "everything" })}>Open Activity</button>}
+                />
+                <ActivityList items={activityFeed(s)} limit={5} empty="No events visible to your role." />
+                <div className="phs-note" style={{ marginTop: 10 }}>Clinical detail, including values, is shown only to clinical roles. Other roles see a neutral summary or nothing.</div>
+              </Card>
+              <Card>
                 <CardHeader title="Planning assumptions, to confirm" sub="Provisional sizing from the supplier brief. These are not executive KPIs." />
                 <ul className="phs-list">
                   {PLANNING_ASSUMPTIONS.map((a) => (
@@ -194,8 +203,12 @@ function RetentionNote() {
 }
 
 /* ---- access-review register (sample), derived from the role matrix and current teams ---- */
-const ACCESS_CHECKS: Array<{ key: string; perm: "clinical.view" | "imports.view" | "clinical.review" | "settings.edit"; label: string; title: string }> = [
-  { key: "clin", perm: "clinical.view", label: "Clinical values", title: "View clinical values, results and reports" },
+/** Which sessions' clinical values a role sees, mirroring the store's visibility rule. */
+function clinicalScope(role: Staff["role"]): string {
+  if (!rolePerms(role).has("clinical.view")) return "None, counts only";
+  return role === "clinical_review" || role === "nursing_lead" ? "All sessions" : "Assigned sessions only";
+}
+const ACCESS_CHECKS: Array<{ key: string; perm: "imports.view" | "clinical.review" | "settings.edit"; label: string; title: string }> = [
   { key: "imp", perm: "imports.view", label: "Imports", title: "View import batches and counts" },
   { key: "rel", perm: "clinical.review", label: "Release", title: "Review, release and correct individual reports" },
   { key: "set", perm: "settings.edit", label: "Settings", title: "Change settings and AI controls" },
@@ -206,6 +219,7 @@ function AccessRegister({ state }: { state: PhState }) {
     { key: "who", header: "Profile", nowrap: false, cell: (x) => <><EntityLink kind="staff" id={x.id}>{x.name}</EntityLink><div className="phs-note">{x.title}</div></> },
     { key: "role", header: "Role", nowrap: false, cell: (x) => ROLE_LABEL[x.role] },
     { key: "team", header: "Team", nowrap: false, cell: (x) => teamName(x) },
+    { key: "scope", header: <span title="Whose clinical values this role can see">Clinical scope</span>, nowrap: false, cell: (x) => <span className={rolePerms(x.role).has("clinical.view") ? undefined : "ph-faint"}>{clinicalScope(x.role)}</span> },
     ...ACCESS_CHECKS.map((c): Column<Staff> => ({ key: c.key, header: <span title={c.title}>{c.label}</span>, cell: (x) => <YesNo yes={rolePerms(x.role).has(c.perm)} /> })),
   ];
   return (
@@ -231,6 +245,7 @@ function AccessRegister({ state }: { state: PhState }) {
                     <span className="phs-note">{ROLE_LABEL[x.role]}, {teamName(x)}</span>
                   </div>
                   <div className="ph-wrap" style={{ gap: "4px 14px", marginTop: 5 }}>
+                    <span className="phs-small"><span className="ph-faint">Clinical scope </span>{clinicalScope(x.role)}</span>
                     {ACCESS_CHECKS.map((c) => <span key={c.key} className="phs-small" title={c.title}><span className="ph-faint">{c.label} </span><YesNo yes={rolePerms(x.role).has(c.perm)} /></span>)}
                   </div>
                 </li>
@@ -301,7 +316,29 @@ function FormHistory({ state }: { state: PhState }) {
     { key: "note", header: "Note", nowrap: false, cell: (r) => <span className="ph-dim">{r.v.note}</span> },
   ];
   const content: ReactNode = (
-    <DataTable rows={rows} columns={cols} rowKey={(r) => `${r.t.id}@${r.v.version}`} pageSize={12} caption="Form-version history" footerNote="template versions. Historical episodes keep the version they were captured with." />
+    <div className="phs-cq">
+      <div className="phs-wide-only">
+        <DataTable rows={rows} columns={cols} rowKey={(r) => `${r.t.id}@${r.v.version}`} pageSize={12} caption="Form-version history" footerNote="template versions. Historical episodes keep the version they were captured with." />
+      </div>
+      <div className="phs-narrow-only ph-pad" style={{ paddingTop: 6 }}>
+        <ul className="phs-list">
+          {rows.map((r) => {
+            const m = VERSION_STATUS[r.v.status];
+            return (
+              <li key={`${r.t.id}@${r.v.version}`}>
+                <div className="ph-row-flex" style={{ gap: 8, alignItems: "flex-start" }}>
+                  <span className="ph-grow" style={{ fontSize: 13 }}><EntityLink kind="template" id={r.t.id}>{r.t.name}</EntityLink> <span className="ph-num ph-dim">v{r.v.version}{r.t.currentVersion === r.v.version ? ", current" : ""}</span></span>
+                  <Pill tone={m.tone} icon={m.icon}>{m.label}</Pill>
+                </div>
+                <div className="phs-note" style={{ marginTop: 3 }}>{r.v.blocks.length} blocks. Created {fmtDate(r.v.createdAt)} by {who(r.v.createdBy)}. {r.v.publishedAt ? `Published ${fmtDate(r.v.publishedAt)}.` : "Not published."}</div>
+                <div className="phs-small ph-dim" style={{ marginTop: 3 }}>{r.v.note}</div>
+              </li>
+            );
+          })}
+        </ul>
+        <div className="phs-note" style={{ marginTop: 8 }}>{rows.length} template versions. Historical episodes keep the version they were captured with.</div>
+      </div>
+    </div>
   );
   return (
     <div id="phs-forms" style={{ scrollMarginTop: 12 }}>

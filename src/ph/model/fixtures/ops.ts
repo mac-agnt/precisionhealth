@@ -228,6 +228,17 @@ export function buildOps(plan: RosterPlan, clin: ClinicalBuild): OpsBuild {
   push("2026-10-05T05:41:00.000Z", agent("quality", "Data Quality"), "agent.flagged", "Data Quality flagged a source-unit discrepancy on PH-E-0104 (LDL reported in mg/dL, template expects mmol/L).",
     { entity: ref("episode", "PH-E-0104"), restricted: true, publicSummary: "Data Quality raised an item on a clinical episode", simulated: true });
 
+  // Two to four seeded actions per agent, each linked to the record behind it.
+  push("2026-10-05T05:34:00.000Z", agent("lab", "Lab Reconciliation"), "agent.explained", `Lab Reconciliation explained the ${quar.length} validation exceptions in ${BASELINE_BATCH_ID}: none was fuzzy-matched, and each needs a person to confirm two identifiers.`,
+    { entity: ref("batch", BASELINE_BATCH_ID), integrationId: "eurofins", storyId: "ST-01", simulated: true });
+  push("2026-10-02T14:30:00.000Z", agent("drafting", "Clinical Drafting"), "agent.prepared", "Clinical Drafting loaded 6 approved sample advice wordings for drafting previews. Demo content, no model connected.", { simulated: true });
+  push("2026-10-05T05:45:00.000Z", agent("drafting", "Clinical Drafting"), "agent.declined", "Clinical Drafting did not draft advice for PH-E-0201: a Data Quality item is open and a clinician must review it first.",
+    { entity: ref("episode", "PH-E-0201"), restricted: true, publicSummary: "Clinical Drafting recorded a note on a clinical episode", simulated: true });
+  push("2026-10-05T06:25:00.000Z", agent("booking", "Booking Coordinator"), "agent.flagged", "Booking Coordinator found 5 IBM invitees with an in-progress questionnaire. They cannot reserve a confirmed slot until it is complete.",
+    { entity: ref("invitation", "INV-IBM-01"), programmeId: "PRG-IBM-26", storyId: "ST-03", simulated: true });
+  push("2026-10-02T15:13:00.000Z", agent("reporting", "Programme Reporting"), "agent.flagged", "Programme Reporting suppressed the Site B, age 55+ group (6 participants) in the ER-SISK-01 snapshot. Complementary suppression applied.",
+    { entity: ref("employer_report", "ER-SISK-01"), programmeId: "PRG-SISK-26", storyId: "ST-06", simulated: true });
+
   push("2026-10-04T08:00:00.000Z", system("Reminder job (simulated)"), "reminder.ran", "24-hour reminder job ran for today's clinics: 45 logical reminders scheduled.", { integrationId: "esendex", simulated: true });
   push("2026-10-04T08:15:00.000Z", system("Esendex delivery (simulated)"), "reminder.failed", "Reminder delivery failed for 2 of 45 scheduled logical reminders.", { integrationId: "esendex", storyId: "ST-05", simulated: true });
   push("2026-10-05T06:30:00.000Z", agent("watchdog", "Ops Watchdog"), "agent.task", "Ops Watchdog opened a review task for Brenda: 2 failed reminders, due 08:45.", { storyId: "ST-05", simulated: true });

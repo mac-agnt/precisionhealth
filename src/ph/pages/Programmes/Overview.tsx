@@ -11,7 +11,7 @@ import { useNav } from "../../nav-context";
 import { usePhState } from "../../store";
 import { Button, Card, CardHeader, DemoTag, EntityLink, Icon, Kpi, KpiStrip, PageHeader, Pill, ProgressBar, Segmented, Stacked } from "../../ui";
 import { ClinicLine, StaffLine, Stat, WindowBar } from "./common";
-import { DRAFT_STATUS, ownersOf, programmeRows, reportMilestoneJobs, shortSite, upcomingSessions } from "./model";
+import { DRAFT_STATUS, ownersOf, programmeRows, programmeSessions, reportMilestoneJobs, shortSite, upcomingSessions } from "./model";
 import type { ProgrammeRow } from "./model";
 import { workflowSegments } from "./palette";
 import { WeeklyProgress } from "./Weekly";
@@ -184,6 +184,7 @@ export default function Overview() {
   const wp = ix(s).programmeById.get(weeksFor)!;
   const wRow = rows.find((r) => r.p.id === weeksFor);
   const weeks = wRow?.win.weeks || 0;
+  const slotsEach = programmeSessions(s, weeksFor)[0]?.slots || 0;
   const bookedPeople = t.invited - t.notStarted - t.drafts;
   return (
     <div className="ph-page prg-page">
@@ -215,7 +216,7 @@ export default function Overview() {
             <Card>
               <CardHeader
                 title={`${wp.name}: ${WORDS[weeks] || weeks}-week progress`}
-                sub={`Window ${wRow?.win.rangeLabel}. ${wRow?.clinics.total} clinics of 25 slots. ${wRow?.win.label}.`}
+                sub={`Window ${wRow?.win.rangeLabel}. ${wRow?.clinics.total} clinics of ${slotsEach} slots. ${wRow?.win.label}.`}
                 right={<Segmented<ProgrammeId> label="Programme" value={weeksFor} onChange={setWeeksFor}
                   options={PROGRAMME_ORDER.map((id) => ({ id, label: ix(s).programmeById.get(id)?.code || id }))} />}
               />

@@ -29,3 +29,18 @@ export function Note({ children, icon = "info" }: { children: ReactNode; icon?: 
 
 /** Visually hidden caption for tables. */
 export const srOnly = { position: "absolute" as const, width: 1, height: 1, overflow: "hidden" as const, clip: "rect(0 0 0 0)" };
+
+/** The employer-safe output promise, stated where reports are built and exported. */
+export function EmployerSafeNote() {
+  return (
+    <div className="ph-card-flat" role="note" style={{ padding: "12px 14px", background: "var(--accent-faint)", borderColor: "var(--accent-line)" }}>
+      <div className="ph-row-flex" style={{ gap: 8, fontSize: 12.5, fontWeight: 600, color: "var(--ink)" }}>
+        <Icon name="shield" size={14} style={{ color: "var(--accent)" }} />
+        Employer-safe output only
+      </div>
+      <div style={{ fontSize: 12, color: "var(--body)", lineHeight: 1.5, marginTop: 4 }}>
+        No personal results and no employee-level drill-through. Small cells and revealing comparisons are suppressed.
+      </div>
+    </div>
+  );
+}
