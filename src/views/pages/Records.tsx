@@ -11,11 +11,7 @@ export default function Records({ v }: Props) {
           <>
             <div style={{"position":"relative"}} />
             <div style={{"position":"relative","display":"flex","flexDirection":"column","alignItems":"center","textAlign":"center","padding":"64px 0 52px"}}>
-              <button className={cx("ix12", "ixo")} onClick={v.rec?.openNew} title="New record" style={{"position":"absolute","right":"0","top":"20px","width":"40px","height":"40px","border":"1px solid var(--border)","borderRadius":"var(--r-ctl,14px)","background":"var(--surface)","color":"var(--ink)","cursor":"pointer","display":"flex","alignItems":"center","justifyContent":"center","backdropFilter":"blur(24px)","transition":"background .2s var(--ease),transform .2s var(--ease),border-color .2s var(--ease)"}}>
-                <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round">
-                  <path d="M12 5v14 M5 12h14" />
-                </svg>
-              </button>
+              
               <span style={{"display":"inline-flex","alignItems":"center","gap":"8px","height":"28px","padding":"0 14px","background":"var(--chip)","border":"1px solid var(--chip-border)","borderRadius":"var(--r-sm,10px)","backdropFilter":"blur(24px)","fontFamily":"var(--mono)","fontSize":"9.5px","letterSpacing":"0.14em","color":"var(--dim)"}}>
                 <span style={{"width":"5px","height":"5px","borderRadius":"2px","background":"var(--accent)"}} />
                 {txt(v.rec?.eyebrow)}

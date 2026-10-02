@@ -65,6 +65,10 @@ import {
   hexRGB,
   buildGraph
 } from "./data";
+import { phStore, dispatch as phDispatch } from "../ph/store";
+import { act as phAct, defaultTab, hashFor, navAttention } from "../ph/model";
+import { phContext, phOverrides, applyHash, phFileTree } from "./phBridge";
+import { answerQuery as phAnswer, agentReply as phAgentReply, agentSuggestions as phAgentSuggestions, toDublin as phToDublin } from "../ph/model";
 
 /* ── Locked layout ──────────────────────────────────────────────────────────
    These two rules hold for every client build, whatever data.js says:
@@ -86,7 +90,7 @@ const NAV = (() => {
 
 /* All state and behaviour for Pulse. renderVals() returns the flat object the views render from. */
 export default class PulseLogic extends DCLogic {
-  state = { w: typeof window === "undefined" ? 1440 : window.innerWidth, theme:"harbour", page:"Home", draft:"", query:"", thread:[], typed:0, paletteOpen:false, showNotifs:false, palScope:"All", palSel:0, palRecent:["Dunne & Sons Ltd","Credit Control"],
+  state = { w: typeof window === "undefined" ? 1440 : window.innerWidth, theme:"harbour", page:"Home", draft:"", query:"", thread:[], typed:0, paletteOpen:false, showNotifs:false, palScope:"All", palSel:0, palRecent:["Aisling Byrne","BATCH-20261002-01"],
             done:{}, resolved:{}, approved:{}, inboxFilter:"All", approvalFilter:"Awaiting you", open:null, range:"30d",
             workDoc:null, workDocTab:"work",
             queue:"mine", recordTab:"Overview", record:"person", hovered:null, hoverLabel:"", hoverHint:"", hoverTop:0,
@@ -101,7 +105,7 @@ export default class PulseLogic extends DCLogic {
             newRecOpen:false, newRecName:"", newRecTemplate:"Field sheet", newRecCat:"All",
             opsFilter:"all", opsOff:{}, opsOpen:null, opsScope:"week", opsDay:26, opsOrder:null, opsDrag:null,
             opsBuilderOpen:false, opsBuilderMode:"workflow", builderText:"", builderGenerated:false,
-            railOpen:true, barOpen:true, chatRailPinned:false, widgetEdit:false, widgets:["inbox","work","activity"],
+            railOpen: typeof window === "undefined" || window.innerWidth >= 1100, barOpen:true, chatRailPinned:false, widgetEdit:false, widgets:["clinics","imports","review","capacity","work"],
             kpiEdit:false, kpiKeys:["revenue","cash","overdue","margin","jobs"],
             aspect:"sales", filterMenuOpen:false, customFilter:"", extraFilters:[],
             workWidget:"queue", miniOpen:false, miniThread:[], miniDraft:"", miniTab:"chat", miniTone:"plain", miniWorkOpen:"tasks",
@@ -109,7 +113,8 @@ export default class PulseLogic extends DCLogic {
             builderOpen:false, builderMode:"new", trained:false, training:false, trainPhase:0,
             briefThread:[], briefDraft:"", briefPicks:{},
             agentSpec:{name:"", shape:"crown-pebble", tint:"#191c1f", persona:"", personality:"Straight-talking",
-                   answer:"Short answers", context:["Organisations","Tasks"], skills:["Search records","Summarise activity"], tasks:[]} };
+                   answer:"Short answers", context:["Organisations","Tasks"], skills:["Search records","Summarise activity"], tasks:[]},
+            phTab:{}, phParams:{}, portalOpen:false, density:"comfortable", reduceMotion:false };
 
   /* One event per stream on its own cadence, so the three columns never move in
      lockstep. A hovered column and a paused view are both simply skipped. */
@@ -173,6 +178,7 @@ export default class PulseLogic extends DCLogic {
     if (!words.length) return [];
     const hit = [];
     CLUSTERS.forEach((c, i) => {
+      if (this.phClinicalCluster(i)) return;
       const name = c[0].toLowerCase();
       if (words.some(w => name.includes(w) || w.includes(name.split(" ")[0]))) hit.push(i);
     });
@@ -895,7 +901,7 @@ export default class PulseLogic extends DCLogic {
       ctx.globalAlpha = a * 0.92;
       ctx.textAlign = right ? "left" : "right";
       ctx.fillStyle = dark ? "rgba(238,247,255,.94)" : "rgba(20,22,28,.92)";
-      ctx.fillText(CLUSTERS[ci][0].toUpperCase(), lx + (right ? 29 : -29), ly);
+      ctx.fillText(this.phClusterLabel(ci), lx + (right ? 29 : -29), ly);
     }
     ctx.globalAlpha = 1;
     ctx.textAlign = "left";
@@ -972,11 +978,11 @@ export default class PulseLogic extends DCLogic {
   // character down and swings the new one up. Results are cached per stamp so
   // repeat renders inside one tick don't cancel a flip mid-air.
   buildFlipUnits(BODY, INK, LIME){
-    const now = new Date();
-    const DAY = ["SUN","MON","TUE","WED","THU","FRI","SAT"][now.getDay()];
-    const MON = ["JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC"][now.getMonth()];
-    const target = (DAY + String(now.getDate()).padStart(2,"0") + MON
-      + String(now.getHours()).padStart(2,"0") + String(now.getMinutes()).padStart(2,"0")).split("");
+    const dp = phToDublin(phStore.getState().clock.nowUtc);
+    const DAY = ["SUN","MON","TUE","WED","THU","FRI","SAT"][dp.dow];
+    const MON = ["JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC"][dp.m - 1];
+    const target = (DAY + String(dp.d).padStart(2,"0") + MON
+      + String(dp.h).padStart(2,"0") + String(dp.mi).padStart(2,"0")).split("");
     if (!this._flapMount) this._flapMount = Date.now();
     const el = Date.now() - this._flapMount;
     const settleAt = i => 200 + i * 75 + 200;
@@ -1119,11 +1125,11 @@ export default class PulseLogic extends DCLogic {
   systemPrompt(st){
     const s = st || this.state;
     if (s.sysPrompt !== undefined && s.sysPrompt !== null) return s.sysPrompt;
-    return "You are " + (s.agentSpec.name || "this agent") + " inside Pulse.\n"
+    return "You are " + (s.agentSpec.name || "this agent") + " inside Pulse for Precision Health.\n"
       + "Voice: " + s.agentSpec.personality.toLowerCase() + ". " + s.agentSpec.answer.toLowerCase() + ".\n"
-      + "You read the whole ontology through registered tools only, filtered by the grants of whoever is asking.\n"
-      + "This client says merchant, not organisation, and job, not task. Money is in euro.\n"
-      + "Never act on anything with an effect. Propose it and wait for a yes.";
+      + "You read the shared store through registered tools only, filtered by the role of whoever is asking.\n"
+      + "This client says participant, programme and episode. Money is in euro and times are Europe/Dublin.\n"
+      + "Never act on anything with an effect. Propose it and wait for a human yes. Demo content, no model connected.";
   }
   sendTune(){
     const text = (this.state.tuneDraft || "").trim();
@@ -1166,7 +1172,6 @@ export default class PulseLogic extends DCLogic {
     this.seedActivity();
     if (this.state.page === "Dashboard") this.startKpiCount();
     this._actTimer = setInterval(() => { if (this.state.page === "Activity") this.tickActivity(); }, 700);
-    this._clockTimer = setInterval(() => { if (this.state.page === "Home") this.forceUpdate(); }, 1000);
     this._flapBoot = setInterval(() => this.forceUpdate(), 70);
     setTimeout(() => clearInterval(this._flapBoot), 1500);
     // One frame driver, fed by rAF where it runs and by a timer where it does not
@@ -1197,7 +1202,17 @@ export default class PulseLogic extends DCLogic {
       this._startLoop(stale);
     }, 250);
     this._startLoop(true);
-    this._resize = () => this.setState({w: window.innerWidth});
+    // Precision Health: stay in step with the shared store, and make every screen linkable.
+    this._phUnsub = phStore.subscribe(() => this.forceUpdate());
+    this._hash = () => { if (!applyHash(this, window.location.hash)) this.phSyncHash(true); };
+    window.addEventListener("hashchange", this._hash);
+    window.addEventListener("popstate", this._hash);
+    this._hash();
+    // Tablet widths give the nav room by collapsing the rail once, as the window crosses below 1100px.
+    this._resize = () => this.setState(prev => {
+      const w = window.innerWidth;
+      return prev.railOpen && w < 1100 && prev.w >= 1100 ? {w, railOpen:false} : {w};
+    });
     window.addEventListener("resize", this._resize);
     this._key = (e) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k"){
@@ -1216,16 +1231,14 @@ export default class PulseLogic extends DCLogic {
     };
     window.addEventListener("paste", this._paste);
   }
-  componentWillUnmount(){ window.removeEventListener("paste", this._paste); window.removeEventListener("resize", this._resize); window.removeEventListener("keydown", this._key); clearInterval(this._t); clearInterval(this._clockTimer); clearInterval(this._flapBoot); cancelAnimationFrame(this._raf); clearInterval(this._fallback); clearInterval(this._actTimer); clearInterval(this._kpiTimer); }
+  componentWillUnmount(){ if (this._phUnsub) this._phUnsub(); window.removeEventListener("hashchange", this._hash); window.removeEventListener("popstate", this._hash); window.removeEventListener("paste", this._paste); window.removeEventListener("resize", this._resize); window.removeEventListener("keydown", this._key); clearInterval(this._t); clearInterval(this._clockTimer); clearInterval(this._flapBoot); cancelAnimationFrame(this._raf); clearInterval(this._fallback); clearInterval(this._actTimer); clearInterval(this._kpiTimer); }
 
   ask(q){
-    const a = pickAnswer(q);
-    const words = a.text.split(" ").length;
-    const thread = this.state.thread.concat([
-      {role:"user", text:q},
-      {role:"helios", full:a.text, words, tool:a.tool, effect:a.effect, cols:a.cols, rows:a.rows, actions:a.actions, confirm:a.confirm, confirmSummary:a.confirmSummary}
-    ]);
-    this.setState({thread, draft:"", query:"", paletteOpen:false, page:"Home", open:null});
+    // The reply is evaluated from the shared store at render time, so numbers stay current after any action.
+    const thread = this.state.thread.concat([{role:"user", text:q}, {role:"helios", q}]);
+    this.setState(prev => ({thread, draft:"", query:"", paletteOpen:false, page:"Home", open:null,
+      palRecent:[q].concat((prev.palRecent || []).filter(x => x !== q)).slice(0, 4)}));
+    this.phSyncHash(true);
   }
 
   hover(key, label, hint, e){
@@ -1247,15 +1260,99 @@ export default class PulseLogic extends DCLogic {
       if (!this._railLive){ this._railLive = true; setTimeout(() => this.setState({railThumbLive:true}), 60); }
     }
   }
-  componentDidUpdate(){ this.syncRailThumb(); }
+  componentDidUpdate(){ this.syncRailThumb(); this.phSyncHash(); }
 
-  go(page){
+  go(page){ this.phGo({page}); }
+
+  /* ---- Precision Health navigation: page, tab and deep-link params ---- */
+  tabFor(page){
+    const st = this.state;
+    if (page === "Records") return st.recSection || defaultTab("Records");
+    return (st.phTab && st.phTab[page]) || defaultTab(page);
+  }
+  phGo(t){ this.phApply(t, true); }
+  phApply(t, push){
+    const page = t.page, tab = t.tab || defaultTab(page);
     const order = NAV.filter(n => !n.divider).map(n => n.page).concat(["Settings"]);
     const from = order.indexOf(this.state.page), to = order.indexOf(page);
-    if (from > -1 && to > -1 && from !== to) this.setState(p => ({navDir: to > from ? 1 : -1, navSeq:(p.navSeq || 0) + 1}));
-    this.setState({page, open:null, showNotifs:false, filterMenuOpen:false});
-    if (page === "Dashboard") this.startKpiCount();
+    this.setState(prev => {
+      const patch = {page, open:null, showNotifs:false, filterMenuOpen:false, paletteOpen:false, phParams: t.params || {}};
+      if (from > -1 && to > -1 && from !== to){ patch.navDir = to > from ? 1 : -1; patch.navSeq = (prev.navSeq || 0) + 1; }
+      if (page === "Records") patch.recSection = tab; else patch.phTab = Object.assign({}, prev.phTab, {[page]: tab});
+      if (page === "Agents" && t.params && t.params.agent) patch.agentId = t.params.agent;
+      if (t.params && t.params.portal === "1" && !prev.portalOpen) patch.portalOpen = true;
+      return patch;
+    });
+    if (t.params && t.params.portal === "1") this.openPortal(t.params.person);
+    if (push && typeof window !== "undefined"){
+      try { window.history.pushState(null, "", hashFor({page, tab, params: t.params})); } catch (e) { /* history can be blocked in frames */ }
+    }
+    requestAnimationFrame(() => { const el = document.querySelector("[data-scroll-main]"); if (el) el.scrollTop = 0; });
   }
+  phSetTab(tab){ this.phGo({page: this.state.page, tab}); }
+  phSetParams(p){
+    this.setState({phParams: p || {}});
+    try { window.history.replaceState(null, "", hashFor({page: this.state.page, tab: this.tabFor(this.state.page), params: p})); } catch (e) { /* ignore */ }
+  }
+  phSyncHash(force){
+    if (typeof window === "undefined") return;
+    const st = this.state;
+    const params = Object.assign({}, st.phParams || {});
+    if (st.portalOpen) params.portal = "1"; else delete params.portal;
+    const h = hashFor({page: st.page, tab: this.tabFor(st.page), params});
+    if (window.location.hash !== h && (force || this._hashReady)){
+      try { window.history.replaceState(null, "", h); } catch (e) { /* ignore */ }
+    }
+    this._hashReady = true;
+  }
+  phNavObject(){
+    const st = this.state, page = st.page;
+    return {
+      page, tab: this.tabFor(page), params: st.phParams || {},
+      go: (t) => this.phGo(t),
+      setTab: (tab) => this.phSetTab(tab),
+      setParams: (p) => this.phSetParams(p),
+      openPortal: (personId) => this.openPortal(personId),
+      shell: {
+        theme: st.theme,
+        setTheme: (id) => this.setState(p => (id === "light" ? {theme:"light", darkTheme:p.theme === "light" ? p.darkTheme : p.theme} : {theme:id, darkTheme:id})),
+        themes: THEMES.map(t => ({id:t.id, label:t.label, group:t.group, accent:t.accent})),
+        density: st.density || "comfortable",
+        setDensity: (d) => this.setState({density:d}),
+        reduceMotion: !!st.reduceMotion,
+        setReduceMotion: (on) => this.setState({reduceMotion:!!on}),
+        openBackgrounds: () => this.setState({bgGalleryOpen:true, bgSpot:null})
+      }
+    };
+  }
+  /* The participant portal is a separate preview. While it is open the demo acts as the participant. */
+  openPortal(personId){
+    if (this.state.portalOpen && !personId) return;
+    const cur = phStore.getState().session.personaId;
+    if (cur !== "participant") this._prevPersona = cur;
+    if (personId) phDispatch(phAct.setPortalPerson(personId), {silent:true});
+    phDispatch(phAct.setPersona("participant"), {silent:true});
+    this.setState({portalOpen:true, paletteOpen:false, showNotifs:false});
+  }
+  closePortal(){
+    phDispatch(phAct.setPersona(this._prevPersona || "neil"), {silent:true});
+    this.setState({portalOpen:false});
+  }
+  /* Clinical clusters (Episodes, Results, Reports, Follow-up) are hidden from roles without clinical access. */
+  phClinicalCluster(i){
+    if ([4, 5, 6, 7].indexOf(i) < 0) return false;
+    try { return !phStore.getState().session || !this._phCanClinical(); } catch (e) { return true; }
+  }
+  _phCanClinical(){
+    const s = phStore.getState();
+    const id = s.session.personaId;
+    if (id === "participant") return false;
+    const st = s.staff.find(x => x.id === id);
+    return !!st && (st.role === "clinical_review" || st.role === "nursing_lead" || st.role === "clinical_capture");
+  }
+  phClusterLabel(i){ return this.phClinicalCluster(i) ? "RESTRICTED" : CLUSTERS[i][0].toUpperCase(); }
+  phDot(page){ try { return (navAttention(phStore.getState())[page] || 0) > 0; } catch (e) { return false; } }
+
   toggleIn(key, value){
     this.setState(prev => {
       const list = prev[key].slice(), i = list.indexOf(value);
@@ -1272,9 +1369,8 @@ export default class PulseLogic extends DCLogic {
     });
   }
   askMini(q){
-    const a = pickAnswer(q);
     this.setState(prev => ({
-      miniThread: prev.miniThread.concat([{role:"user", text:q}, {role:"helios", text:a.text}]),
+      miniThread: prev.miniThread.concat([{role:"user", text:q}, {role:"helios", q}]),
       miniDraft: ""
     }));
   }
@@ -1298,13 +1394,20 @@ export default class PulseLogic extends DCLogic {
   sendToAgent(q){
     const id = this.state.agentId;
     this.setState(prev => {
-      const extra = (prev.agentExtra[id] || []).concat([
-        {kind:"user", text:q},
-        {kind:"agent", text:"on it. i'll come back when there's something to decide — nothing that changes a record goes through without your yes."}
-      ]);
+      const extra = (prev.agentExtra[id] || []).concat([{kind:"user", text:q}, {kind:"ask", q}]);
       return {agentExtra: Object.assign({}, prev.agentExtra, {[id]: extra}), agentDraft:""};
     });
   }
+
+  /* The conversation behind an agent: its seeded messages (live from the store) plus anything typed. */
+  phAgentThread(agent){
+    const extra = (this.state.agentExtra[agent.id] || []).map(m => m.kind === "ask"
+      ? Object.assign({kind:"agent"}, phAgentReply(phStore.getState(), agent.id, m.q)) : m);
+    return agent.thread.concat(extra);
+  }
+
+  /* Files visible to the previewed role, in the shape the Files tab expects. */
+  phFileTree(){ return phFileTree(phStore.getState()); }
 
   /* One graph frame. Safe to call from anywhere: it no-ops unless the ontology
      is on screen, and it builds the graph on first need. */
@@ -1333,6 +1436,11 @@ export default class PulseLogic extends DCLogic {
   }
 
   renderVals(){
+    const v = this.renderValsBase();
+    return Object.assign(v, phOverrides(this, v));
+  }
+
+  renderValsBase(){
     /* The graph is driven per instance from render, not from a closure created
        in componentDidMount: the runtime can render an instance that never ran
        mount, and a rAF scheduled from that realm never fires. A timer owned by
@@ -1355,6 +1463,7 @@ export default class PulseLogic extends DCLogic {
       }, 450);
     }
     const st = this.state, page = st.page;
+    const FILE_TREE = this.phFileTree();
     const openKeys = ORDER.filter(k => !st.resolved[k]);
 
     // Equal grid columns (width:max-content + 1fr) let a single thumb glide by
@@ -1412,7 +1521,7 @@ export default class PulseLogic extends DCLogic {
     const nav = NAV.map((n, idx) => n.divider
       ? {isDivider:true, isItem:false}
       : {isItem:true, isDivider:false, label:n.label, hint: railOpen ? (n.hint || "") : "", d:ICONS[n.icon],
-         dot: n.dot === true && openKeys.length > 0,
+         dot: n.dot === true && this.phDot(n.page),
          dotStyle: "position:absolute;top:5px;" + (railOpen ? "left:30px" : "right:6px")
            + ";width:5px;height:5px;border-radius:50%;background:var(--accent)",
          inlineStyle: inlineStyle(st.railHov === idx, n.page === page),
@@ -1740,14 +1849,14 @@ export default class PulseLogic extends DCLogic {
     const ontoSel = ONTO_NODES.find(n => n[0] === st.ontoNode) || ONTO_NODES[0];
 
     const HERO = {
-      contacts:{eyebrow:"CONTACTS · " + CONTACTS.length + " ON FILE", title:"Everyone you deal with",
-        blurb:"Staff and external in one place. Ask in your own words — it matches on name, role, organisation and tag.",
-        placeholder:"Try “buyers in Cork”, “installers”, “on stop”…", kind:"KEYWORD", scroll:"SCROLL FOR THE FULL LIST",
-        suggestions:["on stop","installer","Casey","supplier"]},
+      contacts:{eyebrow:"CONTACTS · " + CONTACTS.length + " ON FILE", title:"People we deal with",
+        blurb:"Public Precision Health contacts and fictional client contacts. It matches on name, role, organisation and tag.",
+        placeholder:"Try “Neil”, “HR”, “Sisk”, “public”", kind:"KEYWORD", scroll:"SCROLL FOR THE FULL LIST",
+        suggestions:["public","HR","Sisk","IBM"]},
       files:{eyebrow:"FILES · " + FILE_TREE.filter(r => r.type === "file").length + " DOCUMENTS",
-        title:"Everything on record", blurb:"Contracts, certificates and invoices. Indexed pages are the ones Helios can read from.",
-        placeholder:"Search inside every document…", kind:"FULL TEXT", scroll:"SCROLL FOR THE VIEWER",
-        suggestions:["credit","expiry","framework","invoice"]},
+        title:"Everything on record", blurb:"Bundled synthetic files: imports, report templates and programme reports. What you see depends on the role you preview.",
+        placeholder:"Search inside every file…", kind:"FULL TEXT", scroll:"SCROLL FOR THE VIEWER",
+        suggestions:["Eurofins","report","template","consent"]},
       ontology:{eyebrow:"ONTOLOGY", title:"Ontology", blurb:recSec.blurb,
         placeholder:"", kind:"", scroll:"", suggestions:[]}
     }[recSec.id];
@@ -1779,7 +1888,7 @@ export default class PulseLogic extends DCLogic {
       contactCols: ["Name","Role","Email","Organisation","Tag"],
       tableCaption: askTerms.length
         ? "Filtered by " + askTerms.map(t => "“" + t + "”").join(" or ")
-        : "Staff, customers and suppliers as one set of records.",
+        : "Public and fictional contacts as one set of records.",
       tableBadge: matchedContacts.length + " / " + CONTACTS.length,
       tableFooter: "Showing " + matchedContacts.length + " of " + CONTACTS.length + " contacts",
       contactsEmpty: matchedContacts.length === 0,
@@ -1853,7 +1962,7 @@ export default class PulseLogic extends DCLogic {
       roleScopes: ROLE_SCOPES.map(sc => ({label:sc,
         style: "height:28px;padding:0 12px;border-radius:var(--r-ctl,9px);font-size:11.5px;cursor:pointer;border:1px solid var(--border);"
           + (((st.roleDraft || {}).scope || "All records") === sc
-              ? "background:var(--accent);border-color:var(--accent);color:var(--on-accent)"
+              ? "background:var(--accent-fill,var(--accent));border-color:transparent;color:var(--on-accent)"
               : "background:var(--surface-2);color:var(--body)"),
         pick: () => this.setState(p => ({roleDraft: Object.assign({}, p.roleDraft, {scope:sc})}))})),
       roleGrants: GRANT_DEFS.map(g => {
@@ -2245,7 +2354,7 @@ export default class PulseLogic extends DCLogic {
       pauseIcon: st.actPaused ? "M7 4.5v15l13-7.5-13-7.5Z" : "M9 5.5v13 M15 5.5v13",
       pauseStyle: "height:36px;display:flex;align-items:center;gap:8px;padding:0 15px;border-radius:var(--r-ctl,9px);cursor:pointer;font-size:13px;font-weight:500;"
         + "transition:background .2s var(--ease),border-color .2s var(--ease);"
-        + (st.actPaused ? "background:var(--accent);border:1px solid var(--accent);color:var(--on-accent)"
+        + (st.actPaused ? "background:var(--accent-fill,var(--accent));border:1px solid transparent;color:var(--on-accent)"
                         : "background:var(--chip);border:1px solid var(--chip-border);color:var(--body)"),
       kpis: [
         ["Events today", "1,284", "all", "across every source", LIME],
@@ -2473,7 +2582,7 @@ export default class PulseLogic extends DCLogic {
     const aq = st.agentQuery.trim().toLowerCase();
     const agentMatches = st.agents.filter(a => !aq || (a.name + " " + a.role + " " + a.preview).toLowerCase().indexOf(aq) > -1);
     const activeAgent = st.agents.find(a => a.id === st.agentId) || st.agents[0];
-    const activeThread = activeAgent.thread.concat(st.agentExtra[activeAgent.id] || []);
+    const activeThread = this.phAgentThread(activeAgent);
 
     const segStyle = (active) => "display:flex;align-items:center;gap:7px;height:30px;padding:0 14px;border:0;border-radius:var(--r-ctl,11px);cursor:pointer;font-size:12.5px;white-space:nowrap;"
       + "transition:background .24s var(--ease),color .24s var(--ease),font-weight .24s var(--ease);"
@@ -3162,6 +3271,8 @@ export default class PulseLogic extends DCLogic {
       searchHint = "Search this page";
     }
 
+    ({contextNav, contextHint, searchHint} = phContext(this, page, seg, contextNav, contextHint, searchHint));
+
     // Below these widths the nav keeps its room and the softer furniture gives way:
     // the context hint first, then the search label, then the profile text.
     const roomy = st.w >= 1320, mid = st.w >= 1120;
@@ -3660,14 +3771,18 @@ export default class PulseLogic extends DCLogic {
           alignItems: isUser ? "flex-end" : "flex-start",
           isStamp: m.kind === "stamp", isRoutine: m.kind === "routine",
           isBubble: m.kind === "user" || m.kind === "agent",
-          text:m.text, routine:m.routine || "", hasLines: !!m.lines, lines: m.lines || [],
+          text:m.text, routine:m.routine || "", hasLines: !!m.lines,
+          lines: (m.lines || []).map(l => ({k:l.k, v:l.v, hasTarget: !!l.target, open: l.target ? () => this.phGo(l.target) : undefined})),
+          hasLinks: !!(m.links && m.links.length),
+          links: (m.links || []).map(l => ({label:l.label, open: () => this.phGo(l.target)})),
           wrapStyle: "display:flex;margin-bottom:14px;" + (isUser ? "justify-content:flex-end" : "justify-content:flex-start"),
           bubbleStyle: "padding:10px 15px;font-size:14.5px;line-height:1.45;border-radius:"
             + (isUser ? "20px 20px 4px 20px" : "20px 20px 20px 4px") + ";"
-            + (isUser ? "background:var(--accent);color:var(--on-accent)"
+            + (isUser ? "background:var(--accent-fill,var(--accent));color:var(--on-accent)"
                       : "background:var(--surface-strong);color:var(--ink)")
         };
       }),
+      agentChips: (phAgentSuggestions(phStore.getState(), activeAgent.id) || []).map(q => ({label:q, send: () => this.sendToAgent(q)})),
       agentDraft: st.agentDraft,
       setAgentDraft: (e) => this.setState({agentDraft:e.target.value}),
       onAgentKey: (e) => { if (e.key === "Enter" && st.agentDraft.trim()) this.sendToAgent(st.agentDraft.trim()); },
@@ -3675,7 +3790,7 @@ export default class PulseLogic extends DCLogic {
 
       /* mini chat */
       showFab: page !== "Home" && page !== "Agents",
-      fabTitle: st.miniOpen ? "Close Helios" : "Ask Helios",
+      fabTitle: st.miniOpen ? "Close Pulse" : "Ask Pulse",
       fabChatStyle: "position:absolute;inset:0;transition:transform .34s var(--ease),opacity .24s var(--ease);"
         + (st.miniOpen ? "transform:rotate(-90deg) scale(.7);opacity:0" : "transform:none;opacity:1"),
       fabCloseStyle: "position:absolute;inset:0;transition:transform .34s var(--ease),opacity .24s var(--ease);"
@@ -4128,7 +4243,7 @@ export default class PulseLogic extends DCLogic {
           close: () => this.setState({bgGalleryOpen:false, bgSpot:null}),
           cats: cats.map(c => ({label:c, count: c === "Your photos" ? String(ups.length) : String(BG_DEFS.filter(b => b.cat === c).length),
             style:"height:30px;padding:0 13px;border-radius:var(--r-ctl,10px);cursor:pointer;font-size:12.5px;white-space:nowrap;transition:background .2s var(--ease),color .2s var(--ease),border-color .2s var(--ease);"
-              + (c === active ? "background:var(--accent);border:1px solid var(--accent);color:var(--on-accent);font-weight:500"
+              + (c === active ? "background:var(--accent-fill,var(--accent));border:1px solid transparent;color:var(--on-accent);font-weight:500"
                               : "background:var(--surface-2);border:1px solid var(--border);color:var(--dim)"),
             pick: () => this.setState({bgCat:c})})),
           isPhotos: active === "Your photos",

@@ -182,9 +182,15 @@ export default function Agents({ v }: Props) {
                                         {"✓"}
                                       </span>
                                       <span>
-                                        <span style={{"fontWeight":"500"}}>
-                                          {txt(l?.k)}
-                                        </span>
+                                        {l?.hasTarget ? (
+                                          <button className="ph-link" onClick={l?.open} style={{"fontWeight":"500"}}>
+                                            {txt(l?.k)}
+                                          </button>
+                                        ) : (
+                                          <span style={{"fontWeight":"500"}}>
+                                            {txt(l?.k)}
+                                          </span>
+                                        )}
                                         {" "}
                                         <span style={{"color":"var(--faint)"}}>
                                           {"→"}
@@ -198,6 +204,22 @@ export default function Agents({ v }: Props) {
                               </div>
                             </>
                           )}
+                          {m?.hasLinks && (
+                            <>
+                              <div style={{"display":"flex","flexWrap":"wrap","gap":"6px","marginTop":"12px"}}>
+                                {arr(m?.links).map((l: any, i115: number) => (
+                                  <Fragment key={i115}>
+                                    <button className="ph-chip" onClick={l?.open}>
+                                      {txt(l?.label)}
+                                      <span style={{"color":"var(--faint)"}}>
+                                        {"→"}
+                                      </span>
+                                    </button>
+                                  </Fragment>
+                                ))}
+                              </div>
+                            </>
+                          )}
                         </div>
                       </div>
                     </>
@@ -206,6 +228,17 @@ export default function Agents({ v }: Props) {
               </Fragment>
             ))}
           </div>
+          {arr(v.agentChips).length > 0 && (
+            <div style={{"flex":"none","display":"flex","flexWrap":"wrap","gap":"6px","padding":"6px 16px 0"}}>
+              {arr(v.agentChips).map((c: any, i116: number) => (
+                <Fragment key={i116}>
+                  <button className="ph-chip" onClick={c?.send}>
+                    {txt(c?.label)}
+                  </button>
+                </Fragment>
+              ))}
+            </div>
+          )}
           <div style={{"flex":"none","display":"flex","alignItems":"center","gap":"10px","padding":"10px 16px 16px"}}>
             <button className="ixm" onClick={v.openBuilder} title="Attach or create" style={{"width":"40px","height":"40px","flex":"none","border":"1px solid var(--border)","borderRadius":"999px","background":"var(--surface)","color":"var(--body)","cursor":"pointer","display":"flex","alignItems":"center","justifyContent":"center","transition":"color .2s var(--ease),border-color .2s var(--ease)"}}>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">

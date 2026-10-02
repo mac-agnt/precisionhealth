@@ -1,0 +1,66 @@
+/* Participants module layout. Pulse tokens only, so every theme keeps working. */
+
+.pd-facts { margin: 0; display: flex; flex-direction: column; }
+.pd-fact { display: grid; grid-template-columns: minmax(92px, 34%) minmax(0, 1fr); gap: 12px; padding: 7px 0; border-bottom: 1px solid var(--border); font-size: 12.5px; line-height: 1.45; }
+.pd-fact:last-child { border-bottom: 0; }
+.pd-fact dt { margin: 0; color: var(--faint); }
+.pd-fact dd { margin: 0; min-width: 0; color: var(--body); overflow-wrap: anywhere; }
+
+.pd-sec { margin-top: 20px; }
+.pd-sec:first-child { margin-top: 0; }
+.pd-sec-title { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; font-size: 11px; font-weight: 600; letter-spacing: .02em; color: var(--dim); }
+
+.pd-person { display: flex; flex-direction: column; min-width: 0; line-height: 1.3; }
+.pd-person-name { color: var(--ink); font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pd-person-id { font-size: 11px; color: var(--faint); font-variant-numeric: tabular-nums; }
+
+.pd-filters { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; padding: 12px 14px; border-bottom: 1px solid var(--border); }
+.pd-composition { display: grid; grid-template-columns: minmax(200px, 340px) minmax(0, 1fr); gap: 10px 22px; align-items: center; padding: 12px 16px; border-bottom: 1px solid var(--border); background: var(--surface-faint); }
+.pd-composition.narrow { grid-template-columns: minmax(0, 1fr); }
+.pd-filters .ph-seg { flex: 0 1 auto; }
+.pd-card-head { display: flex; align-items: flex-start; gap: 10px; padding: 14px 16px 12px; border-bottom: 1px solid var(--border); }
+
+.pd-mini-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.pd-mini-table th { text-align: right; font-weight: 500; color: var(--faint); padding: 5px 4px; font-size: 11px; }
+.pd-mini-table th:first-child, .pd-mini-table td:first-child { text-align: left; }
+.pd-mini-table td { padding: 6px 4px; border-top: 1px solid var(--border); text-align: right; color: var(--body); font-variant-numeric: tabular-nums; }
+.pd-mini-table button { font: inherit; color: var(--accent); background: none; border: 0; padding: 0; cursor: pointer; }
+.pd-mini-table button:hover { text-decoration: underline; }
+
+.pd-case { display: flex; align-items: center; gap: 10px; width: 100%; padding: 9px 10px; border: 1px solid var(--border); border-radius: var(--r-md, 14px); background: var(--surface-faint); color: inherit; font: inherit; text-align: left; cursor: pointer; transition: border-color .18s var(--ease), background .18s var(--ease); }
+.pd-case:hover { border-color: var(--border-strong); background: var(--surface-2); }
+.pd-case + .pd-case { margin-top: 8px; }
+
+.pd-timeline { list-style: none; margin: 0; padding: 0; }
+.pd-tl-item { position: relative; display: grid; grid-template-columns: 20px minmax(0, 1fr); gap: 10px; padding-bottom: 14px; }
+.pd-tl-item::before { content: ""; position: absolute; left: 9.5px; top: 22px; bottom: 2px; width: 1px; background: var(--border); }
+.pd-tl-item:last-child { padding-bottom: 0; }
+.pd-tl-item:last-child::before { display: none; }
+.pd-tl-dot { width: 20px; height: 20px; border-radius: 7px; display: flex; align-items: center; justify-content: center; }
+.pd-tl-body { min-width: 0; }
+.pd-tl-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; }
+.pd-tl-title { font-size: 12.5px; color: var(--ink); font-weight: 500; line-height: 1.35; }
+.pd-tl-tag { font-size: 10.5px; color: var(--dim); background: var(--track); border-radius: 999px; padding: 1px 7px; white-space: nowrap; }
+.pd-tl-when { font-size: 11px; color: var(--faint); margin-top: 2px; }
+.pd-tl-detail { font-size: 12px; color: var(--body); margin-top: 4px; line-height: 1.5; overflow-wrap: anywhere; }
+
+.pd-preview { border: 1px dashed var(--border-strong); border-radius: var(--r-md, 14px); padding: 12px 14px; font-size: 12.5px; line-height: 1.55; color: var(--body); background: var(--surface-faint); }
+
+.pd-exception { border: 1px solid var(--border); border-radius: var(--r-md, 14px); padding: 14px; background: var(--surface-faint); min-width: 0; }
+.pd-exception.failed { border-color: color-mix(in srgb, var(--bad) 38%, var(--border)); }
+.pd-exceptions { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 12px; }
+
+.pd-attempts { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.pd-attempts li { display: grid; grid-template-columns: 14px minmax(0, 1fr); gap: 8px; font-size: 12px; line-height: 1.45; color: var(--body); }
+
+.pd-chip-row { display: flex; flex-wrap: wrap; gap: 6px; }
+.pd-test { display: inline-flex; align-items: center; gap: 5px; height: 22px; padding: 0 8px; border-radius: 999px; font-size: 11px; background: var(--track); color: var(--body); }
+
+.pd-later { display: flex; gap: 12px; align-items: flex-start; }
+.pd-later-frame { flex: none; width: 86px; height: 54px; border-radius: 10px; border: 1px dashed var(--border-strong); position: relative; overflow: hidden; }
+.pd-later-frame::before { content: ""; position: absolute; left: 10px; right: 10px; bottom: 12px; height: 1px; background: var(--border-strong); }
+.pd-later-frame::after { content: ""; position: absolute; left: 10px; top: 10px; bottom: 12px; width: 1px; background: var(--border-strong); }
+
+.pd-callout { display: flex; gap: 10px; align-items: flex-start; padding: 11px 13px; border-radius: var(--r-md, 14px); background: var(--accent-faint); border: 1px solid var(--accent-line); font-size: 12.5px; line-height: 1.5; color: var(--body); }
+.pd-callout.warn { background: var(--warn-soft); border-color: transparent; }
+.pd-callout.bad { background: var(--bad-soft); border-color: transparent; }

@@ -1,5 +1,6 @@
 import { Fragment } from "react";
 import { arr, cat, css, cx, txt } from "../../runtime/template";
+import OntologyDrawer from "../../ph/shell/OntologyDrawer";
 
 type Props = { v: any };
 
@@ -16,7 +17,7 @@ export default function RecordsOntology({ v }: Props) {
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--faint)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{"flex":"none"}}>
                 <path d="M21.4 11.05 12.25 20.2a5 5 0 0 1-7.07-7.07l8.49-8.49a3.5 3.5 0 0 1 4.95 4.95l-8.49 8.49a2 2 0 0 1-2.83-2.83l7.78-7.78" />
               </svg>
-              <input value={v.onto?.query ?? ""} onChange={v.onto?.setQuery} onKeyDown={v.onto?.onKey} placeholder="e.g. invoices, approvals" style={{"flex":"1","minWidth":"0","border":"0","outline":"0","background":"none","fontSize":"12.5px","color":"var(--ink)"}} />
+              <input value={v.onto?.query ?? ""} onChange={v.onto?.setQuery} onKeyDown={v.onto?.onKey} placeholder="e.g. programmes, episodes" style={{"flex":"1","minWidth":"0","border":"0","outline":"0","background":"none","fontSize":"12.5px","color":"var(--ink)"}} />
               {v.onto?.hasQuery && (
                 <>
                   <button onClick={v.onto?.clear} aria-label="Clear" style={{"flex":"none","width":"18px","height":"18px","border":"0","borderRadius":"6px","background":"var(--chip)","color":"var(--dim)","cursor":"pointer","display":"flex","alignItems":"center","justifyContent":"center"}}>
@@ -136,7 +137,7 @@ export default function RecordsOntology({ v }: Props) {
             </div>
             {arr(v.graph?.legend).map((l: any, i56: number) => (
               <Fragment key={i56}>
-                <div style={{"display":"flex","alignItems":"center","gap":"9px","padding":"3px 0"}}>
+                <button type="button" className="ph-row" onClick={l?.pick} title="Show this cluster's relationships" style={{"display":"flex","alignItems":"center","gap":"9px","padding":"4px 6px","margin":"0 -6px","width":"calc(100% + 12px)","border":"0","borderRadius":"8px","background":"none","cursor":"pointer","textAlign":"left","color":"inherit","font":"inherit"}}>
                   <span style={css(cat("width:8px;height:8px;flex:none;border-radius:2px;background:", l?.bg, ";box-shadow:0 0 7px ", l?.bg))} />
                   <span style={{"flex":"1","minWidth":"0","fontSize":"11.5px","color":"var(--dim)","overflow":"hidden","textOverflow":"ellipsis","whiteSpace":"nowrap"}}>
                     {txt(l?.label)}
@@ -144,7 +145,7 @@ export default function RecordsOntology({ v }: Props) {
                   <span style={{"fontFamily":"var(--mono)","fontSize":"10px","color":"var(--faint)"}}>
                     {txt(l?.count)}
                   </span>
-                </div>
+                </button>
               </Fragment>
             ))}
           </div>
@@ -163,6 +164,7 @@ export default function RecordsOntology({ v }: Props) {
             <div style={{"position":"absolute","left":"24%","top":"48%","width":"50%","height":"50%","borderRadius":"var(--r-sm,9px)","background":"var(--bloom-c)"}} />
           </div>
           <canvas data-onto-graph="1" style={{"position":"absolute","inset":"0","width":"100%","height":"100%","display":"block"}} />
+          {v.onto?.drawer?.open && <OntologyDrawer cluster={v.onto.drawer.cluster} onClose={v.onto.drawer.close} />}
         </div>
       </div>
     </>

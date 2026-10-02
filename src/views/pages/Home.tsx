@@ -89,6 +89,20 @@ export default function Home({ v }: Props) {
             </div>
           </div>
           {v.heliosEmpty && (
+            <div style={css(v.composerWidthStyle)}>
+              <div style={{"display":"flex","flexDirection":"column","gap":"6px","paddingTop":"14px"}}>
+                {arr(v.phPrompts).map((p: any, i: number) => (
+                  <button key={i} type="button" className="ph-chip" onClick={p?.run} style={{"justifyContent":"flex-start","height":"auto","minHeight":"36px","padding":"8px 14px","borderRadius":"var(--r-md,14px)","whiteSpace":"normal","textAlign":"left","width":"100%"}}>
+                    <span style={{"color":"var(--accent)","fontFamily":"var(--mono)","fontSize":"9.5px","letterSpacing":".1em","flex":"none"}}>
+                      {"ASK"}
+                    </span>
+                    {txt(p?.label)}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+          {v.heliosEmpty && (
             <>
               <div style={{"flex":"1 1 0","minHeight":"0"}} />
             </>

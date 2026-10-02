@@ -1,0 +1,123 @@
+/* Settings and the Records Companies and Staff tabs (Task G). Namespaced phs- classes.
+   Pulse tokens only, so every theme keeps working. */
+
+/* definition lists */
+.phs-kv { display: grid; grid-template-columns: minmax(104px, 32%) minmax(0, 1fr); gap: 9px 16px; margin: 0; font-size: 12.5px; line-height: 1.45; }
+.phs-kv > dt { color: var(--faint); margin: 0; min-width: 0; }
+.phs-kv > dd { color: var(--body); margin: 0; min-width: 0; overflow-wrap: anywhere; }
+@media (max-width: 640px) {
+  .phs-kv { grid-template-columns: minmax(0, 1fr); gap: 2px; }
+  .phs-kv > dd { margin-bottom: 8px; }
+}
+
+/* divided lists */
+.phs-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.phs-list > li { padding: 10px 0; border-top: 1px solid var(--border); min-width: 0; }
+.phs-list > li:first-child { border-top: 0; padding-top: 2px; }
+.phs-list > li:last-child { padding-bottom: 0; }
+
+/* small text helpers */
+.phs-small { font-size: 12px; line-height: 1.5; }
+.phs-body { font-size: 12.5px; line-height: 1.5; color: var(--body); }
+.phs-note { font-size: 11.5px; line-height: 1.5; color: var(--faint); }
+.phs-strong { color: var(--ink); font-weight: 500; }
+
+/* grids */
+.phs-board { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 14px; align-items: start; }
+.phs-cols-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; align-items: start; }
+.phs-cols-3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; align-items: start; }
+@media (max-width: 1180px) { .phs-cols-3 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 760px) { .phs-cols-2, .phs-cols-3 { grid-template-columns: minmax(0, 1fr); } }
+
+/* selectable cards (systems register, companies, staff) */
+.phs-pick {
+  display: flex; flex-direction: column; gap: 8px; width: 100%; min-width: 0; text-align: left; padding: 14px 16px;
+  border-radius: var(--r-md, 14px); border: 1px solid var(--border); background: var(--surface); color: inherit; font: inherit; cursor: pointer;
+  transition: border-color .18s var(--ease), background .18s var(--ease);
+}
+.phs-pick:hover { border-color: var(--border-strong); }
+.phs-pick[aria-pressed="true"] { border-color: var(--accent-line); background: var(--accent-faint); box-shadow: inset 0 0 0 1px var(--accent-line); }
+.phs-pick:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.phs-sys-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); gap: 12px; }
+
+/* plain tables that are not paginated (matrix, transposed configuration).
+   Page CSS loads before ph.css, so overrides of .ph-table need the extra class for specificity. */
+.ph-table.phs-table td, .ph-table.phs-table th { white-space: normal; }
+.phs-table th[scope="row"] { color: var(--faint); font-weight: 500; font-size: 11.5px; position: static; background: none; backdrop-filter: none; border-bottom: 1px solid var(--border); padding: 9px 14px; vertical-align: top; }
+.phs-table td { vertical-align: top; }
+.phs-table tr.phs-group > td, .phs-table tr.phs-group > th {
+  font-family: var(--mono); font-size: 9.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--faint); background: var(--surface-faint); padding-top: 8px; padding-bottom: 8px;
+}
+
+/* role matrix */
+.phs-matrix { min-width: 860px; }
+.phs-matrix th.phs-rolecol { white-space: normal; vertical-align: bottom; width: 86px; min-width: 86px; text-align: center; line-height: 1.3; }
+.phs-matrix td.phs-cell { text-align: center; padding-left: 6px; padding-right: 6px; }
+.phs-matrix .phs-cur { background: var(--accent-faint); }
+.phs-matrix th.phs-rolecol.phs-cur { box-shadow: inset 0 2px 0 var(--accent); color: var(--ink); }
+.phs-table.phs-matrix .phs-cap { position: sticky; left: 0; z-index: 2; background: var(--surface-strong, var(--surface)); min-width: 230px; white-space: normal; backdrop-filter: none; }
+.phs-table.phs-matrix thead .phs-cap { z-index: 3; top: 0; }
+.phs-table.phs-matrix tr.phs-group > .phs-cap { background: var(--surface-strong, var(--surface)); }
+.phs-yes { display: inline-flex; align-items: center; gap: 4px; color: var(--accent); font-size: 11.5px; font-weight: 500; }
+.phs-no { display: inline-flex; align-items: center; gap: 4px; color: var(--faint); font-size: 11.5px; }
+
+/* clinic day strip */
+.phs-day { display: flex; height: 30px; gap: 2px; }
+.phs-day > span { min-width: 2px; border-radius: 5px; }
+.phs-slot { background: var(--accent-soft); box-shadow: inset 0 0 0 1px var(--accent-line); }
+.phs-break { background: repeating-linear-gradient(135deg, var(--border-strong) 0 3px, transparent 3px 7px); box-shadow: inset 0 0 0 1px var(--border); }
+.phs-gap { background: var(--track); }
+.phs-ticks { position: relative; height: 18px; margin-top: 6px; font-size: 11px; color: var(--faint); }
+.phs-ticks > span { position: absolute; top: 0; white-space: nowrap; font-variant-numeric: tabular-nums; }
+
+/* swatches and option lists */
+.phs-swatches { display: grid; grid-template-columns: repeat(auto-fill, minmax(148px, 1fr)); gap: 8px; }
+.phs-option {
+  display: flex; align-items: center; gap: 9px; width: 100%; min-width: 0; padding: 8px 11px; border-radius: var(--r-md, 14px); border: 1px solid var(--border);
+  background: var(--surface-2); color: var(--body); font: inherit; font-size: 12.5px; cursor: pointer; text-align: left;
+  transition: border-color .18s var(--ease), background .18s var(--ease), color .18s var(--ease);
+}
+.phs-option:hover:not(:disabled) { border-color: var(--border-strong); color: var(--ink); }
+.phs-option[aria-pressed="true"], .phs-option[aria-checked="true"] { border-color: var(--accent-line); background: var(--accent-soft); color: var(--ink); }
+.phs-option:disabled { cursor: not-allowed; opacity: .55; }
+.phs-option:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.phs-dot { width: 14px; height: 14px; border-radius: 5px; flex: none; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .18); }
+
+/* brand colour chips */
+.phs-colour { display: flex; align-items: flex-start; gap: 10px; min-width: 0; }
+.phs-colour > span:first-child { width: 30px; height: 30px; border-radius: 9px; flex: none; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .14); }
+
+/* governance register */
+.phs-gov-item { padding: 12px 0; border-top: 1px solid var(--border); scroll-margin-top: 90px; min-width: 0; }
+.phs-gov-item:first-child { border-top: 0; padding-top: 2px; }
+.phs-gov-item.sel { border-radius: 12px; padding-left: 12px; padding-right: 12px; background: var(--accent-faint); box-shadow: inset 0 0 0 1px var(--accent-line); }
+
+/* control rows (AI controls, experience) */
+.phs-control { display: flex; align-items: flex-start; gap: 14px; padding: 13px 0; border-top: 1px solid var(--border); min-width: 0; }
+.phs-control:first-child { border-top: 0; padding-top: 2px; }
+.phs-control > .phs-cmain { flex: 1 1 0; min-width: 0; }
+.phs-control > .phs-cside { flex: none; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; max-width: 100%; }
+@media (max-width: 560px) { .phs-control { flex-direction: column; } .phs-control > .phs-cside { justify-content: flex-start; } }
+
+/* bullet list with icons */
+.phs-bullets { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 7px; }
+.phs-bullets > li { display: flex; align-items: flex-start; gap: 8px; font-size: 12.5px; line-height: 1.45; color: var(--body); min-width: 0; }
+.phs-bullets > li > svg { margin-top: 2px; }
+
+/* container switch: a wide layout and a stacked layout, chosen by the card's own width */
+.phs-cq { container-type: inline-size; }
+.phs-narrow-only { display: none; }
+@container (max-width: 620px) {
+  .phs-wide-only { display: none; }
+  .phs-narrow-only { display: block; }
+}
+
+/* agent permissions list: four columns, two on narrow cards, one on very narrow */
+.phs-agents { container-type: inline-size; }
+.phs-agent { display: grid; grid-template-columns: 170px minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, 1fr); gap: 10px 16px; padding: 13px 18px; border-top: 1px solid var(--border); align-items: start; }
+@container (max-width: 760px) { .phs-agent { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } }
+@container (max-width: 430px) { .phs-agent { grid-template-columns: minmax(0, 1fr); } }
+
+details.phs-details > summary { cursor: pointer; font-size: 12px; color: var(--dim); list-style: none; display: inline-flex; align-items: center; gap: 6px; }
+details.phs-details > summary::-webkit-details-marker { display: none; }
+details.phs-details[open] > summary { color: var(--ink); margin-bottom: 8px; }

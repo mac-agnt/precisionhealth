@@ -1,4 +1,8 @@
-/* Demo data and pure helpers for the Pulse prototype (Kilbride Group). */
+/* Demo data and pure helpers for Pulse. Precision Health content lives in src/ph; this file keeps the shared visuals. */
+import { PAGES } from "../ph/model/nav";
+import { phStore } from "../ph/store";
+import { AGENT_DEFS as PH_AGENT_DEFS, CONTACTS as PH_CONTACTS, COMPANIES as PH_COMPANIES } from "../ph/model/constants";
+import { agentThread, agentPreview, agentWhen, agentState } from "../ph/model/ai";
 
 const INK="var(--ink)", BODY="var(--body)", DIM="var(--dim)", FAINT="var(--faint)";
 const LIME="var(--accent)", GREEN="var(--ok)", AMBER="var(--warn)", RED="var(--bad)", NEUTRAL="var(--neutral)";
@@ -32,96 +36,43 @@ const ICONS = {
   records:"M6.4 3.6h7.4l4.2 4.2v12.6H6.4V3.6Z M13.4 3.8v4.2h4.2 M9 12.4h6 M9 16h4",
   tree:"M4.5 6h5 M4.5 12h5 M4.5 18h5 M12.5 6h7 M12.5 12h7 M12.5 18h7",
   graph:"M7 7.4a2.4 2.4 0 1 0 0-4.8 2.4 2.4 0 0 0 0 4.8Z M17.6 10.4a2.4 2.4 0 1 0 0-4.8 2.4 2.4 0 0 0 0 4.8Z M9.4 21.4a2.4 2.4 0 1 0 0-4.8 2.4 2.4 0 0 0 0 4.8Z M8.6 6.4l7.6 2.6 M15.8 11.4l-5.6 5.2",
-  bell:"M6 8.5a6 6 0 0 1 12 0c0 6.5 2.6 8.5 2.6 8.5H3.4S6 15 6 8.5Z M10.3 20.5a1.94 1.94 0 0 0 3.4 0"
+  bell:"M6 8.5a6 6 0 0 1 12 0c0 6.5 2.6 8.5 2.6 8.5H3.4S6 15 6 8.5Z M10.3 20.5a1.94 1.94 0 0 0 3.4 0",
+  navProgrammes:"M6.6 4.4h10.8a2.2 2.2 0 0 1 2.2 2.2v10.8a2.2 2.2 0 0 1-2.2 2.2H6.6a2.2 2.2 0 0 1-2.2-2.2V6.6a2.2 2.2 0 0 1 2.2-2.2Z M4.4 9.6h15.2 M9.6 19.6V9.6",
+  navClinics:"M8 4v3 M16 4v3 M4.5 9.5h15 M6.4 6h11.2A1.9 1.9 0 0 1 19.5 8v10a1.9 1.9 0 0 1-1.9 1.9H6.4A1.9 1.9 0 0 1 4.5 18V8A1.9 1.9 0 0 1 6.4 6Z M9 13.5l1.6 1.6 3.4-3.4",
+  navParticipants:"M9 12a3.2 3.2 0 1 0 0-6.4A3.2 3.2 0 0 0 9 12Z M16.5 12.5a2.6 2.6 0 1 0 0-5.2 2.6 2.6 0 0 0 0 5.2Z M2.6 19.6c.8-2.8 3.2-4.4 6.4-4.4s5.6 1.6 6.4 4.4 M17 15.4c2.2.4 3.7 1.8 4.3 4.2",
+  navResults:"M9.5 3.5h5 M10.5 3.5v5.2L5.3 17.6A2 2 0 0 0 7 20.5h10a2 2 0 0 0 1.7-2.9l-5.2-8.9V3.5 M8.2 14.2h7.6",
+  navReporting:"M7 3.5h10v17H7v-17Z M9.8 15.5v-3 M12 15.5v-6 M14.2 15.5v-4.2",
+  navSettings:"M5.5 20v-5.5 M5.5 9.5V4 M12 20v-7.5 M12 7.5V4 M18.5 20v-4 M18.5 11V4 M3 12.5h5 M9.5 5.5h5 M16 14h5"
 };
 
 /* Ontology stays first and is never removed (PulseLogic enforces this too). */
 const REC_SECTIONS = [
-  {id:"ontology", label:"Ontology", blurb:"How every record connects: entities, predicates and the paths between them."},
-  {id:"files", label:"Files", blurb:"Documents, contracts and certificates — indexed where Helios can read them."},
-  {id:"contacts", label:"Contacts", blurb:"Every person the business deals with, staff and external."}
+  {id:"ontology", label:"Ontology", blurb:"How every record connects: entities, relationships and the paths between them."},
+  {id:"files", label:"Files", blurb:"Bundled synthetic files: imports, report templates and programme reports."},
+  {id:"contacts", label:"Contacts", blurb:"Public Precision Health contacts and fictional client contacts."},
+  {id:"companies", label:"Companies", blurb:"Precision Health, client employers and supplier or service records."},
+  {id:"staff", label:"Staff", blurb:"The eight demonstration profiles and what they are assigned to."}
 ];
 
-const CONTACTS = [
-  ["Aoife Nolan","Accounts manager","aoife@kilbridegroup.ie","Kilbride Group","staff","var(--accent)"],
-  ["Séamus Byrne","Senior installer","seamus@kilbridegroup.ie","Kilbride Group","staff","#9fd6f0"],
-  ["Tom Walsh","Operations lead","tom@kilbridegroup.ie","Kilbride Group","staff","#e6c78a"],
-  ["Niamh Cronin","Trade counter","niamh@kilbridegroup.ie","Kilbride Group","staff","#c8b4f0"],
-  ["Dermot Casey","Buyer","dermot@caseybuilders.ie","Casey Builders","customer","#9fd6f0"],
-  ["Liam Dunne","Owner","liam@dunneandsons.ie","Dunne & Sons Ltd","on stop","#e2a08c"],
-  ["Máire Fitzgerald","Director","maire@fitzheating.ie","Fitzgerald Heating","watch","#e6c78a"],
-  ["Paul Ó Riain","Site foreman","paul@oriain.ie","Ó Riain, Glanmire","customer","#a8e0c0"],
-  ["Cathal Moore","Account manager","cathal@munsterplumbing.ie","Munster Plumbing","supplier","#c8b4f0"]
-];
+/* Contacts: public Precision Health details and explicitly fictional client contacts. The seventh item links to the company. */
+const CONTACTS = PH_CONTACTS.map(c => [c.name, c.role, c.email, (PH_COMPANIES.find(x => x.id === c.companyId) || {}).name || "",
+  c.provenance === "public" ? "public" : "fictional demo", c.provenance === "public" ? "var(--accent)" : "#97C2BC", c.companyId]);
 
-const FILE_TREE = [
-  {type:"folder", id:"f-org", name:"Organisations", depth:0},
-  {type:"file", id:"fl-1", name:"Casey Builders — framework 2026.pdf", depth:1, parent:"f-org", indexed:true,
-   path:"Organisations / Casey Builders", title:"Casey Builders — framework 2026",
-   facts:[["TYPE","PDF · 6 pages"],["ADDED","12 Jan 2026"],["INDEXED","All 6 pages"],["OWNER","Aoife Nolan"]],
-   body:["The framework sets the discount tiers for 2026 and the payment terms Casey Builders trade on. Tier two applies from €40k of annual spend, which they passed in August.",
-     "Pricing is fixed to the June supplier agreement, so a change on the Munster side flows through here rather than being renegotiated separately.",
-     "Termination requires sixty days' notice on either side. Nothing in the document blocks putting the account on stop for non-payment."],
-   links:[["Casey Builders","org"],["Dermot Casey","person"],["PO-4471","order"]]},
-  {type:"file", id:"fl-2", name:"Dunne & Sons — credit application.pdf", depth:1, parent:"f-org", indexed:true,
-   path:"Organisations / Dunne & Sons Ltd", title:"Dunne & Sons — credit application",
-   facts:[["TYPE","PDF · 4 pages"],["ADDED","3 Mar 2011"],["INDEXED","All 4 pages"],["OWNER","Aoife Nolan"]],
-   body:["The original 2011 application, signed by Liam Dunne, setting a €20,000 limit against thirty-day terms.",
-     "Days-to-pay ran at twelve for most of that period and moved to seventy-four after May 2026, which is what put the account on stop.",
-     "The personal guarantee in section four is still in force and has never been called on."],
-   links:[["Dunne & Sons Ltd","org"],["Liam Dunne","person"],["INV-10428","invoice"]]},
-  {type:"folder", id:"f-cert", name:"Certificates", depth:0},
-  {type:"file", id:"fl-3", name:"Séamus Byrne — gas safe 2026.pdf", depth:1, parent:"f-cert", indexed:true,
-   path:"Certificates / Installers", title:"Séamus Byrne — gas safe 2026",
-   facts:[["TYPE","PDF · 2 pages"],["EXPIRES","14 Nov 2026"],["INDEXED","Both pages"],["OWNER","Operations"]],
-   body:["Registration covers domestic boilers and commercial water heaters, valid to 14 November 2026.",
-     "The renewal reminder fires sixty days before expiry. That routine failed twice this week because Mallow yard has no contact on file."],
-   links:[["Séamus Byrne","person"],["Certificate renewal reminder","workflow"]]},
-  {type:"file", id:"fl-4", name:"Public liability — 2026.pdf", depth:1, parent:"f-cert", indexed:false,
-   path:"Certificates / Insurance", title:"Public liability — 2026",
-   facts:[["TYPE","PDF · 12 pages"],["EXPIRES","1 Apr 2027"],["INDEXED","Not indexed"],["OWNER","Operations"]],
-   body:["Cover to €6.5m across all three locations. Not indexed, so Helios cannot answer questions from it yet.",
-     "Indexing it would let the site-visits module check cover before a job is booked at a new address."],
-   links:[["Head office","location"],["Ballincollig depot","location"]]},
-  {type:"folder", id:"f-fin", name:"Finance", depth:0},
-  {type:"file", id:"fl-5", name:"INV-10428.pdf", depth:1, parent:"f-fin", indexed:true,
-   path:"Finance / Invoices", title:"INV-10428",
-   facts:[["TYPE","PDF · 1 page"],["VALUE","€28,410"],["AGE","74 days"],["OWNER","Aoife Nolan"]],
-   body:["The oldest unpaid invoice on the ledger and the reason Dunne & Sons is on stop.",
-     "Two reminders have gone out. The third is drafted and waiting on the finance manager inside the chase workflow."],
-   links:[["Dunne & Sons Ltd","org"],["Chase unpaid invoices","workflow"]]},
-  {type:"file", id:"fl-6", name:"Month-end close — August.xlsx", depth:1, parent:"f-fin", indexed:false,
-   path:"Finance / Close", title:"Month-end close — August",
-   facts:[["TYPE","XLSX · 9 sheets"],["ADDED","1 Sep 2026"],["INDEXED","Not indexed"],["OWNER","Aoife Nolan"]],
-   body:["The working file behind the August close. Cash collected came in at €368k against €358k in July.",
-     "Spreadsheets are stored but not indexed by default — the numbers Helios quotes come from the ledger, not from here."],
-   links:[["Finance","area"],["Month-end close","workflow"]]}
-];
+/* The file tree is built per render from the shared store (role-filtered). See phBridge.js. */
+const FILE_TREE = [];
 
 const ONTO_NODES = [
-  ["Organisation","entity",500,300,1,"Customers and suppliers. Balances arrive from the ledger through the record spine."],
-  ["Person","entity",300,190,1,"One entity for staff and external contacts, scoped by role rather than split in two."],
-  ["Location","entity",700,190,1,"Multi-branch as a business concept: locations plus the location permission scope."],
-  ["Team","entity",250,430,1,"Teams are records, so the team scope on a grant resolves against them."],
-  ["Task","entity",690,430,1,"Work, whatever it is attached to. Queues are one permission-filtered query."],
-  ["Approval","entity",850,320,0,"A request and its steps. Each decision is written as the person who made it."],
-  ["Invoice","ledger",390,95,0,"Read through the spine — the wholesale ledger stays the source of truth."],
-  ["Order","ledger",620,95,0,"Purchase and sales orders, linked to the organisation that raised them."],
-  ["Visit","module",860,470,0,"Contributed by site-visits, with its own table, predicate and tools."],
-  ["File","entity",140,300,0,"Documents against any record. Indexed pages are what Helios can read."],
-  ["works at","predicate",395,240,0,"Person → Organisation."],
-  ["located at","predicate",605,240,0,"Organisation → Location."],
-  ["member of","predicate",360,370,0,"Person → Team."],
-  ["relates to","predicate",600,370,0,"Task → anything."],
-  ["attached to","predicate",140,372,0,"File → anything."]
+  ["Company","entity",500,300,1,"Precision Health, client employers and supplier or service records."],
+  ["Programme","entity",300,190,1,"A contracted screening programme across sites and weeks."],
+  ["Clinic session","entity",700,190,1,"One dated session with 25 derived slots."],
+  ["Person","entity",250,430,1,"A synthetic invitee. Name and email are never keys."],
+  ["Screening episode","entity",690,430,1,"One episode per attended appointment."],
+  ["Booking","entity",850,320,0,"A confirmed appointment."],
+  ["Observation","ledger",390,95,0,"A single laboratory result with its source row."],
+  ["Report version","ledger",620,95,0,"Released versions are immutable."]
 ];
 
-const ONTO_EDGES = [
-  [500,300,300,190],[500,300,700,190],[500,300,250,430],[500,300,690,430],
-  [500,300,850,320],[500,300,390,95],[500,300,620,95],[500,300,140,300],
-  [300,190,250,430],[700,190,860,470],[690,430,850,320],[690,430,860,470],
-  [300,190,140,300],[390,95,620,95]
-];
+const ONTO_EDGES = [[500,300,300,190],[500,300,700,190],[500,300,250,430],[500,300,690,430],[700,190,850,320],[690,430,390,95],[690,430,620,95]];
 
 const REC_TEMPLATES = [
   ["Field sheet","Records","Labelled fields in a grid — the default for a person, organisation or location.",
@@ -457,14 +408,9 @@ const STREAM_DEFS = [
    tint:"var(--accent)", icon:"M2 12h4l2.5-6 3.5 12 3-8 2 2h5"}
 ];
 
-const NAV = [
-  {label:"Home", icon:"helios", page:"Home"},
-  {label:"Agents", icon:"navAgents", page:"Agents"},
-  {label:"Dashboard", icon:"navDash", page:"Dashboard", dot:true},
-  {label:"Work", icon:"navWork", page:"Work"},
-  {label:"Records", icon:"navRecords", page:"Records"},
-  {label:"Activity", icon:"pulseLine", page:"Activity", dot:true}
-];
+/* The rail: Home, Agents directly under Home, then the business modules. Settings has its own button. */
+const NAV = PAGES.filter(p => p.id !== "Settings").map(p => ({label:p.label, icon:p.icon, page:p.id,
+  dot: ["Programmes","Participants","Results","Reporting","Work","Activity"].indexOf(p.id) > -1}));
 
 /* Inbox items follow the real InboxItem shape: what happened, why it matters, what I can do. */
 const ITEMS = {
@@ -630,68 +576,14 @@ const LOCATIONS = [
   ["Mallow yard","Mallow, Cork","4 staff","active"]
 ];
 
-const AGENT_DEFS = [
-  {id:"close", name:"Month-end close", shape:"rim-capsule", tint:"#1b2430", state:"working", group:true,
-   members:["credit","briefing","ops"], role:"Credit Control, Briefing and Ops Watchdog working the same close",
-   when:"09:12", preview:"credit control: three accounts still open.",
-   thread:[
-     {kind:"stamp", text:"Today 09:04"},
-     {kind:"routine", text:"Ran routine", routine:"Month-end close"},
-     {kind:"agent", from:"credit", text:"three accounts are still open on the August ledger. Dunne & Sons is the only one that changed behaviour rather than just running late."},
-     {kind:"agent", from:"ops", text:"nothing technical is holding it up — the Xero token is back and all 148 queued invoices posted at 09:02."},
-     {kind:"agent", from:"briefing", text:"so the close is one decision, not three: what to do about Dunne. everything else reconciles."},
-     {kind:"user", text:"instalments, two payments to end of september"},
-     {kind:"agent", from:"credit", text:"drafted on those terms and parked it. sending is a write tool, so it waits for your yes."},
-     {kind:"agent", from:"briefing", text:"once that goes, August closes. i'll put the confirmation in tomorrow's briefing."}
-   ]},
-  {id:"briefing", name:"Briefing", shape:"crown-pebble", tint:"#191c1f", state:"complete", role:"Reads the whole business every morning and tells you the two things that matter",
-   when:"08:02", preview:"three things moved overnight. two need you.",
-   thread:[
-     {kind:"stamp", text:"Today 08:00"},
-     {kind:"routine", text:"Ran routine", routine:"Morning briefing"},
-     {kind:"agent", text:"morning briefing:", lines:[
-       {k:"Cash", v:"€41.2k past 60 days · Dunne & Sons is 74 days"},
-       {k:"Work", v:"11 tasks late · 7 of them at Ballincollig"},
-       {k:"Approvals", v:"PO-4471 sitting with you since 08:54"}]},
-     {kind:"agent", text:"two things need you today: the purchase order, and a yes/no on the Ballincollig lease. everything else is covered."},
-     {kind:"user", text:"put the lease on Thursday"},
-     {kind:"agent", text:"done — task created against Ballincollig depot, due Thursday, assigned to you. i'll remind you Wednesday afternoon."}
-   ]},
-  {id:"credit", name:"Credit Control", shape:"executive-capsule", tint:"#2a2118", state:"waiting", role:"Watches payment behaviour and drafts the chase before you ask",
-   when:"Yesterday", preview:"three drafts parked. nothing sent.",
-   thread:[
-     {kind:"stamp", text:"Yesterday 16:40"},
-     {kind:"agent", text:"three accounts changed behaviour this week. i've drafted a chase for each and parked them — sending is a write tool, so they wait for you."},
-     {kind:"user", text:"what changed on dunne"},
-     {kind:"agent", text:"days-to-pay went 12 → 74 since May while order volume held steady. that pattern is a cash problem, not a dispute. i'd offer two instalments to 30 September before putting them on stop again."}
-   ]},
-  {id:"visits", name:"Visit Scout", shape:"low-dome", tint:"#241b2e", state:"working", role:"Keeps the site-visit board honest and chases unassigned work",
-   when:"Yesterday", preview:"thursday's depot check still has nobody on it.",
-   thread:[
-     {kind:"stamp", text:"Yesterday 07:00"},
-     {kind:"agent", text:"four visits booked this week, one unassigned: Thursday 09:00 depot stock check. Séamus is the only installer free that morning."},
-     {kind:"user", text:"give it to séamus"},
-     {kind:"agent", text:"assigned. the module fired site-visits.visit.updated and the escalation automation stood down."}
-   ]},
-  {id:"stock", name:"Stock Watch", shape:"control-cube", tint:"#16241f", state:"thinking", role:"Reorder points, supplier lead times and what Thursday's jobs actually need",
-   when:"Mon", preview:"two lines below reorder point before thursday.",
-   thread:[
-     {kind:"stamp", text:"Monday 11:20"},
-     {kind:"agent", text:"two lines drop below reorder point before Thursday's jobs. Munster can cover both at the June agreement price — that's what PO-4471 is."}
-   ]},
-  {id:"ops", name:"Ops Watchdog", shape:"shield", tint:"#2b1b1e", state:"attention", role:"Sits on the event queue and tells you when something stopped working",
-   when:"02:16", preview:"xero token expired. 148 invoices queued, nothing lost.",
-   thread:[
-     {kind:"stamp", text:"Today 02:16"},
-     {kind:"agent", text:"the Xero connection failed at 02:14 — invalid_grant, token last authorised 27 February. 148 invoices are queued and post on reconnect. third time this year; move it to the service account."}
-   ]},
-  {id:"counter", name:"Counter Assistant", shape:"offset-pebble", tint:"#191c1f", state:"working", role:"Answers trade-counter questions on price, stock and account status",
-   when:"Fri", preview:"14 questions answered, 2 handed to niamh.",
-   thread:[
-     {kind:"stamp", text:"Friday 17:30"},
-     {kind:"agent", text:"14 counter questions answered this week. two went to Niamh: both were credit-limit calls, which i won't make on my own."}
-   ]}
-];
+/* Seven Precision Health agents. State, preview and conversation are read live from the shared store. */
+const AGENT_DEFS = PH_AGENT_DEFS.map(a => ({
+  id:a.id, name:a.name, shape:a.shape, tint:a.tint, role:a.job,
+  get state(){ return agentState(phStore.getState(), a.id); },
+  get when(){ return agentWhen(phStore.getState(), a.id); },
+  get preview(){ return agentPreview(phStore.getState(), a.id); },
+  get thread(){ return agentThread(phStore.getState(), a.id); }
+}));
 
 const KPI_DEFS = {
   revenue:{label:"Revenue", value:"€412,800", delta:"+6.2%", dir:"up", hint:"30 days", hero:true},
@@ -917,7 +809,7 @@ const SCHEDULES = [
   {id:"s5", name:"Month-end close", cadence:"Last working day · 17:00", next:"Fri 17:00", owner:"Month-end close", on:true, day:4}
 ];
 
-const WIDGET_DEFS = [["inbox","Action inbox"],["work","My work"],["activity","Activity"],["kpi","Today's numbers"],["visits","Site visits"]];
+const WIDGET_DEFS = [["clinics","Today's clinics"],["imports","Import exceptions"],["review","Reports awaiting review"],["capacity","Capacity and reminders"],["work","My work"],["activity","Recent activity"]];
 const WORK_WIDGETS = [
   {id:"queue", label:"My queue", value:"8", hint:"assigned to you", icon:"work", queue:"mine"},
   {id:"late", label:"Running late", value:"11", hint:"past their due date", icon:"health", queue:"overdue"},
@@ -985,14 +877,14 @@ const FACE_TINTS = [
 
 /* ---- ontology graph: generation, Dijkstra traversal, canvas render ---- */
 const CLUSTERS = [
-  ["Organisations", "#c8f04b", 0.00, 0.62, 46],
-  ["People",        "#6ad0f0", 0.90, 0.70, 52],
-  ["Files",         "#b06cf0", 1.75, 0.66, 58],
-  ["Tasks",         "#f0c04b", 2.55, 0.72, 44],
-  ["Invoices",      "#f0567f", 3.35, 0.60, 38],
-  ["Site visits",   "#5fe0a8", 4.15, 0.70, 40],
-  ["Locations",     "#f0803a", 4.95, 0.64, 30],
-  ["Approvals",     "#5f7cf0", 5.65, 0.72, 34]
+  ["Companies",   "#5CA39A", 0.00, 0.62, 46],
+  ["Programmes",  "#97C2BC", 0.90, 0.70, 52],
+  ["Clinics",     "#6ad0f0", 1.75, 0.66, 58],
+  ["People",      "#f0c04b", 2.55, 0.72, 44],
+  ["Episodes",    "#b06cf0", 3.35, 0.60, 38],
+  ["Results",     "#f0803a", 4.15, 0.70, 40],
+  ["Reports",     "#5f7cf0", 4.95, 0.64, 30],
+  ["Follow-up",   "#f0567f", 5.65, 0.72, 34]
 ];
 
 function mulberry(seed){
