@@ -360,8 +360,15 @@ export function nurseFormPatchError(patch: Record<string, NurseFormValue>): stri
 
 /* ---- automations and bands read from the nurse form ---- */
 export const isNurseReferral = (c: ClinicalCapture) => c.form?.approve === NURSE_REFERRAL_VALUE;
-/** ECG advice J or K together with an irregular manual pulse: photos of the ECG go to the clinical channel. */
-export const needsEcgReview = (c: ClinicalCapture) => typeof c.form?.ecgAdvice === "string" && ECG_IRREGULAR_ADVICE.includes(c.form.ecgAdvice) && c.form?.manualPulse === "Irregular";
+/**
+ * ECG advice J or K together with an irregular manual pulse: photos of the ECG go to the clinical channel.
+ * The POC form has no manual pulse, so there an ECG result of J or K raises the review on its own.
+ */
+export const needsEcgReview = (c: ClinicalCapture) =>
+  (typeof c.form?.ecgAdvice === "string" && ECG_IRREGULAR_ADVICE.includes(c.form.ecgAdvice) && c.form?.manualPulse === "Irregular")
+  || (c.variant === "poc" && c.form?.pocEcg === "Done" && typeof c.form?.pocEcgResult === "string" && POC_ECG_IRREGULAR.includes(c.form.pocEcgResult));
+/** The ECG wording behind an ECG review, from whichever form recorded it. */
+export const ecgReviewText = (c: ClinicalCapture): string => String((c.variant === "poc" ? c.form?.pocEcgResult : c.form?.ecgAdvice) ?? "not recorded");
 export const psaTaken = (c: ClinicalCapture) => c.form?.psaTaken === "Yes";
 export const fitKitGiven = (c: ClinicalCapture) => c.form?.fitKit === "Yes";
 
