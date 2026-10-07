@@ -16,6 +16,7 @@ import { sessionSlots, activeBookings, membershipOf, plural, previewSessionEdit,
 import type { SessionPatch } from "../selectors/core";
 import { invitationRecipientIssues } from "../selectors/ops";
 import { emptyCapture } from "../fixtures/clinical";
+import { CONSENT_FORM_KEY, consentVersionFor, isWithdrawn, oneActiveBookingFor, participantChangeBlock, reminderLeadHoursFor } from "../portalAdmin";
 import { Ctx, pad } from "./ctx";
 import type { ActionResult, Handler } from "./ctx";
 
@@ -42,7 +43,7 @@ function addMessage(c: Ctx, o: { kind: "confirmation" | "invitation"; personId: 
  */
 function queueReminder(c: Ctx, b: Booking): boolean {
   const s = c.ix().sessionById.get(b.sessionId)!;
-  const sendAt = Date.parse(dublinToUtc(s.date, s.start)) - c.s.settings.reminderLeadHours * 3600000;
+  const sendAt = Date.parse(dublinToUtc(s.date, s.start)) - reminderLeadHoursFor(c.s, b.programmeId) * 3600000;
   if (sendAt <= Date.parse(c.now)) return false;
   if (c.s.messages.some((m) => m.bookingId === b.id && m.kind === "reminder")) return false;
   const { channel, destination, provider } = c.contactFor(b.personId, b.programmeId);
@@ -100,9 +101,14 @@ handlers["portal/completeQuestionnaire"] = (c, a: { personId: string; consent: {
   if (m.questionnaire === "complete") return c.fail("The questionnaire and consent are already complete.");
   if (!m.draft || m.draft.sectionsDone < SECTION_COUNT) return c.fail(`Complete all ${SECTION_COUNT} questionnaire sections first. ${m.draft ? m.draft.sectionsDone : 0} done.`);
   if (!a.consent?.service || !a.consent?.data) return c.fail("The two required consent choices must be given before you can continue.");
+  if (isWithdrawn(c.s, a.personId)) return c.fail("You have withdrawn from this programme, so nothing new can be submitted. Contact support to take part again.");
+  // The consent form version in force now (Participants, Portal admin). Earlier acceptances keep their own version.
+  const consentVersion = consentVersionFor(c.s, m.programmeId);
+  const read = m.draft.answers[CONSENT_FORM_KEY];
+  if (typeof read === "string" && read && read !== consentVersion) return c.fail(`The consent form changed to ${consentVersion} after you agreed to ${read}. Read the new version and confirm it again before you submit.`);
   m.questionnaire = "complete";
   m.consent = "complete";
-  m.consentVersion = "BC-3";
+  m.consentVersion = consentVersion;
   m.answers = { ...m.draft.answers, consentService: true, consentData: true, consentSms: !!a.consent.sms };
   m.questionnaireCompletedAt = c.stamp();
   c.emit({ verb: "portal.completed", summary: `${c.personName(a.personId)} completed the questionnaire and consent in the portal. A booking can now be confirmed.`, entity: { kind: "person", id: a.personId }, programmeId: m.programmeId, personId: a.personId, simulated: true });
@@ -128,12 +134,13 @@ function createBooking(c: Ctx, personId: string, sessionId: string, slotStart: s
   const m = membershipOf(c.s, personId, session.programmeId);
   if (!m) return { err: "This participant is not on that programme." };
   if (m.questionnaire !== "complete" || m.consent !== "complete") return { err: "Complete the required questionnaire and consent before confirming a booking." };
+  if (isWithdrawn(c.s, personId)) return { err: "This participant has withdrawn from the programme. Future participation has stopped, so no new booking can be made." };
   const v = validateSlot(c, sessionId, slotStart, replaces || undefined);
   if (v.err) return { err: v.err };
   const prog = PROGRAMME_BY_ID[session.programmeId];
   const mine = c.ix().bookingsByPerson.get(personId) || [];
   const dupe = mine.find((b) => b.status === "confirmed" && b.programmeId === session.programmeId && b.appointmentTypeId === prog.appointmentTypeId && b.attendance !== "completed" && b.id !== replaces);
-  if (dupe) return { err: `There is already an active appointment on this programme (${dupe.id}). Reschedule it instead.` };
+  if (dupe && oneActiveBookingFor(c.s, session.programmeId)) return { err: `There is already an active appointment on this programme (${dupe.id}). Reschedule it instead.` };
   const tpl = c.s.forms.templates.find((t) => t.id === prog.templateId);
   // When the questionnaire was actually completed, not the booking time.
   const earlier = mine.filter((b) => b.programmeId === session.programmeId).map((b) => b.questionnaireCompletedAt).sort().pop();
@@ -170,6 +177,7 @@ handlers["booking/reschedule"] = (c, a: { bookingId: string; sessionId: string; 
   if (!old) return c.fail("Unknown appointment.");
   const who = bookingActor(c, old.personId, "reschedule appointments"); if (who) return who;
   if (old.status !== "confirmed" || old.attendance !== "booked") return c.fail("This booking cannot be rescheduled.");
+  if (c.persona().isParticipant) { const late = participantChangeBlock(c.s, old, "reschedule"); if (late) return c.fail(late); }
   const r = createBooking(c, old.personId, a.sessionId, a.slotStart, old.id);
   if ("err" in r) return c.fail(r.err);
   // The replacement is reserved first, then the original is released.
@@ -189,6 +197,7 @@ handlers["booking/cancel"] = (c, a: { bookingId: string; reason?: string }) => {
   if (!b) return c.fail("Unknown appointment.");
   const who = bookingActor(c, b.personId, "cancel appointments"); if (who) return who;
   if (b.status !== "confirmed" || b.attendance === "completed") return c.fail("This booking cannot be cancelled.");
+  if (c.persona().isParticipant) { const late = participantChangeBlock(c.s, b, "cancel"); if (late) return c.fail(late); }
   b.status = "cancelled";
   b.cancelReason = (a.reason || "Cancelled").trim();
   // A capture draft started at check-in belongs to nothing once the booking is cancelled.
@@ -435,7 +444,7 @@ handlers["session/apply"] = (c, a: { sessionId: string; patch: { start?: string;
   }
   Object.assign(s, patch);
   // Queued reminders and the reminder job follow the clinic start time.
-  const sendAt = new Date(Date.parse(dublinToUtc(s.date, s.start)) - c.s.settings.reminderLeadHours * 3600000).toISOString();
+  const sendAt = new Date(Date.parse(dublinToUtc(s.date, s.start)) - reminderLeadHoursFor(c.s, s.programmeId) * 3600000).toISOString();
   const ids = new Set(activeBookings(c.s, s.id).map((b) => b.id));
   c.s.messages.forEach((m) => { if (m.kind === "reminder" && m.status === "queued" && m.bookingId && ids.has(m.bookingId)) m.at = sendAt; });
   const job = c.s.jobs.find((j) => j.id === `JOB-REM-${s.id}`);

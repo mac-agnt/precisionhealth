@@ -1115,6 +1115,8 @@ export default class PulseLogic extends DCLogic {
   }
 
   componentDidMount(){
+    this._savedTheme = this.state.theme;
+    try { const saved = window.localStorage.getItem("ph-theme"); if (saved && saved !== this.state.theme && (saved === "light" || THEMES.some(t => t.id === saved))) this.setState({theme: saved}); } catch (e) { /* storage blocked */ }
     requestAnimationFrame(() => this.syncRailThumb());
     setTimeout(() => this.syncRailThumb(), 700);
     setTimeout(() => { const nav = document.querySelector('nav[data-rail-nav]');
@@ -1210,7 +1212,12 @@ export default class PulseLogic extends DCLogic {
       if (!this._railLive){ this._railLive = true; setTimeout(() => this.setState({railThumbLive:true}), 60); }
     }
   }
-  componentDidUpdate(){ this.syncRailThumb(); this.phSyncHash(); }
+  componentDidUpdate(){
+    this.syncRailThumb(); this.phSyncHash();
+    // Remember the chosen appearance across reloads. Storage can be blocked; the default then applies.
+    if (this._savedTheme !== undefined && this._savedTheme !== this.state.theme) { try { window.localStorage.setItem("ph-theme", this.state.theme); } catch (e) { /* ignore */ } }
+    this._savedTheme = this.state.theme;
+  }
 
   go(page){ this.phGo({page}); }
 
@@ -1273,6 +1280,8 @@ export default class PulseLogic extends DCLogic {
       shell: {
         theme: st.theme,
         setTheme: (id) => this.setState(p => (id === "light" ? {theme:"light", darkTheme:p.theme === "light" ? p.darkTheme : p.theme} : {theme:id, darkTheme:id})),
+        /* Light or dark from anywhere, including the portal previews. */
+        toggleTheme: () => this.setState(p => p.theme === "light" ? {theme: p.darkTheme || this.props.theme || "harbour"} : {theme:"light", darkTheme:p.theme}),
         themes: THEMES.map(t => ({id:t.id, label:t.label, group:t.group, accent:t.accent})),
         density: st.density || "comfortable",
         setDensity: (d) => this.setState({density:d}),

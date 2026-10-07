@@ -13,6 +13,9 @@ import Reporting from "./Reporting";
 import Work from "./Work";
 import Activity from "./Activity";
 import Settings from "./Settings";
+import Sales from "./Sales";
+import Flu from "./Flu";
+import OccHealth from "./OccHealth";
 import AgentsOverview from "./Agents/Overview";
 import AgentsActivity from "./Agents/AgentsActivity";
 import Companies from "./Records/Companies";
@@ -48,6 +51,9 @@ export default function PhRouter() {
     case "Work": body = <Work tab={tab} />; break;
     case "Activity": body = <Activity tab={tab} />; break;
     case "Settings": body = <Settings tab={tab} />; break;
+    case "Sales": body = <Sales tab={tab} />; break;
+    case "Flu": body = <Flu tab={tab} />; break;
+    case "OccHealth": body = <OccHealth tab={tab} />; break;
     case "Agents": body = tab === "activity" ? <AgentsActivity /> : <AgentsOverview />; break;
     case "Records": body = tab === "staff" ? <Staff /> : <Companies />; break;
   }

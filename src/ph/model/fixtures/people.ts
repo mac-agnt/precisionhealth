@@ -14,6 +14,7 @@ import { makeRng } from "../rng";
 import type { Rng } from "../rng";
 import { HIGH_BP_HISTORY_ANSWERS, QUESTIONNAIRE_SECTIONS, SECTION_QUESTIONS, SMOKING_AMOUNT } from "../questionnaire";
 import type { Answers } from "../questionnaire";
+import { SESSION_LOGISTICS } from "../nurseOps";
 
 export type EpRole =
   | "released"

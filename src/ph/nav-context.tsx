@@ -13,6 +13,8 @@ export interface PhShell {
   reduceMotion: boolean;
   setReduceMotion: (on: boolean) => void;
   openBackgrounds: () => void;
+  /** Switch between light and the last dark theme. */
+  toggleTheme?: () => void;
 }
 
 export interface PhNav {

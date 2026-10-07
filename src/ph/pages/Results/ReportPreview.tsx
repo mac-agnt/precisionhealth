@@ -1,12 +1,14 @@
-/* Participant report preview: the same ScreeningReport document the participant sees in the
-   portal, rendered from reportDocument() for the draft under review (or the released version),
-   with the advice exactly as typed in the editor. Print or save as PDF prints only the report:
-   a print copy is mounted directly under <body> while the preview is open and the print rules
-   in results.css hide everything else. No new dependencies. */
-import { useEffect, useRef } from "react";
+/* Participant report preview, rendered from reportDocument() for the draft under review (or the
+   released version), with the advice exactly as typed in the editor. A switch shows either the
+   DigitalReport the participant sees in the portal or the paper ScreeningReport they download.
+   Print or save as PDF always prints the paper report: a print copy is mounted directly under
+   <body> while the preview is open and the print rules in results.css hide everything else.
+   No new dependencies. */
+import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { Button, DemoTag, EmptyState, Icon } from "../../ui";
+import { Button, DemoTag, EmptyState, Icon, Segmented } from "../../ui";
+import { DigitalReport } from "../../report/DigitalReport";
 import { ScreeningReport, useReportDocument } from "../../report/ScreeningReport";
 import { OverlayPortal } from "./shared";
 
@@ -46,6 +48,7 @@ export function Dialog({ open, onClose, title, children, footer, width = 860 }: 
  */
 export function PreviewModal({ open, onClose, episodeId, advice, versionLabel, footer }: { open: boolean; onClose: () => void; episodeId: string; advice?: string; versionLabel: ReactNode; footer?: ReactNode }) {
   const doc = useReportDocument(open ? episodeId : null);
+  const [mode, setMode] = useState<"digital" | "pdf">("digital");
   // Scope the print rules to this preview while it is open.
   useEffect(() => {
     if (!open) return;
@@ -62,11 +65,17 @@ export function PreviewModal({ open, onClose, episodeId, advice, versionLabel, f
           <Button icon="print" disabled={!doc} onClick={() => window.print()} title="Opens the browser print dialog with only the report. Choose Save as PDF to keep a copy.">Print or save as PDF</Button>
           <Button onClick={onClose}>Close preview</Button>
         </>}>
-        <div className="phr-row" style={{ justifyContent: "space-between", marginBottom: 10 }}>
-          <span className="phr-sub">{versionLabel} The participant sees this same document in the portal.</span>
+        <div className="phr-row" style={{ justifyContent: "space-between", marginBottom: 10, flexWrap: "wrap", gap: 8 }}>
+          <Segmented label="Report view" value={mode} onChange={setMode} options={[{ id: "digital", label: "Digital report" }, { id: "pdf", label: "PDF" }]} />
           <DemoTag>Fictional participant</DemoTag>
         </div>
-        {doc ? <ScreeningReport doc={doc} draftAdvice={advice} /> : (
+        <p className="phr-sub" style={{ margin: "0 0 12px" }}>
+          {versionLabel}{" "}
+          {mode === "digital"
+            ? "The participant sees this digital report in the portal, exactly as shown here."
+            : "This is the paper copy the participant downloads or prints from the portal, and what Print or save as PDF produces."}
+        </p>
+        {doc ? (mode === "digital" ? <DigitalReport doc={doc} episodeId={episodeId} draftAdvice={advice} /> : <ScreeningReport doc={doc} draftAdvice={advice} />) : (
           <EmptyState title="Report not available" icon="lock">This role cannot open the participant report for this episode.</EmptyState>
         )}
       </Dialog>

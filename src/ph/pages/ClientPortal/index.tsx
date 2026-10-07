@@ -17,6 +17,7 @@ import { usePrintOnly } from "../Portal/parts";
 import "../Portal/portal.css";
 import "./client.css";
 import type { ClientView } from "./data";
+import { ThemeToggle } from "../../shell/ThemeToggle";
 import {
   CLIENT_PROGRAMMES, CLIENT_VIEWS, announcementText, bookingUptake, clientContact, isApprovedReport, precisionContacts, programmeFunnel, suppressionNotices, upcomingClinicDays,
 } from "./data";
@@ -71,6 +72,7 @@ export function ClientPortalPreview({ open, onClose }: { open: boolean; onClose:
           </span>
         </div>
         {compact ? <Button size="sm" variant="ghost" icon={optionsOpen ? "chevronDown" : "filter"} aria-expanded={optionsOpen} onClick={() => setOptionsOpen(!optionsOpen)}>Options</Button> : null}
+        {compact ? <ThemeToggle compact /> : null}
         {compact ? <Button size="sm" variant="primary" icon="x" onClick={onClose}>Close</Button> : null}
         {controlsVisible ? (
           <>
@@ -82,6 +84,7 @@ export function ClientPortalPreview({ open, onClose }: { open: boolean; onClose:
             </div>
             <div className="pp-chrome-group" style={compact ? { flexBasis: "100%" } : { marginLeft: "auto" }}>
               <Segmented label="Device width" value={device} onChange={(v) => setDevice(v)} options={DEVICES.map((x) => ({ id: x.id, label: x.label }))} />
+              {!compact ? <ThemeToggle /> : null}
               {!compact ? <Button size="sm" variant="primary" icon="x" onClick={onClose}>Close preview</Button> : null}
             </div>
           </>

@@ -8,6 +8,12 @@ import { DEMO_NOW_UTC } from "../time";
 import { buildRoster } from "./people";
 import { FIRST_SCREENING_REF, buildClinical } from "./clinical";
 import { buildOps } from "./ops";
+import { buildPortalBaseline } from "../portalAdmin";
+import { initialSalesState } from "../sales";
+import { initialFluState } from "../flu";
+import { initialOccHealthState } from "../occHealth";
+import { initialNurseOpsState } from "../nurseOps";
+import { initialAdviceLibraryState } from "../adviceLibrary";
 
 export function createInitialState(): PhState {
   const plan = buildRoster();
@@ -79,6 +85,12 @@ export function createInitialState(): PhState {
       eventBase: ops.activity.length,
     },
     toasts: [],
+    sales: initialSalesState(),
+    flu: initialFluState(),
+    occHealth: initialOccHealthState(),
+    nurseOps: initialNurseOpsState(),
+    adviceLibrary: initialAdviceLibraryState(),
   };
+  state.portal = buildPortalBaseline(state);
   return state;
 }

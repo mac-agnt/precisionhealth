@@ -41,7 +41,9 @@ export type Perm =
   | "settings.edit"
   | "activity.clinical"
   | "agents.view"
-  | "agents.configure";
+  | "agents.configure"
+  | "portal.admin"
+  | "portal.approve";
 
 export interface Staff {
   id: StaffId;
@@ -138,6 +140,8 @@ export interface ClinicSession {
   status: "scheduled" | "completed" | "cancelled";
   printerId: Id | null;
   note: string;
+  /** Bookings board columns (screening type, status, blood code, address, contact on the day, links). See nurseOps.ts. */
+  logistics?: import("./nurseOps").SessionLogistics;
 }
 
 export interface Slot {
@@ -231,6 +235,12 @@ export interface IdentityCheck {
 /** One value on the nurse form that is not a measure, a urine result or the nurse comments. Null clears it. */
 export type NurseFormValue = string | number | boolean | null;
 export interface ClinicalCapture {
+  /**
+   * Which nurse form this record uses, decided at check-in from the session's screening type:
+   * "lab" is the Comprehensive (LAB) form, "poc" the POC Screen with QRISK form (POC_FORM_SECTIONS
+   * in capture.ts). Absent means lab.
+   */
+  variant?: "lab" | "poc";
   status: "not_started" | "draft" | "complete";
   identity: IdentityCheck[];
   measures: {
@@ -888,6 +898,89 @@ export interface Toast {
   text: string;
 }
 
+/* ---- participant portal administration (Participants, Portal admin) ---- */
+/** Derived per person. Locked wins over every other state. */
+export type PortalAccountStatus = "not_invited" | "invited" | "registered" | "mfa_enrolled" | "locked";
+export type ReportDeliveryMode = "portal" | "portal_pdf";
+export type AssistedMethod = "phone" | "in_person" | "paper";
+/**
+ * What staff or the participant changed about a portal account. Everything else about the account
+ * (invited, questionnaire, consent, bookings, report access) is read from the existing records.
+ */
+export interface PortalAccountRecord {
+  /** Account created before any questionnaire activity: seeded, or by assisted onboarding. */
+  registeredAt?: Iso | null;
+  registeredVia?: "portal" | "assisted";
+  /** Staff reset sign-in and MFA. The participant sets up a second factor again at the next sign-in. */
+  mfaReset?: { at: Iso; by: StaffId; reason: string } | null;
+  mfaReenrolledAt?: Iso | null;
+  lock?: { at: Iso; by: StaffId | "system"; reason: string } | null;
+  failedSignIns?: number;
+  lastSignInAt?: Iso | null;
+  /** A personal, expiring invitation link sent by staff (Resend invitation). */
+  personalInvite?: { code: string; sentAt: Iso; expiresOn: LocalDate; messageId: Id; by: StaffId } | null;
+  assisted?: { at: Iso; by: StaffId; reason: string; method: AssistedMethod } | null;
+  withdrawn?: { at: Iso; by: StaffId; reason: string; cancelledBookingIds: Id[] } | null;
+  /** The participant's own report delivery choice. Null follows the programme default. */
+  reportDelivery?: ReportDeliveryMode | null;
+  contactUpdatedAt?: Iso | null;
+}
+/** One published version of a programme's portal content. The last entry is current. */
+export interface PortalContent {
+  version: number;
+  /** Booking page header, for example "Comprehensive Health Screening". */
+  heading: string;
+  /** Empty uses each participant's own site. */
+  venueLine: string;
+  /** Welcome line on the participant's overview. */
+  welcome: string;
+  supportEmail: string;
+  supportPhone: string;
+  /** "Before you arrive" lines. */
+  prep: string[];
+  cancelCutoffHours: number;
+  rescheduleCutoffHours: number;
+  holdMinutes: number;
+  oneActiveBooking: boolean;
+  reportDelivery: ReportDeliveryMode;
+  reminderLeadHours: number;
+  savedAt: Iso;
+  savedBy: StaffId | "system";
+  note: string;
+}
+/** A consent form or privacy notice version. Participants keep the version they accepted. */
+export interface PortalDocVersion {
+  id: Id;
+  programmeId: ProgrammeId;
+  kind: "consent" | "privacy";
+  version: string;
+  status: "published" | "pending_approval" | "superseded" | "rejected";
+  summary: string;
+  draftedBy: StaffId | "system";
+  draftedAt: Iso;
+  decidedBy: StaffId | null;
+  decidedAt: Iso | null;
+  publishedAt: Iso | null;
+}
+export interface MessageTemplate {
+  id: Id;
+  kind: MessageKind;
+  channel: "email" | "sms";
+  /** Email only. Empty for SMS. */
+  subject: string;
+  body: string;
+  version: number;
+  updatedAt: Iso;
+  updatedBy: StaffId | "system";
+  history: Array<{ version: number; subject: string; body: string; at: Iso; by: StaffId | "system" }>;
+}
+export interface PortalAdminState {
+  accounts: Record<Id, PortalAccountRecord>;
+  content: Record<ProgrammeId, PortalContent[]>;
+  documents: PortalDocVersion[];
+  templates: MessageTemplate[];
+}
+
 export interface PhState {
   version: 1;
   clock: { nowUtc: Iso; preset: string };
@@ -935,4 +1028,12 @@ export interface PhState {
   aiDrafts: Record<Id, { text: string; at: Iso }>;
   counters: Record<string, number>;
   toasts: Toast[];
+  /** Participant portal administration (Participants, Portal admin). Optional so a state without it still loads; createInitialState sets it. */
+  portal?: PortalAdminState;
+  /* Business areas from Stephen's operations walkthrough (docs/client-source/RECORDING.md). */
+  sales: import("./sales").SalesState;
+  flu: import("./flu").FluState;
+  occHealth: import("./occHealth").OccHealthState;
+  nurseOps: import("./nurseOps").NurseOpsState;
+  adviceLibrary: import("./adviceLibrary").AdviceLibraryState;
 }

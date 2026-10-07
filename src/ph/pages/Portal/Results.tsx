@@ -1,11 +1,13 @@
 /* My results (S10). Before a doctor releases a report the participant sees an awaiting-review
-   state with no values and no draft advice. After release the frozen version is rendered with the
-   shared ScreeningReport, the same document the clinician previewed, with version history,
-   superseded marking and a print or save-as-PDF copy of the report alone. Opening the report
-   records access, separately from the "report available" message, which never holds results. */
+   state with no values and no draft advice. After release the frozen version is rendered as the
+   chart-led DigitalReport, the same view the clinician previewed, with version history,
+   superseded marking and a print or save-as-PDF copy of the paper ScreeningReport alone. Opening
+   the report records access, separately from the "report available" message, which never holds
+   results. */
 import { useState } from "react";
 import { act, fmtDate, fmtDateLong, fmtDateTime, ix } from "../../model";
 import type { Episode, Id, ReportVersion } from "../../model";
+import { DigitalReport } from "../../report/DigitalReport";
 import { ScreeningReport, useReportDocument } from "../../report/ScreeningReport";
 import { dispatch, usePhState } from "../../store";
 import { Button, Card, EmptyState, Icon, Pill } from "../../ui";
@@ -115,7 +117,7 @@ function ReportView({ d, ep, v, versions, compact, delivery, go, onBack, onVersi
       <div className="pp-wrap">
         <Button variant="ghost" icon="chevronLeft" onClick={onBack}>My results</Button>
         <span className="ph-grow" />
-        {doc ? <Button icon="print" onClick={() => print(<ScreeningReport doc={doc} />)}>Download or print</Button> : null}
+        {doc ? <Button icon="print" onClick={() => print(<ScreeningReport doc={doc} />)} title="Opens the print dialog with the paper report. Choose Save as PDF to keep a copy.">Download or print PDF</Button> : null}
       </div>
       {superseded ? (
         <div className="pp-callout warn" role="note">
@@ -129,8 +131,8 @@ function ReportView({ d, ep, v, versions, compact, delivery, go, onBack, onVersi
       <div className="pp-grid pp-grid-main">
         <div className="pp-grid">
           {doc ? (
-            <div className="pp-report" aria-label={`Screening report, version ${v.version}`}>
-              <ScreeningReport doc={doc} compact={compact} />
+            <div role="region" style={{ minWidth: 0 }} aria-label={`Screening report, version ${v.version}`}>
+              <DigitalReport doc={doc} episodeId={ep.id} compact={compact} />
             </div>
           ) : (
             <Card><EmptyState title="This report cannot be shown here" icon="lock">Only your own released reports appear in the portal. Email {SUPPORT_EMAIL} if you think something is missing.</EmptyState></Card>

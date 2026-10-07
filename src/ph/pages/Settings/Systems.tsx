@@ -41,7 +41,7 @@ function StatusLine({ def }: { def: IntegrationDef }) {
 const eventsFor = (s: PhState, id: string): ActivityView[] => activityFeed(s).filter((v) => v.event.integrationId === id || (id === "slack" && v.event.verb === "clinic.ecg_review"));
 /** Why a system shows no events: by design, nothing yet, or hidden for this role. */
 function noEventsText(s: PhState, id: string): string {
-  if (id === "meddbase") return "No activity by design. Meddbase is outside this demo's integration scope.";
+  if (id === "meddbase" || id in WALKTHROUGH_USE) return "No activity by design. No connection to this system is built in the demo.";
   if (id === "excel") return "No integration events. There is no live spreadsheet connector.";
   if (id === "slack") return "No ECG review raised yet in this session. Nothing is ever posted to Slack.";
   if (s.activity.some((e) => e.integrationId === id)) return "No activity visible to your role.";
@@ -188,15 +188,49 @@ function Extras({ id, state }: { id: string; state: PhState }) {
     case "esendex": return <MessagesPanel state={state} provider="Esendex" title="SMS delivery history" />;
     case "email": return <MessagesPanel state={state} provider="Email" title="Email delivery history" />;
     case "meddbase": return (
-      <div className="ph-card-flat">
-        <EmptyState title="No Meddbase records or sync events" icon="layers">
-          Meddbase is an existing separate occupational-health system named on the public website. It is outside this screening demo's integration scope. Its replacement or integration has not been agreed.
-        </EmptyState>
-      </div>
+      <Section title="From the 2 Oct walkthrough">
+        <DefList items={[
+          { label: "Holds today", value: "Occupational-health clinician diaries (for example a van day of 15-minute surveillance slots), patient records and OH reports." },
+          { label: "Wanted", value: "Pre-appointment questionnaires sent into Meddbase by API, and client onboarding videos: set up, trigger, find a patient, get a report." },
+          { label: "Connection", value: "No Meddbase records or sync events exist in this demo. Whether it is kept, replaced or integrated has not been agreed." },
+        ]} />
+      </Section>
+    );
+    case "helpscout":
+    case "perplexity":
+    case "docusign":
+    case "xero": return (
+      <Section title="From the 2 Oct walkthrough">
+        <DefList items={WALKTHROUGH_USE[id].map(([label, value]) => ({ label, value }))} />
+      </Section>
     );
   }
   return null;
 }
+
+/** How each walkthrough-only tool is used today, from the 2 Oct recording. No connection is built for any of them. */
+const WALKTHROUGH_USE: Record<string, Array<[string, string]>> = {
+  helpscout: [
+    ["Used for", "Shared inbox for enquiries. 15 were unassigned on the day shown. Example: a request for flu vaccinations for 115 employees."],
+    ["Next step today", "The lead is researched in Perplexity, added to the Monday.com New Business Leads board and a reply is drafted."],
+    ["Connection", "None built. Whether enquiries flow into a Pulse leads pipeline has not been agreed."],
+  ],
+  perplexity: [
+    ["Used for", "Researching leads, drafting reply emails, and generating an 18-page proposal from a master document."],
+    ["Human step", "The owner reviews every email and proposal before it is sent."],
+    ["Connection", "None built. Replacement by a Pulse agent that keeps the same review step is to confirm."],
+  ],
+  docusign: [
+    ["Used for", "Sending the service level agreement and data sharing agreement to a new occupational-health client."],
+    ["Wanted", "Agreements generated from the master templates without filling them in by hand."],
+    ["Connection", "None built. No signature requests are sent from this demo."],
+  ],
+  xero: [
+    ["Used for", "Adding new clients, recurring invoices for occupational-health clients, and drafting an invoice after each Irish Life Health screening."],
+    ["Onboarding", "Part of the occupational-health onboarding checklist: client added to Xero, recurring invoice set up."],
+    ["Connection", "None built. Finance reporting was named by the client as a later topic."],
+  ],
+};
 
 function Section({ title, children, right }: { title: string; children: ReactNode; right?: ReactNode }) {
   return (

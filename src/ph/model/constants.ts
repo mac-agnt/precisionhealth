@@ -94,6 +94,8 @@ export const PERM_DEFS: Array<{ key: Perm; label: string; group: "Operations" | 
   { key: "agents.view", label: "View agents and their activity", group: "Admin",
     roles: ["clinical_review", "nursing_lead", "clinical_capture", "operations", "programme_oversight", "programme_reporting", "wellness_support"] },
   { key: "agents.configure", label: "Configure agents", group: "Admin", roles: ["clinical_review", "programme_oversight"] },
+  { key: "portal.admin", label: "Administer participant portal accounts, content and message templates", group: "Operations", roles: ["operations", "programme_oversight", "clinical_review"] },
+  { key: "portal.approve", label: "Approve consent form and privacy notice versions", group: "Admin", roles: ["clinical_review", "programme_oversight"] },
 ];
 
 export const ROLE_LABEL: Record<RoleKey | "participant", string> = {
@@ -664,9 +666,21 @@ export const INTEGRATIONS: IntegrationDef[] = [
   { id: "slack", name: "Slack", purpose: "Clinical channel for ECG photos today.",
     boundary: "Photos of an irregular ECG with an irregular pulse, sent by the nurse. In Pulse the photo stays with the clinical record and the clinician gets a review task.", statusLabel: "Replaced by Pulse alert, to confirm", tone: "warn",
     note: "Named on the nurse form: \"take photos of the ECG and send to the Slack channel\". Whether the Pulse clinical alert fully replaces it is to confirm. Nothing is posted to Slack." },
-  { id: "meddbase", name: "Meddbase", purpose: "Occupational-health platform identified on the public website.",
-    boundary: "Outside this screening demo. No records, sync events or replacement promise.", statusLabel: "Existing separate system · outside this screening demo integration scope", tone: "neutral",
-    note: "Its replacement or integration has not been agreed for this project." },
+  { id: "meddbase", name: "Meddbase", purpose: "Occupational-health platform: clinician diaries, patient records and OH reports. Clients are onboarded onto it.",
+    boundary: "No Meddbase records or sync events in this demo. Pre-appointment questionnaires are not pushed into it.", statusLabel: "Existing system · API push of questionnaires wanted, not agreed", tone: "warn",
+    note: "In the 2 Oct walkthrough the client asked for pre-appointment questionnaires (pre-employment, skin surveillance, respiratory sensitisers, night worker) to reach Meddbase by API, and for client onboarding videos on using it. Whether Meddbase is kept, replaced or integrated has not been agreed." },
+  { id: "helpscout", name: "Help Scout", purpose: "Shared inbox where new enquiries arrive (screening, flu and occupational health).",
+    boundary: "Enquiry text and contact details. No patient clinical data.", statusLabel: "Existing source · not connected in this demo", tone: "neutral",
+    note: "Named in the 2 Oct walkthrough. Whether enquiries should flow into a Pulse leads pipeline has not been agreed." },
+  { id: "perplexity", name: "Perplexity", purpose: "AI assistant used today to research leads, draft replies and generate proposals from a master document.",
+    boundary: "Lead and proposal text. No patient data.", statusLabel: "Existing tool · replacement by a Pulse agent to confirm", tone: "warn",
+    note: "Named in the 2 Oct walkthrough. Nothing is sent to or from Perplexity in this demo." },
+  { id: "docusign", name: "DocuSign", purpose: "Sends the service level agreement and data sharing agreement to new occupational-health clients.",
+    boundary: "Agreement documents and signatory emails.", statusLabel: "Existing tool · generation inside Pulse to confirm", tone: "warn",
+    note: "The client believes these agreements could be generated automatically. No signatures are requested in this demo." },
+  { id: "xero", name: "Xero", purpose: "Accounts: new clients are added, recurring invoices are set up and screening invoices are drafted.",
+    boundary: "Client account details and invoice drafts. No payment data.", statusLabel: "Existing system · integration to confirm", tone: "neutral",
+    note: "Named in the 2 Oct walkthrough. Finance reporting was flagged by the client as a later topic. No invoices are created in this demo." },
 ];
 
 export const GOVERNANCE_ITEMS: GovernanceItem[] = [

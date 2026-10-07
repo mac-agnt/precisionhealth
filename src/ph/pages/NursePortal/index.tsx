@@ -18,6 +18,7 @@ import { ClinicClose } from "./ClinicClose";
 import { ParticipantView } from "./Participant";
 import { PORTAL_NURSES, clinicCounts, clinicRows, nextOpen, nurseSessionToday, takeRequestedNurse } from "./data";
 import "./nurse.css";
+import { ThemeToggle } from "../../shell/ThemeToggle";
 
 export { requestNursePortalNurse } from "./data";
 
@@ -107,11 +108,13 @@ export function NursePortalPreview({ open, onClose }: { open: boolean; onClose: 
           </span>
         </div>
         {compact ? <Button size="sm" variant="ghost" icon={optionsOpen ? "chevronDown" : "filter"} aria-expanded={optionsOpen} onClick={() => setOptionsOpen(!optionsOpen)}>Options</Button> : null}
+        {compact ? <ThemeToggle compact /> : null}
         {compact ? <Button size="sm" variant="primary" icon="x" onClick={onClose}>Close</Button> : null}
         {controlsVisible ? (
           <div className="np-chrome-group" style={compact ? { flexBasis: "100%" } : { marginLeft: "auto" }}>
             <Segmented label="Device width" value={device} onChange={(v) => setDevice(v)} options={DEVICES.map((x) => ({ id: x.id, label: x.label }))} />
-            {!compact ? <Button size="sm" variant="primary" icon="x" onClick={onClose}>Close preview</Button> : null}
+            {!compact ? <ThemeToggle /> : null}
+              {!compact ? <Button size="sm" variant="primary" icon="x" onClick={onClose}>Close preview</Button> : null}
           </div>
         ) : null}
       </header>

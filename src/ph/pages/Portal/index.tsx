@@ -13,6 +13,7 @@ import { normalisePersonId, portalData } from "./data";
 import type { PortalView, ReportDelivery } from "./data";
 import { PortalApp } from "./PortalApp";
 import "./portal.css";
+import { ThemeToggle } from "../../shell/ThemeToggle";
 
 type DeviceId = "desktop" | "tablet" | "phone";
 const DEVICES: Array<{ id: DeviceId; label: string; width: number }> = [
@@ -98,6 +99,7 @@ export default function PortalPreview({ open, onClose }: { open: boolean; onClos
           </span>
         </div>
         {compact ? <Button size="sm" variant="ghost" icon={optionsOpen ? "chevronDown" : "filter"} aria-expanded={optionsOpen} onClick={() => setOptionsOpen(!optionsOpen)}>Options</Button> : null}
+        {compact ? <ThemeToggle compact /> : null}
         {compact ? <Button size="sm" variant="primary" icon="x" onClick={onClose}>Close</Button> : null}
         {controlsVisible ? (
           <>
@@ -116,6 +118,7 @@ export default function PortalPreview({ open, onClose }: { open: boolean; onClos
             <div className="pp-chrome-group" style={compact ? { flexBasis: "100%" } : { marginLeft: "auto" }}>
               <Segmented label="Device width" value={device} onChange={(v) => setDevice(v)} options={DEVICES.map((x) => ({ id: x.id, label: x.label }))} />
               <Chip on={showCounts} onClick={() => setCountsPref(!showCounts)}>Staff counts</Chip>
+              {!compact ? <ThemeToggle /> : null}
               {!compact ? <Button size="sm" variant="primary" icon="x" onClick={onClose}>Close preview</Button> : null}
             </div>
           </>

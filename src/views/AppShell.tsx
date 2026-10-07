@@ -15,6 +15,7 @@ import { NavContext } from "../ph/nav-context";
 import { ToastHost } from "../ph/ui";
 import { BrandLogo, Monogram } from "../ph/shell/Brand";
 import { PersonaMenu } from "../ph/shell/PersonaMenu";
+import { SidebarAccount } from "../ph/shell/SidebarAccount";
 import { DemoBadge } from "../ph/shell/DemoBadge";
 import HeliosMini from "./overlays/HeliosMini";
 import AgentStudio from "./overlays/AgentStudio";
@@ -90,18 +91,8 @@ export default function AppShell({ v }: Props) {
               <div style={{"fontSize":"11px","fontWeight":"600","letterSpacing":".12em","color":"var(--faint)"}}>
                 {"SIGNED IN"}
               </div>
-              <div style={{"display":"flex","alignItems":"center","gap":"11px","marginTop":"12px"}}>
-                <div style={{"width":"40px","height":"40px","flex":"none","borderRadius":"999px","background":"var(--accent-soft)","color":"var(--accent)","display":"flex","alignItems":"center","justifyContent":"center","fontSize":"13px","fontWeight":"600"}}>
-                  {txt(v.phPersona?.initials)}
-                </div>
-                <div style={{"minWidth":"0"}}>
-                  <div style={{"fontSize":"17px","fontWeight":"600","letterSpacing":"-.3px","color":"var(--ink)","whiteSpace":"nowrap","overflow":"hidden","textOverflow":"ellipsis"}}>
-                    {txt(v.phPersona?.name)}
-                  </div>
-                  <div style={{"fontSize":"12.5px","color":"var(--faint)","marginTop":"2px","whiteSpace":"nowrap","overflow":"hidden","textOverflow":"ellipsis"}}>
-                    {txt(v.phPersona?.title)}
-                  </div>
-                </div>
+              <div style={{"marginTop":"12px"}}>
+                <SidebarAccount />
               </div>
               <button className="ix4" onClick={v.goSettings} onPointerEnter={v.setBtnIn} onPointerLeave={v.setBtnOut} style={{"position":"relative","width":"100%","height":"46px","marginTop":"16px","display":"flex","alignItems":"center","gap":"10px","padding":"0 5px 0 16px","background":"var(--surface-2)","border":"1px solid var(--border)","borderRadius":"999px","color":"var(--ink)","fontSize":"14px","fontWeight":"600","letterSpacing":"-.1px","cursor":"pointer","overflow":"hidden","isolation":"isolate","boxShadow":"0 1px 0 rgba(255,255,255,.05) inset,0 2px 8px rgba(0,0,0,.18)","transition":"border-color .4s var(--ease)"}}>
                 <span style={css(v.setDotStyle)} />
@@ -138,17 +129,7 @@ export default function AppShell({ v }: Props) {
               </span>
             </button>
             <div style={css(cat(v.railRowStyle, "margin-top:10px;padding:12px 10px;border-top:1px solid var(--border)"))}>
-              <div style={{"width":"40px","height":"40px","flex":"none","borderRadius":"12px","background":"var(--surface-2)","border":"1px solid var(--border)","color":"var(--body)","display":"flex","alignItems":"center","justifyContent":"center","fontSize":"12px","fontWeight":"600","cursor":"pointer"}}>
-                {txt(v.phPersona?.initials)}
-              </div>
-              <span style={css(v.brandStyle)}>
-                <span style={{"display":"block","fontSize":"14px","fontWeight":"500","color":"var(--ink)"}}>
-                  {txt(v.phPersona?.name)}
-                </span>
-                <span style={{"display":"block","marginTop":"2px","fontSize":"12px","color":"var(--faint)"}}>
-                  {txt(v.phPersona?.title)}
-                </span>
-              </span>
+              <SidebarAccount collapsed />
             </div>
           </>
         )}
