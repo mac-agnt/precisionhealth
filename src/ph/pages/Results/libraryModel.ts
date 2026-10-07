@@ -71,13 +71,14 @@ export function snippetSuggestions(state: PhState, episodeId: Id): Suggestions {
           if (!o || !c.bands.includes(o.band) || (o.unitDiscrepancy && !o.unitDiscrepancy.confirmed)) return null;
           const a = ANALYTES[c.code];
           covered.add("code:" + c.code);
-          return `${a.name} ${formatResult(c.code, o.value, o.valueText)}${a.unit && a.unit !== "ratio" && !a.qualitative ? " " + o.unit : ""}, ${o.band === "normal" ? "normal" : o.band}`;
+          if (a.qualitative) return `${a.name} ${formatResult(c.code, o.value, o.valueText).toLowerCase()}`;
+          return `${a.name} ${formatResult(c.code, o.value, o.valueText)}${a.unit && a.unit !== "ratio" ? " " + o.unit : ""}, ${o.band}`;
         }
         case "measure": {
           const m = mbs.get(c.key);
           if (!m || !((c.words && c.words.includes(m.word)) || (c.bands && c.bands.includes(m.band)))) return null;
           covered.add("m:" + c.key);
-          return `${m.label} ${m.text}, ${m.word.toLowerCase()}`;
+          return c.key === "ecg" ? `ECG ${m.word.toLowerCase()} on the day` : `${m.label} ${m.text}, ${m.word.toLowerCase()}`;
         }
         case "smoker":
           return rf && rf.smoker && (/cigarettes per day/.test(rf.smoker) || rf.smoker.startsWith("Yes")) ? `Smoking: ${rf.smoker}` : null;

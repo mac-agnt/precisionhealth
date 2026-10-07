@@ -1,4 +1,4 @@
-/* Participants module: Directory, Screening History and Communications. Every list and count
+/* Participants module: Directory, Screening History, Communications and Portal admin. Every list and count
    comes from the shared store. Role checks re-filter live when the persona changes. */
 import { useNav } from "../../nav-context";
 import { usePersona } from "../../store";
@@ -6,6 +6,7 @@ import { Button, PageHeader, RestrictedNotice } from "../../ui";
 import Communications from "./Communications";
 import Directory from "./Directory";
 import History from "./ScreeningHistory";
+import PortalAdmin from "./PortalAdmin";
 
 export default function ParticipantsPage({ tab }: { tab: string }) {
   const p = usePersona();
@@ -23,5 +24,6 @@ export default function ParticipantsPage({ tab }: { tab: string }) {
   }
   if (tab === "screening-history") return <History />;
   if (tab === "communications") return <Communications />;
+  if (tab === "portal-admin") return <PortalAdmin />;
   return <Directory />;
 }

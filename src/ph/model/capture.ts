@@ -432,3 +432,187 @@ export function nurseFormPrefill(a: Answers, booking: { site: string; employer: 
   if (typeof a.medications === "string" && a.medications.trim()) out.medications = /^none$/i.test(a.medications.trim()) ? "nil" : a.medications.trim();
   return out;
 }
+
+/* ================================================================================================
+   POC Screen with QRISK (RECORDING.md section 3): the point-of-care form the nurse fills on a laptop
+   for POC3 and cardiac days. No laboratory: the on-site machine's cholesterol, HDL and HbA1c become
+   the episode's results. The screen type comes first and cannot be changed once saved; it decides
+   which sections follow. QRISK3 inputs reuse the lab form's keys, so the questionnaire prefill and
+   the clinician viewer read them the same way. "If error write 10 and comment" is replaced by a
+   Machine error state with a required comment: no placeholder value is ever stored.
+   ================================================================================================ */
+
+export const POC_FORM_NAME = "POC Screen with QRISK";
+export const POC_SCREEN_TYPES = ["Standard Cardiovascular Risk", "Sudden Cardiac Death Risk", "BP BMI Cholesterol", "BP Only", "Other"] as const;
+export type PocScreenType = (typeof POC_SCREEN_TYPES)[number];
+/** Outcome options per test, verbatim from the client's form. */
+export const POC_TEST_OUTCOMES = ["Normal", "Borderline", "Abnormal", "Not done", "No significant abnormality detected", "Other"];
+/** What the point-of-care machine gave for one test. */
+export const POC_READING_STATES = ["Recorded", "Machine error", "Not done"];
+export const POC_MACHINE_ERROR = "Machine error";
+/** ECG result codes in the client's POC wording, letter first. */
+export const POC_ECG_RESULT_OPTIONS = [
+  "A Normal rhythm", "B Normal rhythm fast heart rate", "F Normal rhythm slow heart rate", "H Slow heart rate and deviating waveform",
+  "J Irregular heart rate", "K Irregular heart rate and deviating waveform", "L Deviating waveform", "M Analysis impossible", "Other (in the ECG comment)",
+];
+export const POC_ECG_IRREGULAR = ["J Irregular heart rate", "K Irregular heart rate and deviating waveform"];
+export const POC_SCD_NOTE = "Sample wording, kept clinically neutral. To confirm with Neil before use.";
+/** The last POC unique ID seen in the client's material (POC010940). New POC episodes continue from it. */
+export const POC_REF_LAST_ISSUED = 10940;
+export const pocRefFor = (n: number) => `POC0${String(n).padStart(5, "0")}`;
+
+export type PocSectionKey = "screen_type" | "registration" | "cv_risk" | "scd" | "measurements" | "poc_bloods" | "ecg" | "closeout";
+export interface PocFormSection { key: PocSectionKey; title: string; showIf?: NurseShowIf; note?: string; fields: NurseFormField[] }
+
+const POC_TYPE = (...t: PocScreenType[]): NurseShowIf => ({ field: "pocScreenType", oneOf: t });
+const POC_CV = POC_TYPE("Standard Cardiovascular Risk", "Other");
+const POC_SCD = POC_TYPE("Sudden Cardiac Death Risk");
+const POC_BODY = POC_TYPE("Standard Cardiovascular Risk", "Sudden Cardiac Death Risk", "BP BMI Cholesterol", "Other");
+const POC_BILATERAL = POC_TYPE("Standard Cardiovascular Risk", "Sudden Cardiac Death Risk", "Other");
+const POC_BLOODS = POC_TYPE("Standard Cardiovascular Risk", "BP BMI Cholesterol", "Other");
+const POC_ECG_SCREENS = POC_TYPE("Standard Cardiovascular Risk", "Sudden Cardiac Death Risk", "Other");
+const recorded = (stateKey: string): NurseShowIf => ({ field: stateKey, equals: "Recorded" });
+const L = NURSE_FIELD_BY_KEY;
+const scdQ = (key: string, label: string) => f(key, label, "boolean", { required: true });
+/** One point-of-care reading: what the machine gave, the value when recorded, and the nurse's outcome. */
+function pocReading(prefix: string, label: string, unit: string, min: number, max: number, showIf?: NurseShowIf): NurseFormField[] {
+  const st = `${prefix}State`;
+  const and = (x: NurseShowIf): NurseShowIf => (showIf ? { all: [showIf, x] } : x);
+  return [
+    f(st, label, "choice", { options: POC_READING_STATES, required: true, showIf, help: "Machine error replaces writing 10 on the old form. Say what the machine showed in the comment below." }),
+    f(prefix, `${label} result`, "number", { unit, min, max, required: true, showIf: and(recorded(st)) }),
+    f(`${prefix}Outcome`, `${label} outcome`, "choice", { options: POC_TEST_OUTCOMES, required: true, showIf: and(recorded(st)) }),
+  ];
+}
+
+export const POC_FORM_SECTIONS: PocFormSection[] = [
+  { key: "screen_type", title: "Screen type", note: "Chosen first. It cannot be changed once saved, and it decides the questions and measurements that follow.", fields: [
+    f("pocScreenType", "Screen type", "choice", { options: [...POC_SCREEN_TYPES], required: true }),
+    f("pocScreenOther", "Describe the screen", "text", { required: true, showIf: POC_TYPE("Other") }),
+  ] },
+  { key: "registration", title: "Registration", fields: [
+    L.appointment, L.firstName, L.lastName, L.email, L.mobile, L.dob, L.sexAtBirth, L.company, L.walkIn, L.employer,
+  ] },
+  { key: "cv_risk", title: "Cardiovascular risk (QRISK3 inputs)", showIf: POC_CV,
+    note: "The same QRISK3 inputs as the lab form, prefilled from the participant questionnaire where answered; confirm each one. The 10-year score and heart age come from the licensed QRISK3 engine at review and are never calculated here.", fields: [
+      L.ethnicity, L.smoking, L.diabetesType2, L.diabetesType1,
+      { ...L.ckd, label: "Chronic kidney disease (stage 3, 4 or 5)" },
+      L.atrialFibrillation,
+      { ...L.treatedHypertension, label: "On blood pressure treatment" },
+      { ...L.famHistoryCvd, label: "Angina or heart attack in a first-degree relative under 60" },
+      L.migraine, L.rheumatoidArthritis, L.sle, L.severeMentalIllness, L.atypicalAntipsychotic, L.erectileDysfunction, L.oralSteroids,
+    ] },
+  { key: "scd", title: "Sudden cardiac death questions", showIf: POC_SCD, note: POC_SCD_NOTE, fields: [
+    scdQ("scdFamilySuddenDeath", "Family history of sudden cardiac death under 40"),
+    scdQ("scdFaintingExertion", "Unexplained fainting on exertion"),
+    scdQ("scdChestPainExertion", "Chest pain on exertion"),
+    scdQ("scdPalpitations", "Palpitations"),
+    scdQ("scdKnownCondition", "Known heart condition"),
+  ] },
+  { key: "measurements", title: "Measurements", note: "Blood pressure in both arms. Values are kept as measured; abnormal readings are flagged for the doctor, never forced into range. A blank is not a default weight or height.", fields: [
+    meas("weightKg", "Weight", { showIf: POC_BODY }),
+    meas("heightM", "Height", { showIf: POC_BODY }),
+    f("bmi", "BMI", "number", { store: "calc", readOnly: true, unit: "kg/m²", showIf: POC_BODY, help: "Calculated from height and weight. Never typed." }),
+    meas("waistCm", "Waist", { required: false, showIf: POC_CV }),
+    meas("bpSys", "Systolic BP, right arm"),
+    meas("bpDia", "Diastolic BP, right arm"),
+    f("pocBpSysLeft", "Systolic BP, left arm", "number", { unit: "mmHg", min: 60, max: 260, required: true, showIf: POC_BILATERAL }),
+    f("pocBpDiaLeft", "Diastolic BP, left arm", "number", { unit: "mmHg", min: 30, max: 160, required: true, showIf: POC_BILATERAL }),
+    f("pocBpOutcome", "Blood pressure outcome", "choice", { options: POC_TEST_OUTCOMES, required: true }),
+    f("pocArmSpan", "Arm span", "number", { unit: "cm", min: 100, max: 250, required: true, showIf: POC_SCD, help: "Fingertip to fingertip, arms outstretched." }),
+    f("pocArmSpanGtHeight", "Arm span greater than height", "boolean", { store: "calc", readOnly: true, showIf: POC_SCD, help: "Marfan screen. Calculated from arm span and height. Never typed." }),
+    meas("pulse", "Pulse rate"),
+    f("pocSpo2", "Pulse oximetry (O2 sats)", "number", { unit: "%", min: 70, max: 100, required: true, showIf: POC_BILATERAL }),
+  ] },
+  { key: "poc_bloods", title: "Point-of-care bloods", showIf: POC_BLOODS,
+    note: "From the machine on site. If the machine shows an error, choose Machine error and say what it showed. No placeholder value is ever recorded.", fields: [
+      ...pocReading("pocChol", "Total cholesterol", "mmol/L", 1, 20),
+      ...pocReading("pocHdl", "HDL cholesterol", "mmol/L", 0.1, 5),
+      ...pocReading("pocHba1c", "HbA1c", "mmol/mol", 15, 200, POC_CV),
+      f("pocMachineComment", "Machine error comment", "text", { required: true,
+        showIf: { any: [{ field: "pocCholState", equals: POC_MACHINE_ERROR }, { field: "pocHdlState", equals: POC_MACHINE_ERROR }, { all: [POC_CV, { field: "pocHba1cState", equals: POC_MACHINE_ERROR }] }] },
+        help: "What the machine showed, for example the error code, and whether a repeat was tried." }),
+    ] },
+  { key: "ecg", title: "ECG", showIf: POC_ECG_SCREENS, fields: [
+    f("pocEcg", "ECG", "choice", { options: ["Done", "Not done"], required: true }),
+    f("pocEcgResult", "ECG result", "choice", { options: POC_ECG_RESULT_OPTIONS, required: true, showIf: { field: "pocEcg", equals: "Done" },
+      help: "Irregular heart rate (J or K): take photos of the ECG. Pulse shares them to the clinical channel for the doctor." }),
+    f("pocEcgOutcome", "ECG outcome", "choice", { options: POC_TEST_OUTCOMES, required: true, showIf: { field: "pocEcg", equals: "Done" } }),
+    f("pocEcgComment", "ECG comment (symptoms, cardiac history)", "text", { required: false }),
+  ] },
+  { key: "closeout", title: "Close-out", fields: [L.approve, L.nurseComments, L.medications, L.screeningClinician] },
+];
+export const POC_FORM_FIELDS: NurseFormField[] = POC_FORM_SECTIONS.flatMap((s) => s.fields);
+export const POC_FIELD_BY_KEY: Record<string, NurseFormField> = Object.fromEntries(POC_FORM_FIELDS.map((x) => [x.key, x]));
+/** Fields the nurse writes on capture.form in the POC form. */
+export const POC_FORM_STORED: NurseFormField[] = POC_FORM_FIELDS.filter((x) => x.store === "form" && !x.readOnly);
+
+export const pocSectionVisible = (section: PocFormSection, c: ClinicalCapture, ctx: NurseFormCtx): boolean => !section.showIf || cond(section.showIf, c, ctx);
+export function pocFieldVisible(field: NurseFormField, c: ClinicalCapture, ctx: NurseFormCtx): boolean {
+  const section = POC_FORM_SECTIONS.find((s) => s.fields.includes(field));
+  if (section && !pocSectionVisible(section, c, ctx)) return false;
+  // Before the screen type is chosen only the screen type and registration are asked.
+  if (section && section.key !== "screen_type" && section.key !== "registration" && !c.form?.pocScreenType) return false;
+  return !field.showIf || cond(field.showIf, c, ctx);
+}
+/** Required POC fields still blank. Measures marked not done or declined count as accounted for. */
+export function pocFormMissing(c: ClinicalCapture, ctx: NurseFormCtx): Array<{ section: PocSectionKey; key: string; label: string }> {
+  const out: Array<{ section: PocSectionKey; key: string; label: string }> = [];
+  for (const s of POC_FORM_SECTIONS) {
+    if (!pocSectionVisible(s, c, ctx)) continue;
+    for (const field of s.fields) {
+      if (!field.required || field.readOnly || field.store === "record" || field.store === "calc") continue;
+      if (!pocFieldVisible(field, c, ctx)) continue;
+      const blank = field.store === "measure" ? isBlankMeasure(c.measures[field.measureKey!]) : (() => { const v = nurseFieldValue(c, field); return v === null || v === ""; })();
+      if (blank) out.push({ section: s.key, key: field.key, label: field.label });
+    }
+  }
+  return out;
+}
+/** Invalid values on the visible POC form, keyed by field, including both arms' systolic above diastolic. */
+export function pocFormErrors(c: ClinicalCapture, ctx: NurseFormCtx): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const field of POC_FORM_STORED) {
+    if (!pocFieldVisible(field, c, ctx)) continue;
+    const e = nurseValueError(field, nurseFieldValue(c, field));
+    if (e) out[field.key] = e;
+  }
+  for (const [k, e] of Object.entries(captureErrors(c))) if (e) out[k] = e;
+  const ls = c.form?.pocBpSysLeft, ld = c.form?.pocBpDiaLeft;
+  if (typeof ls === "number" && typeof ld === "number" && ls <= ld) out.pocBpLeft = "Left arm: systolic must be higher than diastolic.";
+  for (const p of ["pocChol", "pocHdl", "pocHba1c"]) {
+    if (c.form?.[`${p}State`] !== "Recorded" && c.form?.[p] !== null && c.form?.[p] !== undefined) out[p] = `${POC_FIELD_BY_KEY[p].label.replace(/ result$/, "")}: a value is only kept when the machine recorded one. Never write 10 or any placeholder.`;
+  }
+  return out;
+}
+/** Prefill for a POC check-in: the same booking and questionnaire values, keeping only POC form fields. */
+export function pocFormPrefill(lab: Record<string, NurseFormValue>): Record<string, NurseFormValue> {
+  const out: Record<string, NurseFormValue> = {};
+  for (const [k, v] of Object.entries(lab)) if (POC_FIELD_BY_KEY[k] && POC_FIELD_BY_KEY[k].store === "form") out[k] = v;
+  return out;
+}
+
+/** Marfan screen: arm span against height. exceeds is null until both are recorded. */
+export function pocArmSpan(c: ClinicalCapture): { exceeds: boolean | null; diffCm: number | null } {
+  const span = typeof c.form?.pocArmSpan === "number" ? c.form.pocArmSpan : null;
+  const h = c.measures.heightM.state === "recorded" ? c.measures.heightM.value : null;
+  if (span === null || h === null) return { exceeds: null, diffCm: null };
+  const diff = Math.round((span - h * 100) * 10) / 10;
+  return { exceeds: diff > 0, diffCm: diff };
+}
+/** Difference between the two arms' systolic readings, mmHg, or null until both are recorded. */
+export function pocInterArmSystolic(c: ClinicalCapture): number | null {
+  const r = c.measures.bpSys.state === "recorded" ? c.measures.bpSys.value : null;
+  const l = typeof c.form?.pocBpSysLeft === "number" ? c.form.pocBpSysLeft : null;
+  return r === null || l === null ? null : Math.abs(r - l);
+}
+/** ECG band for the POC result codes: A normal; B, F, M and other borderline; H, J, K and L abnormal; not done not tested. */
+export function pocEcgBand(c: ClinicalCapture): Band {
+  if (c.form?.pocEcg !== "Done") return "not_tested";
+  const r = typeof c.form?.pocEcgResult === "string" ? c.form.pocEcgResult : "";
+  if (!r) return "not_tested";
+  const code = r.charAt(0);
+  if (code === "A") return "normal";
+  if (["H", "J", "K", "L"].includes(code)) return "abnormal";
+  return "borderline";
+}
