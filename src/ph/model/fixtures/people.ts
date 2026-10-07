@@ -91,6 +91,8 @@ export function buildSessions(): ClinicSession[] {
     status: s.past ? "completed" : "scheduled",
     printerId: s.printer,
     note: s.past ? "Completed. Illustrative session." : "Illustrative session.",
+    // Bookings board columns for the session (screening type, status, blood code, contact on the day).
+    ...(SESSION_LOGISTICS[sessionIdFor(s.programmeId, s.date)] ? { logistics: structuredClone(SESSION_LOGISTICS[sessionIdFor(s.programmeId, s.date)]) } : {}),
   }));
 }
 

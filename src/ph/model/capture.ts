@@ -140,8 +140,8 @@ export interface NurseFormField {
 }
 export type NurseSectionKey = "registration" | "cv_risk" | "bowel" | "psa" | "measurements" | "ecg" | "urinalysis" | "closeout";
 export interface NurseFormSection { key: NurseSectionKey; title: string; showIf?: NurseShowIf; note?: string; fields: NurseFormField[] }
-/** Sex at birth and age at the appointment, for conditional fields. */
-export interface NurseFormCtx { sex: SexRecorded; age: number }
+/** Sex at birth and age at the appointment, for conditional fields. variant picks the form (absent means the lab form). */
+export interface NurseFormCtx { sex: SexRecorded; age: number; variant?: "lab" | "poc" }
 
 const yesNo = ["Yes", "No"];
 const f = (key: string, label: string, type: NurseFieldType, o: Partial<NurseFormField> = {}): NurseFormField =>
@@ -269,7 +269,7 @@ function cond(x: NurseShowIf, c: ClinicalCapture, ctx: NurseFormCtx): boolean {
   }
   if ("minAge" in x) return ctx.age >= x.minAge;
   if ("maxAge" in x) return ctx.age <= x.maxAge;
-  const field = NURSE_FIELD_BY_KEY[x.field];
+  const field = NURSE_FIELD_BY_KEY[x.field] || POC_FIELD_BY_KEY[x.field];
   const raw = field ? nurseFieldValue(c, field) : c.form?.[x.field] ?? null;
   const v = raw === "" ? null : raw;
   if (x.oneOf) return x.oneOf.includes(v);
@@ -348,7 +348,8 @@ export function nurseFormErrors(c: ClinicalCapture, ctx: NurseFormCtx): Record<s
 /** Problems with a patch to capture.form: unknown keys, read-only fields and invalid values. */
 export function nurseFormPatchError(patch: Record<string, NurseFormValue>): string | null {
   for (const [k, v] of Object.entries(patch)) {
-    const field = NURSE_FIELD_BY_KEY[k];
+    // Lab form fields first, then the POC Screen with QRISK fields. Shared QRISK3 keys mean the same thing on both.
+    const field = NURSE_FIELD_BY_KEY[k] || POC_FIELD_BY_KEY[k];
     if (!field || field.store !== "form") return `"${k}" is not a nurse-form field stored on the form.`;
     if (field.readOnly && v !== null && v !== "") return `${field.label} is written by the doctor at review. Use Nurse comments instead.`;
     const e = nurseValueError(field, v);
