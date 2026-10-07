@@ -5,7 +5,7 @@
 import { PAGE_BY_ID, defaultTab, hashFor, parseHash, isPhScreen, tabLabel } from "../ph/model/nav";
 import {
   navAttention, storyViews, reviewStats, batchStats, followUpList, reminderStats, taskViews, approvalViews, persona as phPersona, answerQuery, suggestedPrompts,
-  visibleFiles, linkFor, greetingFor, fmtDateLong, fmtTime, todayStats, todaySessions, sessionStats, visibleTasks, fmtWhen, ontologyModel, ONTO_CLUSTER_DEFS, PH_FILES,
+  AUTOMATIONS, visibleFiles, linkFor, greetingFor, fmtDateLong, fmtTime, todayStats, todaySessions, sessionStats, visibleTasks, fmtWhen, ontologyModel, ONTO_CLUSTER_DEFS, PH_FILES,
 } from "../ph/model";
 import { phStore } from "../ph/store";
 
@@ -21,6 +21,8 @@ function tabCount(state, page, tab) {
     if (page === "Work") {
       if (tab === "tasks") { const n = taskViews(state).filter(t => t.visible && t.status !== "done").length; return n ? String(n) : ""; }
       if (tab === "approvals") { const n = approvalViews(state).filter(a => a.visible && a.status === "pending").length; return n ? String(n) : ""; }
+      /* Automations with an open, non-clinical exception (failed reminders, held import rows and so on). */
+      if (tab === "automations") { const n = AUTOMATIONS.filter(a => { const x = a.metrics(state).exceptions; return !x.clinical && x.value > 0 && (x.tone === "warn" || x.tone === "bad"); }).length; return n ? String(n) : ""; }
     }
   } catch (e) { /* counts are decoration; never break the header */ }
   return "";
@@ -235,6 +237,10 @@ export function phOverrides(logic, v) {
     phPersona: { initials: persona.initials, name: persona.displayName, title: persona.title },
     portalOpen: !!st.portalOpen,
     closePortal: () => logic.closePortal(),
+    nursePortalOpen: !!st.nursePortalOpen,
+    closeNursePortal: () => logic.closeNursePortal(),
+    clientPortalOpen: !!st.clientPortalOpen,
+    closeClientPortal: () => logic.closeClientPortal(),
     /* The old page models are not used for these screens. */
     isDashboard: false, isWork: false, isActivity: false, isSettings: false,
     isRecords: page === "Records" && !screen,

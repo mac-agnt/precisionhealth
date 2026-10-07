@@ -1,14 +1,15 @@
 /* Work, Schedules: upcoming clinics, 24-hour reminder jobs, review checkpoints, employer report
    milestones and the existing source-import simulation, with last and next run and failures.
+   Each job links to the automation it runs (Work, Automations) where that is obvious.
    Every job is simulated. None calls a provider. */
 import { useMemo, useState } from "react";
-import { PROGRAMME_BY_ID, fmtDateTime, fmtShortDateTime, fmtWeekdayDate, fmtWhen, jobViews, linkFor, reminderStats, sessionStats, sessionsBetween, staffName, today } from "../../model";
+import { PROGRAMME_BY_ID, automationForJob, fmtDateTime, fmtShortDateTime, fmtWeekdayDate, fmtWhen, jobViews, linkFor, reminderStats, sessionStats, sessionsBetween, staffName, today } from "../../model";
 import type { PhState, ScheduledJob } from "../../model";
 import { usePersona, usePhState } from "../../store";
 import { useNav } from "../../nav-context";
 import { Button, Card, CardHeader, Chip, DataTable, DemoTag, EmptyState, EntityLink, Icon, PageHeader, Pill, ProgressBar, Drawer } from "../../ui";
 import type { Column, GlyphName } from "../../ui";
-import { Tag, WIDE_MIN, isClinicalViewer, mergeParams, refLabel, useMeasure } from "./shared";
+import { AutomationChip, Tag, WIDE_MIN, isClinicalViewer, mergeParams, refLabel, useMeasure } from "./shared";
 
 type Kind = ScheduledJob["kind"];
 const KIND: Record<Kind, { label: string; icon: GlyphName }> = {
@@ -25,6 +26,11 @@ function JobStatus({ j }: { j: ScheduledJob }) {
   if (j.status === "ok") return <Pill tone="ok">Last run OK</Pill>;
   if (j.status === "paused") return <Pill tone="neutral" icon="lock">Paused</Pill>;
   return <Pill tone="neutral" icon="clock">Scheduled</Pill>;
+}
+/** The automation this job runs, as a chip that opens it in Work, Automations. */
+function JobAutomation({ j }: { j: ScheduledJob }) {
+  const a = automationForJob(j);
+  return a ? <AutomationChip id={a.id} /> : null;
 }
 const statusRank = (j: ScheduledJob) => (j.status === "failed" ? 0 : j.status === "pending" ? 1 : j.status === "ok" ? 2 : 3);
 const byNext = (a: ScheduledJob, b: ScheduledJob) => {
@@ -58,6 +64,7 @@ export default function Schedules() {
           <div className="ph-wrap" style={{ gap: 5, marginTop: 3 }}>
             <span className="phf-id">{j.id}</span>
             <Tag icon={KIND[j.kind].icon}>{KIND[j.kind].label}</Tag>
+            <JobAutomation j={j} />
             <span className="phf-note">{j.cadence}</span>
           </div>
           <div className="phf-small" style={{ marginTop: 4, color: j.status === "failed" ? "var(--bad)" : undefined }}>{j.lastResult}</div>
@@ -178,6 +185,7 @@ function JobDrawer({ state, id, onClose }: { state: PhState; id: string; onClose
     );
   }
   const r = reminderStats(state);
+  const auto = automationForJob(j);
   const actions: Array<{ label: string; go: () => void }> = [];
   if (j.id === "JOB-REM-TODAY" && r.failed) actions.push({ label: "Review failed reminders", go: () => nav.go({ page: "Participants", tab: "communications", params: { filter: "failed" } }) });
   if (j.kind === "review_checkpoint" && isClinicalViewer(p)) actions.push({ label: "Open the review queue", go: () => nav.go({ page: "Results", tab: "review" }) });
@@ -196,6 +204,7 @@ function JobDrawer({ state, id, onClose }: { state: PhState; id: string; onClose
           <dt>Last run</dt><dd className="ph-num">{j.lastRunAt ? fmtDateTime(j.lastRunAt) : "Not run yet"}</dd>
           <dt>Next run</dt><dd className="ph-num">{j.nextRunAt ? `${fmtDateTime(j.nextRunAt)} (${fmtWhen(j.nextRunAt, state.clock.nowUtc)})` : "No further run"}</dd>
           <dt>Linked record</dt><dd>{j.linked ? <EntityLink kind={j.linked.kind} id={j.linked.id}>{refLabel(state, j.linked)}</EntityLink> : "None"}</dd>
+          <dt>Automation</dt><dd>{auto ? <AutomationChip id={auto.id} withName /> : "Not part of a listed automation"}</dd>
           {j.id === "JOB-REM-TODAY" ? (<><dt>Reminder cohort</dt><dd className="ph-num">{`${r.logical} logical reminders: ${r.delivered} delivered, ${r.failed} failed. ${r.attempts} provider attempts, counted separately.`}</dd></>) : null}
         </dl>
         <div className="phf-note">Simulated job. It changes only local demo state and never contacts Esendex, Eurofins, Google Workspace or an email provider.</div>

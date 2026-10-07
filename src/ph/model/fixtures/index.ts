@@ -6,7 +6,7 @@ import {
 } from "../constants";
 import { DEMO_NOW_UTC } from "../time";
 import { buildRoster } from "./people";
-import { buildClinical } from "./clinical";
+import { FIRST_SCREENING_REF, buildClinical } from "./clinical";
 import { buildOps } from "./ops";
 
 export function createInitialState(): PhState {
@@ -73,6 +73,8 @@ export function createInitialState(): PhState {
       toast: 0,
       observation: clin.observations.length,
       episode: nextEpisode - 1,
+      /** Last COMP0 unique ID handed out. New episodes continue the sequence. */
+      screeningRef: FIRST_SCREENING_REF + clin.episodes.length - 1,
       report: 1,
       eventBase: ops.activity.length,
     },

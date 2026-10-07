@@ -1,7 +1,8 @@
-/* The one place state changes. reduce() clones the state, runs a handler on the clone and,
-   if the handler fails, returns the original untouched. Components dispatch through the
+/* The one place state changes. reduce() copies the state, runs a handler on the copy and,
+   if the handler fails, returns the original untouched. Observations and import rows are shared
+   element by element: replace one with a copy to change it, never mutate it in place. Components dispatch through the
    `act` creators, which keeps every action name and argument in one typed list. */
-import type { CohortDef, PersonaId, PhState, StaffId, TeamId } from "./types";
+import type { CohortDef, NurseFormValue, PersonaId, PhState, StaffId, TeamId } from "./types";
 import { Ctx } from "./actions/ctx";
 import type { ActionResult, Handler } from "./actions/ctx";
 import { resultsHandlers } from "./actions/results";
@@ -24,10 +25,21 @@ export function registerHandlers(extra: Record<string, Handler>): void {
   Object.assign(HANDLERS, extra);
 }
 
+/**
+ * A working copy for one action. Everything is deep-cloned except the two large append-only arrays,
+ * observations and importRows, which get new arrays holding the same element objects. Handlers may
+ * push to them freely; to change an existing observation or row, replace the element with a copy
+ * (see import/resolveRow). Never mutate one of those elements in place.
+ */
+function workingCopy(prev: PhState): PhState {
+  const { observations, importRows, ...rest } = prev;
+  return { ...(structuredClone(rest) as Omit<PhState, "observations" | "importRows">), observations: observations.slice(), importRows: importRows.slice() };
+}
+
 export function reduce(prev: PhState, action: Action): { state: PhState; result: ActionResult } {
   const handler = HANDLERS[action.type];
   if (!handler) return { state: prev, result: { ok: false, message: `Unknown action ${action.type}`, tone: "bad" } };
-  const draft = structuredClone(prev) as PhState;
+  const draft = workingCopy(prev);
   const ctx = new Ctx(draft);
   let result: ActionResult;
   try {
@@ -90,7 +102,8 @@ export const act = {
   /* nurse workspace */
   checkIn: (bookingId: string) => ({ type: "clinic/checkIn", bookingId }),
   confirmIdentity: (bookingId: string, dob: string, reference: string) => ({ type: "clinic/confirmIdentity", bookingId, dob, reference }),
-  saveCapture: (bookingId: string, baseRev: number, patch: { measures?: Measures; urine?: { protein: string; glucose: string; blood: string } | null; notes?: string }) => ({ type: "clinic/saveCapture", bookingId, baseRev, ...patch }),
+  /** form carries nurse-form fields stored on capture.form (see NURSE_FORM_SECTIONS); null clears a field. */
+  saveCapture: (bookingId: string, baseRev: number, patch: { measures?: Measures; urine?: { protein: string; glucose: string; blood: string; wcc?: string } | null; notes?: string; form?: Record<string, NurseFormValue> }) => ({ type: "clinic/saveCapture", bookingId, baseRev, ...patch }),
   toggleChecklist: (bookingId: string, key: "specimens" | "labels" | "questionnaire") => ({ type: "clinic/toggleChecklist", bookingId, key }),
   completeAppointment: (bookingId: string) => ({ type: "clinic/complete", bookingId }),
   /* sessions and invitations */

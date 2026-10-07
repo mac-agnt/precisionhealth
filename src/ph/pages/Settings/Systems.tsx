@@ -1,18 +1,29 @@
 /* Settings, Systems & Integrations: the existing systems register. Each status is the exact
    simulated or unconfirmed text from the register. No credentials are requested, no live
    connection is claimed, FTP is not described as SFTP, no Gmail API or Microsoft Graph link is
-   claimed, and Meddbase has no records or sync events. Activity comes from the shared feed. */
+   claimed, and Meddbase has no records or sync events. Activity comes from the shared feed.
+   Each system lists the automations that touch it (Work, Automations). Slack is added from the
+   automation registry until it joins the register in constants. */
 import { useRef } from "react";
 import type { ReactNode } from "react";
-import { INTEGRATIONS, activityFeed, batchStats, fmtShortDateTime, jobViews, reminderStats } from "../../model";
-import type { ActivityView, IntegrationDef, Message, PhState } from "../../model";
+import { INTEGRATIONS, SLACK_SYSTEM, activityFeed, automationsForSystem, batchStats, fmtShortDateTime, jobViews, reminderStats } from "../../model";
+import type { ActivityView, AutomationSystemRelation, IntegrationDef, Message, PhState } from "../../model";
 import { usePersona, usePhState } from "../../store";
 import { useNav } from "../../nav-context";
 import { Card, CardHeader, DemoTag, EmptyState, EntityLink, Icon, Pill, RestrictedNotice, Split, TONE } from "../../ui";
 import type { GlyphName } from "../../ui";
 import { ActivityList, DefList, SettingsHeader, rolesLabelFor } from "./common";
+import { AutomationChip } from "../Work/shared";
+import "../Work/phf.css";
 
 const BATCH_ID = "BATCH-20261002-01";
+/** The register plus Slack, the clinical channel named on the nurse form, unless the register already has it. */
+const SYSTEMS: IntegrationDef[] = [...INTEGRATIONS, ...(INTEGRATIONS.some((i) => i.id === SLACK_SYSTEM.id) ? [] : [SLACK_SYSTEM])];
+const RELATION: Record<AutomationSystemRelation, { label: string; tone: "info" | "neutral" | "warn" }> = {
+  replaces: { label: "Replaced by Pulse", tone: "info" },
+  uses: { label: "Used by Pulse", tone: "neutral" },
+  to_confirm: { label: "Role to confirm", tone: "warn" },
+};
 const STATUS_ICON: Record<IntegrationDef["tone"], GlyphName> = { info: "info", warn: "alert", neutral: "dot" };
 
 /** The exact register status, wrapped rather than truncated, with icon and colour. */
@@ -26,11 +37,13 @@ function StatusLine({ def }: { def: IntegrationDef }) {
   );
 }
 
-const eventsFor = (s: PhState, id: string): ActivityView[] => activityFeed(s).filter((v) => v.event.integrationId === id);
+/** Slack has no integration events: its activity is the ECG review that replaces it. */
+const eventsFor = (s: PhState, id: string): ActivityView[] => activityFeed(s).filter((v) => v.event.integrationId === id || (id === "slack" && v.event.verb === "clinic.ecg_review"));
 /** Why a system shows no events: by design, nothing yet, or hidden for this role. */
 function noEventsText(s: PhState, id: string): string {
   if (id === "meddbase") return "No activity by design. Meddbase is outside this demo's integration scope.";
   if (id === "excel") return "No integration events. There is no live spreadsheet connector.";
+  if (id === "slack") return "No ECG review raised yet in this session. Nothing is ever posted to Slack.";
   if (s.activity.some((e) => e.integrationId === id)) return "No activity visible to your role.";
   return "No simulated events yet in this session.";
 }
@@ -39,8 +52,8 @@ export default function Systems() {
   const s = usePhState();
   const nav = useNav();
   const detailRef = useRef<HTMLDivElement>(null);
-  const selectedId = INTEGRATIONS.some((i) => i.id === nav.params.system) ? nav.params.system : INTEGRATIONS[0].id;
-  const def = INTEGRATIONS.find((i) => i.id === selectedId)!;
+  const selectedId = SYSTEMS.some((i) => i.id === nav.params.system) ? nav.params.system : SYSTEMS[0].id;
+  const def = SYSTEMS.find((i) => i.id === selectedId)!;
   const visibleEvents = activityFeed(s).filter((v) => !!v.event.integrationId).length;
   const select = (id: string) => {
     nav.setParams({ system: id });
@@ -57,16 +70,17 @@ export default function Systems() {
       />
       <div className="ph-stack">
         <div className="ph-card-flat ph-wrap" style={{ padding: "11px 16px", gap: "8px 22px" }}>
-          <span className="phs-small"><span className="phs-strong ph-num">{INTEGRATIONS.length}</span> <span className="ph-dim">systems in the register</span></span>
+          <span className="phs-small"><span className="phs-strong ph-num">{SYSTEMS.length}</span> <span className="ph-dim">systems in the register</span></span>
           <span className="phs-small"><span className="phs-strong ph-num">{visibleEvents}</span> <span className="ph-dim">simulated integration events visible to your role</span></span>
           <span className="phs-small ph-row-flex" style={{ gap: 6 }}><Icon name="lock" size={13} style={{ color: "var(--faint)" }} /><span className="ph-dim">No credentials requested or stored</span></span>
         </div>
         <Split
           main={
             <div className="phs-sys-grid">
-              {INTEGRATIONS.map((d) => {
+              {SYSTEMS.map((d) => {
                 const ev = eventsFor(s, d.id);
                 const latest = ev[0];
+                const autos = automationsForSystem(d.id);
                 return (
                   <button key={d.id} type="button" className="phs-pick" aria-pressed={d.id === selectedId} onClick={() => select(d.id)}>
                     <span className="ph-row-flex" style={{ alignItems: "flex-start" }}>
@@ -76,6 +90,11 @@ export default function Systems() {
                     <StatusLine def={d} />
                     <span className="phs-small" style={{ display: "block", color: "var(--body)" }}><span className="ph-faint">Purpose. </span>{d.purpose}</span>
                     <span className="phs-small" style={{ display: "block", color: "var(--body)" }}><span className="ph-faint">Data boundary. </span>{d.boundary}</span>
+                    {autos.length ? (
+                      <span className="phs-small" style={{ display: "block", color: "var(--body)" }}>
+                        <span className="ph-faint">Automations. </span><span className="ph-mono" style={{ fontSize: 11.5 }}>{autos.map((x) => x.automation.id).join(", ")}</span>
+                      </span>
+                    ) : null}
                     <span className="phs-note" style={{ display: "block" }}>
                       {latest ? <>{ev.length} simulated event{ev.length === 1 ? "" : "s"}. Latest {fmtShortDateTime(latest.event.at)}: {latest.text}</> : noEventsText(s, d.id)}
                     </span>
@@ -111,6 +130,7 @@ function SystemDetail({ def, state }: { def: IntegrationDef; state: PhState }) {
           companies.length ? { label: "Linked records", value: companies.map((c) => <div key={c.id}><EntityLink kind="company" id={c.id}>{c.name}</EntityLink></div>) } : null,
         ]} />
       </div>
+      <div style={{ marginTop: 16 }}><SystemAutomations id={def.id} /></div>
       <div style={{ marginTop: 16 }}><Extras id={def.id} state={state} /></div>
       <div style={{ marginTop: 18 }}>
         <div className="ph-eyebrow" style={{ marginBottom: 8 }}>Relevant activity</div>
@@ -120,8 +140,38 @@ function SystemDetail({ def, state }: { def: IntegrationDef; state: PhState }) {
   );
 }
 
+/** The automations that touch this system, and whether Pulse replaces it, uses it or its role is to confirm. */
+function SystemAutomations({ id }: { id: string }) {
+  const autos = automationsForSystem(id);
+  if (!autos.length) return null;
+  return (
+    <Section title={`Automations that touch it, ${autos.length}`}>
+      <ul className="phs-list">
+        {autos.map(({ automation, touch }) => (
+          <li key={automation.id}>
+            <div className="ph-row-flex" style={{ gap: 8, alignItems: "flex-start" }}>
+              <span className="ph-grow" style={{ minWidth: 0 }}><AutomationChip id={automation.id} withName /></span>
+              <Pill tone={RELATION[touch.relation].tone}>{RELATION[touch.relation].label}</Pill>
+            </div>
+            <div className="phs-note" style={{ marginTop: 4 }}>{touch.note}</div>
+          </li>
+        ))}
+      </ul>
+    </Section>
+  );
+}
+
 function Extras({ id, state }: { id: string; state: PhState }) {
   switch (id) {
+    case "slack": return (
+      <Section title="Clinical channel today">
+        <DefList items={[
+          { label: "Used for", value: "Photos of an irregular ECG with an irregular pulse, sent by the nurse as the nurse form instructs." },
+          { label: "In Pulse", value: "The photo stays with the clinical record and the clinical lead gets an ECG review task (AUT-07)." },
+          { label: "Status", value: "Replacement by the Pulse alert is to confirm with Precision Health. No Slack connection is built or claimed." },
+        ]} />
+      </Section>
+    );
     case "jotform": return <JotformMapping state={state} />;
     case "eurofins": return <EurofinsPanel state={state} />;
     case "gworkspace": return <WorkspacePanel state={state} />;

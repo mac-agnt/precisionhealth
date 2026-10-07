@@ -10,7 +10,7 @@ import { dispatch, usePhState } from "../../store";
 import { Button, Card, CardHeader, Chip, Icon, Segmented, TextInput } from "../../ui";
 import { useMeasure } from "../Participants/shared";
 import { normalisePersonId, portalData } from "./data";
-import type { PortalView } from "./data";
+import type { PortalView, ReportDelivery } from "./data";
 import { PortalApp } from "./PortalApp";
 import "./portal.css";
 
@@ -27,6 +27,8 @@ export default function PortalPreview({ open, onClose }: { open: boolean; onClos
   const [device, setDevice] = useState<DeviceId>("phone");
   const [signed, setSigned] = useState<Record<string, boolean>>({});
   const [views, setViews] = useState<Record<string, PortalView>>({});
+  // Report delivery choice per participant. Local to the preview: the model has no field for it yet.
+  const [delivery, setDeliveryMap] = useState<Record<string, ReportDelivery>>({});
   const [countsPref, setCountsPref] = useState<boolean | null>(null);
   const [optionsOpen, setOptionsOpen] = useState(false);
   const [idText, setIdText] = useState("");
@@ -131,6 +133,8 @@ export default function PortalPreview({ open, onClose }: { open: boolean; onClos
               onSignOut={() => { setSigned((x) => ({ ...x, [personId]: false })); setViews((x) => ({ ...x, [personId]: "overview" })); toTop(); }}
               view={view}
               setView={setView}
+              delivery={delivery[personId] || "portal"}
+              setDelivery={(v) => setDeliveryMap((x) => ({ ...x, [personId]: v }))}
             />
           </div>
           {showCounts ? <div className="pp-side"><StaffCounts state={state} personId={personId} /></div> : null}

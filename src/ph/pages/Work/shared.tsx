@@ -2,12 +2,36 @@
    Everything reads the shared store through selectors. No count is typed in here. */
 import { useLayoutEffect, useState } from "react";
 import type { ReactNode } from "react";
-import { INTEGRATIONS, PROGRAMME_BY_ID, fmtAge, fmtDayMonth, hoursBetween, ix, staffName, storyViews } from "../../model";
-import type { EntityKind, EntityRef, NavTarget, Persona, PhState, StoryView, TaskView, TeamId } from "../../model";
+import { AUTOMATION_SOURCE_LABEL, INTEGRATIONS, PROGRAMME_BY_ID, automationById, automationTarget, fmtAge, fmtDayMonth, hoursBetween, ix, staffName, storyViews } from "../../model";
+import type { AutomationSource, EntityKind, EntityRef, NavTarget, Persona, PhState, StoryView, TaskView, TeamId } from "../../model";
 import { Avatar, Icon, PageHeader, Pill, RestrictedNotice } from "../../ui";
 import { usePersona } from "../../store";
+import { useNav } from "../../nav-context";
 import type { GlyphName, Tone } from "../../ui";
 import "./phf.css";
+
+/* ---- automations: source badge and a link chip to one automation ---- */
+export const SOURCE_STYLE: Record<AutomationSource, { tone: Tone; icon: GlyphName; title: string }> = {
+  client_material: { tone: "ok", icon: "file", title: "From the material Precision Health sent: how it runs today" },
+  client_spec: { tone: "info", icon: "list", title: "From Precision Health's ten-page specification" },
+  to_confirm_with_client: { tone: "warn", icon: "alert", title: "Not described by Precision Health. A Pulse proposal until they confirm it" },
+};
+export function SourceBadge({ source }: { source: AutomationSource }) {
+  const s = SOURCE_STYLE[source];
+  return <Pill tone={s.tone} icon={s.icon} title={s.title}>{AUTOMATION_SOURCE_LABEL[source]}</Pill>;
+}
+/** A small mono chip, "AUT-07", that opens that automation in Work, Automations. */
+export function AutomationChip({ id, withName, note }: { id: string; withName?: boolean; note?: string }) {
+  const nav = useNav();
+  const a = automationById(id);
+  if (!a) return null;
+  return (
+    <button type="button" className="phf-autochip" title={note ? `${a.id}, ${a.name}. ${note}` : `${a.id}, ${a.name}`} onClick={(e) => { e.stopPropagation(); nav.go(automationTarget(a.id)); }}>
+      <span className="phf-autochip-id">{a.id}</span>
+      {withName ? <span className="ph-trunc">{a.name}</span> : null}
+    </button>
+  );
+}
 
 /** Width of an element, kept current with ResizeObserver. Layouts follow the container, not only the window. */
 export function useMeasure<T extends HTMLElement>(): [(el: T | null) => void, number] {

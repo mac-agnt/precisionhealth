@@ -9,6 +9,8 @@ import RecordsOntology from "./pages/RecordsOntology";
 import Agents from "./pages/Agents";
 import PhRouter from "../ph/pages/PhRouter";
 import PortalPreview from "../ph/pages/Portal";
+import { NursePortalPreview } from "../ph/pages/NursePortal";
+import { ClientPortalPreview } from "../ph/pages/ClientPortal";
 import { NavContext } from "../ph/nav-context";
 import { ToastHost } from "../ph/ui";
 import { BrandLogo, Monogram } from "../ph/shell/Brand";
@@ -465,6 +467,8 @@ export default function AppShell({ v }: Props) {
       {v.paletteOpen && <CommandPalette v={v} />}
       {v.bgGallery?.open && <BackgroundGallery v={v} />}
       <PortalPreview open={!!v.portalOpen} onClose={v.closePortal} />
+      <NursePortalPreview open={!!v.nursePortalOpen} onClose={v.closeNursePortal} />
+      <ClientPortalPreview open={!!v.clientPortalOpen} onClose={v.closeClientPortal} />
       <ToastHost />
     </div>
     </NavContext.Provider>

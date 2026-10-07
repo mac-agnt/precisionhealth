@@ -1,12 +1,12 @@
 /* The episode's clinical picture, used by Review and Corrections: identifiers, status
-   banners, laboratory values with source and previous version, measurements and
-   calculations, questionnaire answers, the QRISK3 dependency state and the history. */
+   banners, laboratory values with source and previous version, risk factors and lifestyle
+   answers, the nurse form as recorded, and the history. */
 import type { ReactNode } from "react";
 import {
-  ANALYTES, BP_REVIEW_LIMIT, HOLD_CATEGORY, HOLD_LABEL, LIMITS_DISCLAIMER, MEASURE_RULES, QRISK3, bpFlagged, episodeBundle, fmtAge,
-  fmtDateTime, fmtNumericDate, fmtShortDateTime, fmtWhen, hoursBetween, ix, staffName,
+  ANALYTES, HOLD_CATEGORY, HOLD_LABEL, LIMITS_DISCLAIMER, episodeBundle, fmtAge,
+  fmtDateTime, fmtNumericDate, fmtShortDateTime, fmtWhen, hoursBetween, lifestyleAnswersForReport, nurseFormRows, riskFactorSummary, staffName,
 } from "../../model";
-import type { ExpectedTestView, Measure, MeasureKey, PhState } from "../../model";
+import type { ExpectedTestView, PhState } from "../../model";
 import { usePhState } from "../../store";
 import { useNav } from "../../nav-context";
 import { Button, Card, DemoTag, EntityLink, Pill } from "../../ui";
@@ -18,7 +18,7 @@ import { episodeEventIds, eventsFor, observationChain, openUnitIssues, rowIndex 
 export type Bundle = NonNullable<ReturnType<typeof episodeBundle>>;
 
 /* ---- identifiers ---- */
-export function EpisodeHeader({ b, right }: { b: Bundle; right?: ReactNode }) {
+export function EpisodeHeader({ b, right, compact }: { b: Bundle; right?: ReactNode; compact?: boolean }) {
   const state = usePhState();
   const ready = b.episode.readyAt;
   const idHold = !!b.episode.hold && HOLD_CATEGORY[b.episode.hold.kind] === "identity";
@@ -36,13 +36,27 @@ export function EpisodeHeader({ b, right }: { b: Bundle; right?: ReactNode }) {
             <ReportStatePill state={b.episode.reportState} />
             {idOk ? <Pill tone="ok" icon="shield">Identity verified</Pill> : <Pill tone="warn" icon="alert">Identity not verified</Pill>}
             <Pill tone="neutral" icon={null}>{b.programme.code}</Pill>
+            <span className="phr-mono" style={{ color: "var(--ink)" }} title="Precision Health unique ID">{b.episode.screeningRef}</span>
           </div>
           <div className="phr-sub" style={{ marginTop: 3 }}>{b.programme.name}. Fictional participant. {summary}</div>
         </div>
         {right ? <div className="phr-row" style={{ flex: "none" }}>{right}</div> : null}
       </div>
+      {compact ? (
+        <div className="phr-idline">
+          <span><i>DOB</i> {fmtNumericDate(b.person.dob)}</span>
+          <span><i>Episode</i> <span className="phr-mono">{b.episode.id}</span></span>
+          <span><i>Specimen</i> <span className="phr-mono">{b.episode.specimenIds.join(", ")}</span></span>
+          <span><i>Collected</i> {fmtShortDateTime(b.episode.collectedAt)}, <EntityLink kind="session" id={b.session.id}>{b.session.siteName}</EntityLink></span>
+          <span><i>Ready</i> {ready ? `${fmtWhen(ready, state.clock.nowUtc)} (${fmtAge(hoursBetween(ready, state.clock.nowUtc))})` : "Not yet"}</span>
+          <span><i>Reviewer</i> {staffName(state, b.episode.reviewAssigneeId)}</span>
+          <span><i>Person</i> <EntityLink kind="person" id={b.person.id} /></span>
+          <span><i>Booking</i> <EntityLink kind="booking" id={b.booking.id} /></span>
+        </div>
+      ) : (
       <div style={{ marginTop: 8 }}>
         <Kv tight items={[
+          { k: "Unique ID", v: <span className="phr-mono">{b.episode.screeningRef}</span> },
           { k: "Episode", v: <span className="phr-mono">{b.episode.id}</span> },
           { k: "Person", v: <EntityLink kind="person" id={b.person.id} /> },
           { k: "Date of birth", v: fmtNumericDate(b.person.dob) },
@@ -54,6 +68,7 @@ export function EpisodeHeader({ b, right }: { b: Bundle; right?: ReactNode }) {
           { k: "Form", v: `${state.forms.templates.find((t) => t.id === b.episode.formSnapshot.templateId)?.name || b.episode.formSnapshot.templateId}, v${b.episode.formSnapshot.version}` },
         ]} />
       </div>
+      )}
     </Card>
   );
 }
@@ -115,14 +130,13 @@ function sourceCell(state: PhState, t: ExpectedTestView): ReactNode {
   );
 }
 
-export function ResultsTable({ b, showValues }: { b: Bundle; showValues: boolean }) {
+export function ResultsTable({ b, showValues, collapsed }: { b: Bundle; showValues: boolean; collapsed?: boolean }) {
   const state = usePhState();
   const [ref, w] = useWidth();
   const narrow = w > 0 && w < 520;
   const dq = state.dqIssues.filter((d) => d.episodeId === b.episode.id);
-  return (
-    <Card pad="sm">
-      <SecTitle right={<DemoTag>Sample data</DemoTag>}>Laboratory results</SecTitle>
+  const body = (
+    <>
       <div ref={ref}>{showValues ? (
         <div className="phr-tblwrap">
           <table className={"phr-tbl" + (narrow ? " phr-tbl-tight" : "")}>
@@ -163,65 +177,89 @@ export function ResultsTable({ b, showValues }: { b: Bundle; showValues: boolean
         <Banner tone="neutral" icon="lock">Values are hidden for this role. {b.tests.filter((t) => t.status === "received").length} of {b.tests.length} expected results are received.</Banner>
       )}</div>
       <div className="phr-sub" style={{ marginTop: 8 }}>{LIMITS_DISCLAIMER} Units are shown as received. Missing tests stay missing.</div>
+    </>
+  );
+  if (collapsed) {
+    return (
+      <Card pad="sm">
+        <details className="phr-details">
+          <summary><span className="phr-sec-title" style={{ margin: 0 }}>Laboratory provenance</span> <span className="phr-sub">{b.tests.length} tests: source line, limit and earlier versions</span></summary>
+          <div style={{ marginTop: 8 }}>{body}</div>
+        </details>
+      </Card>
+    );
+  }
+  return (
+    <Card pad="sm">
+      <SecTitle right={<DemoTag>Sample data</DemoTag>}>Laboratory results</SecTitle>
+      {body}
     </Card>
   );
 }
 
-/* ---- measurements and calculations ---- */
-function measureText(m: Measure, key: MeasureKey): string {
-  const r = MEASURE_RULES[key];
-  if (m.state === "recorded" && m.value != null) return `${m.value.toFixed(r.decimals)} ${r.unit}`;
-  return m.state === "not_done" ? "Not done" : m.state === "declined" ? "Declined" : "Missing";
-}
+/* ---- risk factors and lifestyle answers ---- */
+const tfText = (v: boolean | null) => (v === true ? "TRUE" : v === false ? "FALSE" : "Not recorded");
 
-export function MeasuresCard({ b, showValues }: { b: Bundle; showValues: boolean }) {
-  const c = b.episode.capture;
-  const m = c.measures;
-  const bp = bpFlagged(c);
+/** Risk factors as the clinician viewer reads them (nurse form first), and the lifestyle questionnaire as the report prints it. */
+export function AnswersCard({ b }: { b: Bundle }) {
+  const state = usePhState();
+  const rf = riskFactorSummary(state, b.episode.id);
+  const life = lifestyleAnswersForReport(state, b.person.id, b.programme.id);
+  if (!rf) return null;
+  const src = rf.source === "nurse_form" ? "Nurse form, prefilled from the questionnaire" : rf.source === "questionnaire" ? "Questionnaire only, nurse form not yet recorded" : "Not recorded";
   return (
     <Card pad="sm">
-      <SecTitle right={<DemoTag>Sample data</DemoTag>}>Measurements and calculations</SecTitle>
-      {showValues ? (
-        <Kv tight items={[
-          { k: "Height" + (m.heightM.provenance === "self_reported" ? " (self-reported)" : ""), v: measureText(m.heightM, "heightM") },
-          { k: "Weight", v: measureText(m.weightKg, "weightKg") },
-          { k: "BMI (calculated locally)", v: b.bmi != null ? `${b.bmi.toFixed(1)} kg/m²` : "Not calculated: height or weight missing" },
-          { k: "Waist", v: measureText(m.waistCm, "waistCm") },
-          { k: "Blood pressure", v: <>{m.bpSys.state === "recorded" && m.bpDia.state === "recorded" ? `${m.bpSys.value}/${m.bpDia.value} mmHg` : `${measureText(m.bpSys, "bpSys")}`}{bp ? <div style={{ marginTop: 3 }}><Pill tone="warn" icon="flag">Review required, limit {BP_REVIEW_LIMIT.text}</Pill></div> : null}</> },
-          { k: "Pulse", v: measureText(m.pulse, "pulse") },
-          { k: "Urine (protein, glucose, blood)", v: c.urine ? `${c.urine.protein}, ${c.urine.glucose}, ${c.urine.blood}` : "Not recorded" },
-          { k: "Identity at appointment", v: c.identity.every((x) => x.confirmed) ? "Two identifiers confirmed" : "Not confirmed" },
-          { k: "Capture", v: c.status === "complete" ? `Complete ${c.completedAt ? fmtShortDateTime(c.completedAt) : ""}` : c.status === "draft" ? "Draft" : "Not started" },
-        ]} />
-      ) : (
-        <Banner tone="neutral" icon="lock">Measurements are hidden for this role.</Banner>
-      )}
-      <div className="phr-banner" style={{ marginTop: 10, alignItems: "flex-start" }}>
-        <div className="ph-grow">
-          <div className="phr-row" style={{ gap: 6 }}><b>{QRISK3.title}</b><Pill tone="neutral" icon="lock">Approved integration required</Pill></div>
-          <div className="phr-note" style={{ marginTop: 4 }}>{QRISK3.text} Integration is gated on licensing, validated inputs and approval for the intended population. No score has been generated.</div>
-          <div className="phr-sub" style={{ marginTop: 4 }}>Inputs the integration would need: {QRISK3.inputsNeeded.join("; ")}.</div>
-        </div>
+      <SecTitle right={<span className="phr-sub">{src}</span>}>Risk factors</SecTitle>
+      <Kv tight items={[
+        { k: "Smoker", v: rf.smoker || "Not recorded" },
+        { k: "Family history of CVD", v: tfText(rf.familyHistoryCvd) },
+        { k: "Diabetes", v: rf.diabetes || "Not recorded" },
+        { k: "Hypertension treatment", v: tfText(rf.hypertensionTreatment) },
+        { k: "History of high BP", v: rf.highBpHistory || "Not recorded" },
+        { k: "Alcohol", v: rf.alcoholUnitsPerWeek != null ? `${rf.alcoholUnitsPerWeek} units/week` : "Not answered" },
+        { k: "Medications", v: rf.medications || "Not recorded" },
+        { k: "Muscular physique", v: rf.muscularPhysique === null ? "Not recorded" : rf.muscularPhysique ? "Yes" : "No" },
+      ]} />
+      <div style={{ marginTop: 12 }}>
+        <SecTitle right={<span className="phr-sub">Self-reported, as printed in the report</span>}>Lifestyle questionnaire</SecTitle>
+        {life.length ? (
+          <table className="phr-tbl phr-tbl-qa">
+            <tbody>
+              {life.map((r) => (
+                <tr key={r.key}><td>{r.question}</td><td style={{ color: r.answered ? "var(--ink)" : "var(--faint)" }}>{r.answer}</td></tr>
+              ))}
+            </tbody>
+          </table>
+        ) : <div className="phr-sub">No questionnaire answers on record.</div>}
       </div>
     </Card>
   );
 }
 
-/* ---- questionnaire answers ---- */
-const ANSWERS: Array<{ key: string; label: string; unit?: string }> = [
-  { key: "smoking", label: "Smoking" }, { key: "alcohol", label: "Alcohol", unit: "units/week" }, { key: "activity", label: "Activity", unit: "days/week" },
-  { key: "sleep", label: "Sleep", unit: "hours/night" }, { key: "famCvd", label: "Family history, heart disease" }, { key: "chestPain", label: "Chest pain on exertion" },
-  { key: "knownDiabetes", label: "Diagnosed diabetes" }, { key: "famCancer", label: "Family history, cancer" }, { key: "medication", label: "Medication" }, { key: "allergies", label: "Allergies" },
-];
-export function AnswersCard({ b }: { b: Bundle }) {
+/** The nurse form exactly as recorded, section by section, collapsed by default. */
+export function NurseFormCard({ b }: { b: Bundle }) {
   const state = usePhState();
-  const mem = (ix(state).membershipsByPerson.get(b.person.id) || [])[0];
-  const a = mem ? mem.answers : {};
-  const fmt = (v: string | number | boolean | undefined, unit?: string) => (v === undefined || v === "" ? "Not answered" : typeof v === "boolean" ? (v ? "Yes" : "No") : unit ? `${v} ${unit}` : String(v));
+  const rows = nurseFormRows(state, b.episode.id);
+  if (!rows) return null;
+  const sections = Array.from(new Set(rows.map((r) => r.sectionTitle)));
+  const answered = rows.filter((r) => r.answered).length;
   return (
     <Card pad="sm">
-      <SecTitle right={<span className="phr-sub">Self-reported</span>}>Questionnaire answers</SecTitle>
-      <Kv tight items={ANSWERS.map((x) => ({ k: x.label, v: fmt(a[x.key], x.unit) }))} />
+      <details className="phr-details">
+        <summary><span className="phr-sec-title" style={{ margin: 0 }}>Nurse form</span> <span className="phr-sub">{state.forms.templates.find((t) => t.id === b.episode.formSnapshot.templateId)?.name || "Comprehensive (LAB) screen"}, {answered} of {rows.length} fields recorded</span></summary>
+        <div className="phr-gap" style={{ marginTop: 8 }}>
+          {sections.map((title) => (
+            <div key={title}>
+              <div className="phr-sub" style={{ fontWeight: 600, color: "var(--dim)", margin: "4px 0 2px" }}>{title}</div>
+              <Kv tight items={rows.filter((r) => r.sectionTitle === title).map((r) => ({
+                k: r.label,
+                v: <span style={{ color: r.answered ? undefined : "var(--faint)" }}>{r.value}</span>,
+                wide: r.value.length > 40,
+              }))} />
+            </div>
+          ))}
+        </div>
+      </details>
     </Card>
   );
 }

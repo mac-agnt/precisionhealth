@@ -1,6 +1,8 @@
-/* Results, Review: a compact three-pane workspace. Left, the assigned queue. Centre, values
-   with units, source, previous version and text-labelled flags, plus measurements and answers.
-   Right, the release checklist, flag acknowledgement, advice and the participant preview.
+/* Results, Review: a compact three-pane workspace. Left, the assigned queue. Centre, the
+   results viewer (the clinician's Reporting Viewer rebuilt: three label and value column pairs,
+   band colours with text flags) with the red NEW ADVICE editor under it, then risk factors,
+   lifestyle answers, the nurse form, laboratory provenance and history. Right, the release
+   checklist, flag acknowledgement, the all normal shortcut and the participant report preview.
    One episode per release, never in bulk. Deep link: #/Results/review?episode=PH-E-0101 */
 import { useState } from "react";
 import {
@@ -10,11 +12,11 @@ import type { ReviewItem } from "../../model";
 import { usePhState } from "../../store";
 import { useNav } from "../../nav-context";
 import { Button, Card, DemoTag, EmptyState, Kpi, KpiStrip, PageHeader, Pill, RestrictedNotice, SearchBox, Select } from "../../ui";
-import { AnswersCard, EpisodeHeader, EpisodeHistory, MeasuresCard, ResultsTable, StateBanner } from "./EpisodePanels";
+import { AnswersCard, EpisodeHeader, EpisodeHistory, NurseFormCard, ResultsTable, StateBanner } from "./EpisodePanels";
 import type { Bundle } from "./EpisodePanels";
-import { AdviceCard, FlagsCard, PreviewCard, ReleaseCard, ReleasedCard } from "./ReleasePanel";
+import { AdviceEditor, FlagsCard, PreviewCard, ReleaseCard, ReleaseUnavailableCard, ReleasedCard } from "./ReleasePanel";
 import { PreviewModal } from "./ReportPreview";
-import { ReviewSheet } from "./Sheet";
+import { ClinicalAlerts, ReviewSheet } from "./Sheet";
 import { Count } from "./shared";
 
 type QueueFilter = "all" | "routine" | "flagged" | "aged";
@@ -62,6 +64,8 @@ function ReviewWorkspace() {
   const [q, setQ] = useState("");
   const [seen, setSeen] = useState<Record<string, true>>({});
   const [previewFor, setPreviewFor] = useState<string | null>(null);
+  // Advice as typed in the NEW ADVICE box, so the preview shows it before the draft save lands.
+  const [typed, setTyped] = useState<Record<string, string>>({});
 
   const routineOf = (i: ReviewItem) => i.routine;
   const query = q.trim().toLowerCase();
@@ -70,7 +74,7 @@ function ReviewWorkspace() {
     if (filter === "flagged" && !i.flagged) return false;
     if (filter === "aged" && !i.aged) return false;
     if (!query) return true;
-    return `${i.person.given} ${i.person.family} ${i.episode.id} ${i.person.id} ${i.programme.code}`.toLowerCase().includes(query);
+    return `${i.person.given} ${i.person.family} ${i.episode.id} ${i.episode.screeningRef} ${i.person.id} ${i.programme.code}`.toLowerCase().includes(query);
   });
   const paramId = nav.params.episode && ix(state).episodeById.has(nav.params.episode) ? nav.params.episode : null;
   const selectedId = paramId || (filtered[0] || queue[0])?.episode.id || null;
@@ -105,7 +109,7 @@ function ReviewWorkspace() {
               <option value="flagged">Individually flagged ({stats.flagged})</option>
               <option value="aged">Over 48 hours ({stats.aged})</option>
             </Select>
-            <SearchBox value={q} onChange={setQ} placeholder="Name or ID" width="100%" />
+            <SearchBox value={q} onChange={setQ} placeholder="Name or Unique ID" width="100%" />
           </div>
           {filtered.length ? (
             <div className="phr-list">
@@ -119,7 +123,7 @@ function ReviewWorkspace() {
         {b ? (
           <>
             <section className="phr-rv-pane phr-rv-main phr-gap" aria-label="Episode values">
-              <CentreMain b={b} inQueue={inQueue} />
+              <CentreMain b={b} inQueue={inQueue} canReview={canReview} onAdviceText={(t) => setTyped((x) => ({ ...x, [b.episode.id]: t }))} />
             </section>
             <aside className="phr-rv-pane phr-rv-side phr-gap" aria-label="Review actions">
               <Actions b={b} canReview={canReview} previewSeen={!!seen[b.episode.id]} onOpenPreview={() => { setSeen((s) => ({ ...s, [b.episode.id]: true })); setPreviewFor(b.episode.id); }}
@@ -140,8 +144,8 @@ function ReviewWorkspace() {
 
       {b && previewFor === b.episode.id ? (
         <PreviewModal open onClose={() => setPreviewFor(null)} episodeId={b.episode.id}
-          advice={b.draft ? b.draft.advice : b.released ? b.released.advice : ""}
-          versionLabel={previewLabel(b)} reviewer={staffName(state, b.episode.reviewAssigneeId)} />
+          advice={typed[b.episode.id] ?? (b.draft ? b.draft.advice : b.released ? b.released.advice : "")}
+          versionLabel={previewLabel(b)} />
       ) : null}
     </div>
   );
@@ -164,6 +168,7 @@ function QueueItem({ i, selected, routine, onSelect }: { i: ReviewItem; selected
         <span className="phr-mono ph-faint" style={{ flex: "none" }} title="Time since the episode became ready">{fmtAge(i.ageHours)}</span>
       </div>
       <div className="ph-row-flex" style={{ gap: 6, marginTop: 2 }}>
+        <span className="phr-mono" style={{ color: "var(--dim)" }}>{i.episode.screeningRef}</span>
         <span className="phr-mono ph-faint">{i.episode.id}</span>
         <span className="ph-faint" style={{ fontSize: 11 }}>{i.programme.code}</span>
       </div>
@@ -178,14 +183,21 @@ function QueueItem({ i, selected, routine, onSelect }: { i: ReviewItem; selected
   );
 }
 
-function CentreMain({ b, inQueue }: { b: Bundle; inQueue: boolean }) {
+function CentreMain({ b, inQueue, canReview, onAdviceText }: { b: Bundle; inQueue: boolean; canReview: boolean; onAdviceText: (text: string) => void }) {
   const state = usePhState();
   const p = persona(state);
   const show = canViewEpisodeClinical(state, b.episode.id);
+  const st = b.episode.reportState;
+  const editable = canReview && st === "ready_for_review";
+  const note = !canReview ? `Advice is written by the clinical reviewer. ${p.name} can read it.`
+    : st === "on_hold" ? "Advice opens once the hold is resolved and the episode is ready for review."
+    : st === "awaiting_results" ? "Advice opens once every expected result is accounted for."
+    : st === "released" ? "Released advice. A change needs a correction, which creates a new version."
+    : undefined;
   return (
     <>
-      <EpisodeHeader b={b} />
-      {!inQueue && b.episode.reportState !== "ready_for_review" ? <div className="phr-sub">Opened from a link. This episode is not in the review queue.</div> : null}
+      <EpisodeHeader b={b} compact />
+      {!inQueue && st !== "ready_for_review" ? <div className="phr-sub">Opened from a link. This episode is not in the review queue.</div> : null}
       <StateBanner b={b} canResolve={p.perms.has("identity.resolve")} />
       {!show ? (
         <RestrictedNotice title="Values restricted for this role">
@@ -193,9 +205,8 @@ function CentreMain({ b, inQueue }: { b: Bundle; inQueue: boolean }) {
         </RestrictedNotice>
       ) : (
         <>
-          <ReviewSheet b={b} />
-          <ResultsTable b={b} showValues />
-          <MeasuresCard b={b} showValues />
+          <ClinicalAlerts b={b} />
+          <ReviewSheet b={b} advice={<AdviceEditor key={b.episode.id} b={b} variant="sheet" editable={editable} readOnlyNote={note} onTextChange={onAdviceText} />} />
         </>
       )}
     </>
@@ -208,6 +219,8 @@ function CentreMore({ b }: { b: Bundle }) {
   return (
     <>
       {show ? <AnswersCard b={b} /> : null}
+      {show ? <NurseFormCard b={b} /> : null}
+      {show ? <ResultsTable b={b} showValues collapsed /> : null}
       <EpisodeHistory b={b} />
     </>
   );
@@ -231,20 +244,16 @@ function Actions({ b, canReview, previewSeen, onOpenPreview, onNext }: { b: Bund
   if (st === "released") return <ReleasedCard b={b} onNext={onNext} />;
   if (st !== "ready_for_review") {
     return (
-      <Card pad="sm">
-        <div style={{ fontSize: 12.5, fontWeight: 600, color: "var(--ink)" }}>Release not available</div>
-        <div className="phr-note" style={{ marginTop: 6 }}>
-          {st === "on_hold" ? "This episode is on hold. Resolve the hold first; the episode then joins the review queue." : "Expected results are still missing. Missing tests are never treated as normal."}
-        </div>
-        {onNext ? <div style={{ marginTop: 10 }}><Button size="sm" icon="arrow" onClick={onNext}>Back to the queue</Button></div> : null}
-      </Card>
+      <>
+        <ReleaseUnavailableCard b={b} onNext={onNext} />
+        {show ? <FlagsCard b={b} canAct={false} /> : null}
+      </>
     );
   }
   return (
     <>
       <ReleaseCard b={b} mode="review" canAct previewSeen={previewSeen || !!b.draft?.checklist.preview} />
       <FlagsCard b={b} canAct />
-      <AdviceCard b={b} editable mode="review" />
       <PreviewCard b={b} onOpen={onOpenPreview} seen={previewSeen} mode="review" />
     </>
   );

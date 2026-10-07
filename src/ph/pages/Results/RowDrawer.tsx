@@ -83,6 +83,7 @@ function RowBody({ row }: { row: ImportRow }) {
           { k: "File", v: <span className="phr-mono" style={{ fontSize: 11 }}>{batch.filename}</span> },
           { k: "Line in file", v: <span className="ph-num">{row.line}</span> },
           { k: "Laboratory", v: batch.lab },
+          { k: "Batch type", v: batch.kind === "extended" ? "Extended panel" : batch.kind === "sample" ? "Sample delivery" : "Core: lipids and HbA1c" },
           { k: "Received", v: fmtDateTime(batch.receivedAt) },
           { k: "Processed", v: fmtDateTime(batch.processedAt) },
           { k: "Source", v: batch.source, wide: true },
@@ -95,6 +96,7 @@ function RowBody({ row }: { row: ImportRow }) {
           { k: "Unique key (specimen + test)", v: <><span className="phr-mono">{row.specimenKey} + {row.analyteCode}</span><div className="phr-sub">{row.state === "duplicate" ? "Already imported. Skipped, no second observation." : row.state === "quarantined" ? "Not imported while held." : "New key, imported once."}</div></> },
           { k: "Participant check", v: <><CheckPill check={check} /><div className="phr-sub">{check.fileDob || check.recordDob ? `File ${check.fileDob ? fmtNumericDate(check.fileDob) : "none"}, record ${check.recordDob ? fmtNumericDate(check.recordDob) : "none"}` : "No record to compare"}</div></> },
           { k: "Specimen identifier", v: check.episode ? <>On collection record <span className="phr-mono">{check.episode.specimenIds[0]}</span></> : <span style={{ color: "var(--warn)" }}>Not on any collection record</span> },
+          { k: "Unique ID", v: check.episode ? <><span className="phr-mono">{check.episode.screeningRef}</span><div className="phr-sub">Episode {check.episode.id}</div></> : <span className="ph-faint">Not matched</span> },
           { k: "Unit", v: unitDiffers ? <span style={{ color: "var(--warn)" }}>Differs from the template. No silent conversion.</span> : "Matches the template unit" },
         ]} />
       </section>
@@ -237,7 +239,7 @@ function CandidateCard({ row, episodeId, selected, onSelect }: { row: ImportRow;
         <span style={{ fontWeight: 600, color: "var(--ink)" }}>{rec.person.given} {rec.person.family}</span>
         <ReportStatePill state={rec.episode.reportState} />
       </div>
-      <div className="phr-mono ph-faint" style={{ marginTop: 2 }}>{rec.episode.id}, {rec.programme.code}</div>
+      <div className="phr-mono ph-faint" style={{ marginTop: 2 }}><span style={{ color: "var(--dim)" }}>{rec.episode.screeningRef}</span> {rec.episode.id}, {rec.programme.code}</div>
       <dl style={{ margin: "8px 0 0", fontSize: 12, lineHeight: 1.45 }}>
         <dt className="ph-faint" style={{ fontSize: 10.5 }}>Specimen on record</dt>
         <dd style={{ margin: 0 }}><span className="phr-mono">{spec.join(", ")}</span>{cmp(specMatch, "Same as the row", `Row says ${row.specimenKey}`, "")}</dd>

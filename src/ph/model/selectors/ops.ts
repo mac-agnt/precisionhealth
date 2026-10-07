@@ -172,6 +172,9 @@ function derivedTaskStatus(state: PhState, t: Task): { status: TaskView["status"
     case "TSK-0015":
     case "TSK-0016": { const f = state.followUps.find((x) => x.taskId === t.id); return done(!!f && f.status === "closed", "Record the follow-up outcome in Results, Follow-up."); }
   }
+  // A nurse referral task closes when the referred episode's report is released after individual review.
+  const referred = state.episodes.find((e) => e.nurseReferral?.taskId === t.id);
+  if (referred) return done(referred.reportState === "released", "Review the referred episode individually, then release it.");
   return { status: t.status === "done" ? "done" : "open", blockReason: null, derived: false };
 }
 export function taskTitle(state: PhState, t: Task): string {

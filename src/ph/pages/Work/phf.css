@@ -139,6 +139,100 @@
 .phf-cols2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; align-items: start; }
 .phf-cols2.narrow { grid-template-columns: minmax(0, 1fr); }
 
+/* automation link chip, used on Automations, Schedules, Systems and Agents */
+.phf-autochip {
+  display: inline-flex; align-items: center; gap: 6px; height: 21px; padding: 0 8px; border-radius: 6px; max-width: 100%;
+  border: 1px solid var(--accent-line); background: var(--accent-faint); color: var(--body); font: inherit; font-size: 11px; cursor: pointer; white-space: nowrap;
+  transition: border-color .18s var(--ease), background .18s var(--ease);
+}
+.phf-autochip:hover { background: var(--accent-soft); color: var(--ink); }
+.phf-autochip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.phf-autochip-id { font-family: var(--mono); font-size: 10.5px; letter-spacing: .02em; color: var(--accent); flex: none; }
+
+/* Automations: the journey track. Stations sit on one rail; Operations runs alongside it. */
+.phf-au-track { display: flex; align-items: flex-start; min-width: 0; }
+.phf-au-station {
+  position: relative; flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 5px; padding: 2px 6px 6px;
+  border: 0; border-radius: 12px; background: none; color: inherit; font: inherit; text-align: center; cursor: pointer;
+}
+.phf-au-station::before { content: ""; position: absolute; top: 17px; left: 0; right: 0; height: 2px; background: var(--border-strong); }
+.phf-au-station.first::before { left: 50%; }
+.phf-au-station.last::before { right: 50%; }
+.phf-au-station.solo::before { display: none; }
+.phf-au-station:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.phf-au-ring {
+  position: relative; z-index: 1; width: 32px; height: 32px; border-radius: 999px; display: flex; align-items: center; justify-content: center;
+  background: var(--surface); border: 2px solid var(--border-strong); color: var(--dim); font-family: var(--mono); font-size: 11px; font-variant-numeric: tabular-nums;
+  transition: border-color .18s var(--ease), background .18s var(--ease), color .18s var(--ease);
+}
+.phf-au-station:hover .phf-au-ring { border-color: var(--accent-line); color: var(--ink); }
+.phf-au-station[aria-pressed="true"] .phf-au-ring { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
+.phf-au-station.solo .phf-au-ring { border-style: dashed; }
+.phf-au-sname { font-size: 12.5px; font-weight: 500; color: var(--ink); line-height: 1.25; }
+.phf-au-scount { font-size: 11px; color: var(--faint); line-height: 1.35; font-variant-numeric: tabular-nums; }
+.phf-au-scount .warn { color: var(--warn); }
+.phf-au-sep { flex: none; align-self: stretch; width: 0; margin: 0 8px; border-left: 1px dashed var(--border-strong); }
+.phf-au-track.narrow { flex-wrap: wrap; row-gap: 10px; }
+.phf-au-track.narrow .phf-au-station { flex: 1 1 30%; }
+.phf-au-track.narrow .phf-au-station::before, .phf-au-track.narrow .phf-au-sep { display: none; }
+
+/* Automations: stage sections and rows */
+.phf-au-stagehead { display: flex; align-items: center; gap: 12px; padding: 14px 18px 12px; min-width: 0; }
+.phf-au-stagenum {
+  flex: none; width: 30px; height: 30px; border-radius: 999px; display: flex; align-items: center; justify-content: center;
+  border: 2px solid var(--accent-line); color: var(--accent); font-family: var(--mono); font-size: 11px;
+}
+.phf-au-stagenum.solo { border-style: dashed; border-color: var(--border-strong); color: var(--dim); }
+.phf-au-row {
+  display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1.55fr) 150px 132px 14px; gap: 18px; align-items: start; width: 100%;
+  padding: 14px 18px; border: 0; border-top: 1px solid var(--border); background: none; color: inherit; font: inherit; text-align: left; cursor: pointer;
+  transition: background .15s var(--ease);
+}
+.phf-au-row:hover { background: var(--surface-2); }
+.phf-au-row[aria-current="true"] { background: var(--accent-faint); box-shadow: inset 2px 0 0 var(--accent); }
+.phf-au-row:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.phf-au-row.narrow { grid-template-columns: minmax(0, 1fr); gap: 10px; }
+.phf-au-block { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.phf-au-name { font-size: 13.5px; font-weight: 500; color: var(--ink); line-height: 1.35; }
+.phf-au-cmp { display: grid; grid-template-columns: 54px minmax(0, 1fr); gap: 5px 10px; font-size: 12px; line-height: 1.45; color: var(--body); min-width: 0; }
+.phf-au-cmp > .k { font-family: var(--mono); font-size: 9.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--faint); padding-top: 3px; }
+.phf-au-cmp > .k.pulse { color: var(--accent); }
+.phf-au-cmp > .v { min-width: 0; }
+.phf-au-nums { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.phf-au-row.narrow .phf-au-nums { flex-direction: row; flex-wrap: wrap; gap: 8px 18px; }
+.phf-au-num { display: flex; align-items: baseline; gap: 7px; min-width: 0; }
+.phf-au-num > b { font-size: 19px; font-weight: 600; letter-spacing: -.6px; color: var(--ink); font-variant-numeric: tabular-nums; line-height: 1.05; flex: none; }
+.phf-au-num > span { font-size: 11px; color: var(--faint); line-height: 1.3; min-width: 0; }
+.phf-au-num.warn > b { color: var(--warn); }
+.phf-au-num.bad > b { color: var(--bad); }
+.phf-au-num.ok > b { color: var(--ok); }
+.phf-au-lock { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; color: var(--faint); }
+
+/* Automations drawer: the flow from trigger to outputs */
+.phf-au-flow { display: flex; flex-direction: column; min-width: 0; }
+.phf-au-node { position: relative; display: grid; grid-template-columns: 30px minmax(0, 1fr); gap: 12px; padding-bottom: 14px; min-width: 0; }
+.phf-au-node::before { content: ""; position: absolute; left: 14px; top: 32px; bottom: 2px; width: 2px; border-radius: 2px; background: var(--border); }
+.phf-au-node:last-child { padding-bottom: 0; }
+.phf-au-node:last-child::before { display: none; }
+.phf-au-dot {
+  width: 30px; height: 30px; border-radius: 10px; display: flex; align-items: center; justify-content: center;
+  background: var(--surface-2); border: 1px solid var(--border); color: var(--dim); font-family: var(--mono); font-size: 11px;
+}
+.phf-au-dot.trigger { background: var(--accent-soft); border-color: var(--accent-line); color: var(--accent); }
+.phf-au-dot.out { background: var(--ok-soft); border-color: transparent; color: var(--ok); }
+.phf-au-nodehead { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; min-width: 0; padding-top: 5px; }
+.phf-au-nodetext { font-size: 13px; color: var(--ink); line-height: 1.45; margin-top: 4px; }
+.phf-au-io { display: flex; flex-wrap: wrap; gap: 4px 10px; margin-top: 5px; font-size: 11.5px; color: var(--dim); line-height: 1.45; }
+.phf-au-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); gap: 8px; }
+.phf-au-tile { padding: 10px 12px; border-radius: var(--r-md, 14px); border: 1px solid var(--border); background: var(--surface-faint); min-width: 0; }
+.phf-au-tile > b { display: block; font-size: 20px; font-weight: 600; letter-spacing: -.6px; color: var(--ink); font-variant-numeric: tabular-nums; line-height: 1.1; }
+.phf-au-tile > span { display: block; font-size: 11px; color: var(--faint); margin-top: 4px; line-height: 1.35; }
+.phf-au-tile.warn > b { color: var(--warn); }
+.phf-au-tile.bad > b { color: var(--bad); }
+.phf-au-tile.ok > b { color: var(--ok); }
+.phf-au-bullets { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.phf-au-bullets > li { display: flex; gap: 8px; align-items: flex-start; font-size: 12.5px; line-height: 1.45; color: var(--body); min-width: 0; }
+
 @media (prefers-reduced-motion: reduce) {
-  .phf-story, .phf-card, .phf-ev, .phf-agent, .phf-chipbtn, .phf-rowbtn { transition-duration: .01ms !important; }
+  .phf-story, .phf-card, .phf-ev, .phf-agent, .phf-chipbtn, .phf-rowbtn, .phf-autochip, .phf-au-ring, .phf-au-row { transition-duration: .01ms !important; }
 }

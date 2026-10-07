@@ -1,23 +1,32 @@
-/* Local form state for the nurse workspace. Values are kept as typed, validated per field and
-   autosaved against a base revision. A save from elsewhere is detected, never overwritten
-   silently, and can be merged field by field. Unsaved edits survive leaving the screen. */
-import { useCallback, useEffect, useRef, useState } from "react";
-import type { Action, ClinicalCapture, MeasureKey } from "../../model";
-import { MEASURE_KEYS, MEASURE_RULES, act, bmiOf, measureError } from "../../model";
+/* Local form state for the nurse form ("SISK Comprehensive (LAB) Screen V2"), shared by the staff
+   workspace and the nurse portal. Values are kept as typed, validated per field and autosaved
+   against a base revision. A save from elsewhere is detected, never overwritten silently, and can
+   be merged field by field. Unsaved edits survive leaving the screen. Missing, not done and
+   declined stay distinct, and a blank is never zero. */
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import type { Action, ClinicalCapture, MeasureKey, NurseFormCtx, NurseFormField, NurseFormValue, PhState } from "../../model";
+import {
+  MEASURE_KEYS, MEASURE_RULES, NURSE_FORM_FIELDS, PROGRAMME_BY_ID, act, bmiOf, ix, measureError, membershipOf, nurseFieldVisible, nurseFormPrefill,
+} from "../../model";
 import { dispatch, getState } from "../../store";
+import type { ApptRow } from "./selectors";
 
 export type Mode = "value" | "not_done" | "declined";
 export type Provenance = "measured" | "self_reported";
 export interface MeasureField { text: string; mode: Mode; provenance: Provenance }
-export interface UrineField { protein: string; glucose: string; blood: string }
-export interface FormValues { measures: Record<MeasureKey, MeasureField>; urine: UrineField; notes: string }
+export interface UrineField { glucose: string; protein: string; blood: string; wcc: string }
+/** Nurse-form fields stored on capture.form. Number fields hold the typed text until saved. */
+export type FormMap = Record<string, NurseFormValue>;
+export interface FormValues { measures: Record<MeasureKey, MeasureField>; urine: UrineField; notes: string; form: FormMap }
 
-export const URINE_KEYS = ["protein", "glucose", "blood"] as const;
+/** Client order on the nurse form: Glucose, Protein, Blood, WCC. */
+export const URINE_KEYS = ["glucose", "protein", "blood", "wcc"] as const;
 export type UrineKey = (typeof URINE_KEYS)[number];
-export const URINE_LABEL: Record<UrineKey, string> = { protein: "Protein", glucose: "Glucose", blood: "Blood" };
-export const URINE_RESULTS = ["Negative", "Trace", "+", "++", "+++"];
-export const URINE_ABSENT = ["Not done", "Declined"];
+export const URINE_LABEL: Record<UrineKey, string> = { glucose: "Glucose", protein: "Protein", blood: "Blood", wcc: "WCC" };
 const POSITIVE = new Set(["+", "++", "+++"]);
+
+/** Fields the nurse writes on capture.form. Advice is the doctor's field and is never sent. */
+export const FORM_FIELDS: NurseFormField[] = NURSE_FORM_FIELDS.filter((f) => f.store === "form" && !f.readOnly);
 
 export const MEASURE_HINT: Record<MeasureKey, string> = {
   heightM: "In metres, for example 1.65",
@@ -25,15 +34,27 @@ export const MEASURE_HINT: Record<MeasureKey, string> = {
   waistCm: "In centimetres, for example 88",
   bpSys: "Seated reading, for example 124",
   bpDia: "Seated reading, for example 78",
-  pulse: "Beats per minute, for example 68",
+  pulse: "Beats per minute from the ECG machine, for example 68",
+  peakFlow: "Litres per minute, for example 480",
 };
 
 const emptyMeasures = (): Record<MeasureKey, MeasureField> => {
   const m = {} as Record<MeasureKey, MeasureField>;
-  for (const k of MEASURE_KEYS) m[k] = { text: "", mode: "value", provenance: k === "heightM" ? "self_reported" : "measured" };
+  for (const k of MEASURE_KEYS) m[k] = { text: "", mode: "value", provenance: "measured" };
   return m;
 };
-export const emptyValues = (): FormValues => ({ measures: emptyMeasures(), urine: { protein: "", glucose: "", blood: "" }, notes: "" });
+const emptyUrine = (): UrineField => ({ glucose: "", protein: "", blood: "", wcc: "" });
+export const emptyValues = (): FormValues => ({ measures: emptyMeasures(), urine: emptyUrine(), notes: "", form: {} });
+
+function formFromCapture(c: ClinicalCapture): FormMap {
+  const out: FormMap = {};
+  for (const f of FORM_FIELDS) {
+    const v = c.form?.[f.key];
+    if (v === undefined || v === null || v === "") continue;
+    out[f.key] = f.type === "number" && typeof v === "number" ? String(v) : v;
+  }
+  return out;
+}
 
 export function fromCapture(c: ClinicalCapture): FormValues {
   const measures = emptyMeasures();
@@ -45,9 +66,18 @@ export function fromCapture(c: ClinicalCapture): FormValues {
       provenance: m.provenance,
     };
   }
-  return { measures, urine: c.urine ? { protein: c.urine.protein || "", glucose: c.urine.glucose || "", blood: c.urine.blood || "" } : { protein: "", glucose: "", blood: "" }, notes: c.notes || "" };
+  // Urinalysis not done stores every dipstick as Not done. On screen they stay blank, so they are never preselected.
+  const complete = c.form?.urinalysis !== "Not done";
+  const urine = c.urine && complete ? { glucose: c.urine.glucose || "", protein: c.urine.protein || "", blood: c.urine.blood || "", wcc: c.urine.wcc || "" } : emptyUrine();
+  return { measures, urine, notes: c.notes || "", form: formFromCapture(c) };
 }
-export const sameValues = (a: FormValues, b: FormValues) => JSON.stringify(a) === JSON.stringify(b);
+
+/** Key-order independent comparison, so the same answers in a different order are not "unsaved". */
+function canon(v: FormValues): string {
+  const form = Object.keys(v.form).filter((k) => v.form[k] !== null && v.form[k] !== undefined && v.form[k] !== "").sort().map((k) => [k, v.form[k]]);
+  return JSON.stringify([v.measures, v.urine, v.notes, form]);
+}
+export const sameValues = (a: FormValues, b: FormValues) => canon(a) === canon(b);
 
 /** A typed number, null for blank, or "nan" for something that is not a number yet. */
 export function parseNum(text: string): number | null | "nan" {
@@ -59,9 +89,56 @@ export function parseNum(text: string): number | null | "nan" {
 }
 const decimalsOf = (text: string) => { const t = text.trim().replace(",", "."); const i = t.indexOf("."); return i < 0 ? 0 : t.length - i - 1; };
 
-/** Field-level problems: not a number, too many decimals, outside entry limits, systolic not above diastolic. */
-export function formErrors(v: FormValues): Partial<Record<MeasureKey | "bp", string>> {
-  const out: Partial<Record<MeasureKey | "bp", string>> = {};
+/** The number for a field when it is recorded and valid, otherwise null. A blank is never zero. */
+export function numericValue(v: FormValues, k: MeasureKey): number | null {
+  const f = v.measures[k];
+  if (f.mode !== "value") return null;
+  const n = parseNum(f.text);
+  if (n === null || n === "nan") return null;
+  if (decimalsOf(f.text) > MEASURE_RULES[k].decimals) return null;
+  return measureError(k, n) ? null : n;
+}
+
+/** A form value as the model stores it: number fields parsed, blank text as null. Invalid numbers become null. */
+function storedValue(f: NurseFormField, raw: NurseFormValue | undefined): NurseFormValue {
+  if (raw === undefined || raw === null) return null;
+  if (typeof raw === "string" && !raw.trim()) return null;
+  if (f.type === "number" && typeof raw === "string") {
+    const n = parseNum(raw);
+    return n === null || n === "nan" ? null : n;
+  }
+  return raw;
+}
+
+const SKELETON: ClinicalCapture = {
+  status: "draft", identity: [], measures: {} as ClinicalCapture["measures"], urine: null, notes: "", form: {}, ecgReview: null, checklist: {}, savedAt: null, rev: 0, checkedInAt: null, completedAt: null,
+};
+
+/**
+ * The record as it would be saved from what is on screen. The shared model rules (visibility,
+ * missing fields, ECG review, referral, bands) run on it, so the screen and the reducer agree.
+ */
+export function toCapture(v: FormValues, base: ClinicalCapture = SKELETON): ClinicalCapture {
+  const measures = { ...base.measures };
+  for (const k of MEASURE_KEYS) {
+    const f = v.measures[k];
+    if (f.mode !== "value") { measures[k] = { value: null, state: f.mode, provenance: f.provenance }; continue; }
+    const n = numericValue(v, k);
+    measures[k] = n === null ? { value: null, state: "missing", provenance: f.provenance } : { value: n, state: "recorded", provenance: f.provenance };
+  }
+  const form: FormMap = { ...(base.form || {}) };
+  for (const f of FORM_FIELDS) form[f.key] = storedValue(f, v.form[f.key]);
+  return { ...base, measures, urine: urineOf(v), notes: v.notes, form };
+}
+
+function urineOf(v: FormValues): ClinicalCapture["urine"] {
+  if (v.form.urinalysis === "Not done") return { glucose: "Not done", protein: "Not done", blood: "Not done", wcc: "Not done" };
+  return URINE_KEYS.some((k) => !!v.urine[k]) ? { glucose: v.urine.glucose, protein: v.urine.protein, blood: v.urine.blood, wcc: v.urine.wcc } : null;
+}
+
+/** Field-level problems: not a number, too many decimals, outside entry limits, systolic not above diastolic, a time not as HH:MM. */
+export function formErrors(v: FormValues, ctx?: NurseFormCtx): Record<string, string> {
+  const out: Record<string, string> = {};
   for (const k of MEASURE_KEYS) {
     const f = v.measures[k];
     if (f.mode !== "value") continue;
@@ -75,34 +152,24 @@ export function formErrors(v: FormValues): Partial<Record<MeasureKey | "bp", str
   }
   const s = numericValue(v, "bpSys"), d = numericValue(v, "bpDia");
   if (s !== null && d !== null && s <= d) out.bp = "Systolic must be higher than diastolic.";
-  return out;
-}
-
-/** The number for a field when it is recorded and valid, otherwise null. A blank is never zero. */
-export function numericValue(v: FormValues, k: MeasureKey): number | null {
-  const f = v.measures[k];
-  if (f.mode !== "value") return null;
-  const n = parseNum(f.text);
-  if (n === null || n === "nan") return null;
-  if (decimalsOf(f.text) > MEASURE_RULES[k].decimals) return null;
-  return measureError(k, n) ? null : n;
-}
-
-export const positiveDipstick = (v: FormValues) => URINE_KEYS.some((k) => POSITIVE.has(v.urine[k]));
-
-/** Required items still missing. Not done and declined count as accounted for. */
-export function formMissing(v: FormValues, urineRequired: boolean): string[] {
-  const out: string[] = [];
-  for (const k of MEASURE_KEYS) {
-    const r = MEASURE_RULES[k], f = v.measures[k];
-    if (r.required && f.mode === "value" && !f.text.trim()) out.push(`${r.label} (${r.unit})`);
+  const synth = ctx ? toCapture(v) : null;
+  for (const f of FORM_FIELDS) {
+    if (f.type !== "number" && f.type !== "time") continue;
+    const raw = v.form[f.key];
+    if (typeof raw !== "string" || !raw.trim()) continue;
+    if (synth && ctx && !nurseFieldVisible(f, synth, ctx)) continue;
+    if (f.type === "time") { if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(raw.trim())) out[f.key] = `${f.label} must be a time as HH:MM, 24-hour.`; continue; }
+    const n = parseNum(raw);
+    if (n === "nan" || n === null) { out[f.key] = `${f.label} must be a number.`; continue; }
+    if ((f.min !== undefined && n < f.min) || (f.max !== undefined && n > f.max)) out[f.key] = `${f.label} must be between ${f.min} and ${f.max}${f.unit ? " " + f.unit : ""}.`;
   }
-  if (urineRequired) for (const k of URINE_KEYS) if (!v.urine[k]) out.push(`Urine ${URINE_LABEL[k].toLowerCase()}`);
-  if (positiveDipstick(v) && !v.notes.trim()) out.push("Nurse note for the positive dipstick result");
   return out;
 }
 
-export function toPatch(v: FormValues) {
+export const positiveDipstick = (v: FormValues) => (["glucose", "protein", "blood"] as const).some((k) => POSITIVE.has(v.urine[k]));
+
+/** The save patch. Every nurse-form field is sent; fields hidden by the other answers are cleared. */
+export function toPatch(v: FormValues, ctx?: NurseFormCtx) {
   const measures: Partial<Record<MeasureKey, { value: number | null; state: "recorded" | "missing" | "not_done" | "declined"; provenance: Provenance }>> = {};
   for (const k of MEASURE_KEYS) {
     const f = v.measures[k];
@@ -110,8 +177,15 @@ export function toPatch(v: FormValues) {
     const n = parseNum(f.text);
     measures[k] = n === null || n === "nan" ? { value: null, state: "missing", provenance: f.provenance } : { value: n, state: "recorded", provenance: f.provenance };
   }
-  const anyUrine = URINE_KEYS.some((k) => !!v.urine[k]);
-  return { measures, urine: anyUrine ? { ...v.urine } : null, notes: v.notes };
+  const synth = ctx ? toCapture(v) : null;
+  const form: FormMap = {};
+  for (const f of FORM_FIELDS) {
+    let val = storedValue(f, v.form[f.key]);
+    if (val !== null && synth && ctx && !nurseFieldVisible(f, synth, ctx)) val = null;
+    form[f.key] = val;
+  }
+  const u = urineOf(v);
+  return { measures, urine: u ? { protein: u.protein, glucose: u.glucose, blood: u.blood, wcc: u.wcc } : null, notes: v.notes, form };
 }
 
 /** BMI from the values on screen, using the shared kg/m2 rule and rounding. */
@@ -140,12 +214,55 @@ export function formBmi(v: FormValues, cap: ClinicalCapture): { bmi: number | nu
 
 /** Keep every field this form changed since its base; take the other copy for the rest. */
 export function merge3(base: FormValues, mine: FormValues, theirs: FormValues): FormValues {
-  const pick = <T,>(b: T, m: T, t: T): T => (JSON.stringify(m) !== JSON.stringify(b) ? m : t);
+  const same = <T,>(a: T, b: T) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
+  const pick = <T,>(b: T, m: T, t: T): T => (!same(m, b) ? m : t);
   const measures = {} as Record<MeasureKey, MeasureField>;
   for (const k of MEASURE_KEYS) measures[k] = pick(base.measures[k], mine.measures[k], theirs.measures[k]);
   const urine: UrineField = { ...theirs.urine };
   for (const k of URINE_KEYS) urine[k] = pick(base.urine[k], mine.urine[k], theirs.urine[k]);
-  return { measures, urine, notes: pick(base.notes, mine.notes, theirs.notes) };
+  const form: FormMap = {};
+  const keys = new Set([...Object.keys(base.form), ...Object.keys(mine.form), ...Object.keys(theirs.form)]);
+  keys.forEach((k) => {
+    const v = pick<NurseFormValue | undefined>(base.form[k], mine.form[k], theirs.form[k]);
+    if (v !== undefined && v !== null && v !== "") form[k] = v;
+  });
+  return { measures, urine, notes: pick(base.notes, mine.notes, theirs.notes), form };
+}
+
+/* ---- questionnaire prefill and the nurse's confirmation ---- */
+
+/** The values the participant's pre-visit questionnaire and booking put on the nurse form at check-in. */
+export function prefillFor(state: PhState, row: ApptRow): FormMap {
+  const m = membershipOf(state, row.person.id, row.programme.id);
+  const nurse = ix(state).staffById.get(row.session.nurseId);
+  return nurseFormPrefill(m?.answers || {}, { site: row.person.site, employer: PROGRAMME_BY_ID[row.programme.id].clientName, sex: row.person.sex, clinician: nurse ? nurse.name : null });
+}
+
+/* Which questionnaire answers the nurse has confirmed with the participant, by booking. Held for the
+   demo session in memory and shared by the staff workspace and the nurse portal. */
+const confirmed = new Map<string, Set<string>>();
+const confirmListeners = new Set<() => void>();
+let confirmVersion = 0;
+function confirmChanged() { confirmVersion++; confirmListeners.forEach((l) => l()); }
+function subscribeConfirm(l: () => void) { confirmListeners.add(l); return () => { confirmListeners.delete(l); }; }
+export function useConfirmations(bookingId: string) {
+  useSyncExternalStore(subscribeConfirm, () => confirmVersion, () => confirmVersion);
+  const set = confirmed.get(bookingId) || new Set<string>();
+  return {
+    has: (key: string) => set.has(key),
+    confirm: (keys: string[]) => {
+      const next = new Set(confirmed.get(bookingId) || []);
+      keys.forEach((k) => next.add(k));
+      confirmed.set(bookingId, next);
+      confirmChanged();
+    },
+    undo: (key: string) => {
+      const next = new Set(confirmed.get(bookingId) || []);
+      next.delete(key);
+      confirmed.set(bookingId, next);
+      confirmChanged();
+    },
+  };
 }
 
 /* ---- the hook ---- */
@@ -161,7 +278,7 @@ interface Held { values: FormValues; base: FormValues; baseRev: number; dirty: b
 /** Unsaved local edits by booking, kept while the user is elsewhere in the app. */
 const held = new Map<string, Held>();
 
-export function useCaptureForm(bookingId: string, cap: ClinicalCapture, editable: boolean) {
+export function useCaptureForm(bookingId: string, cap: ClinicalCapture, editable: boolean, ctx: NurseFormCtx) {
   const [restored] = useState(() => {
     const h = held.get(bookingId);
     return !!h && h.checkedInAt === cap.checkedInAt && h.baseRev <= cap.rev && h.dirty;
@@ -180,6 +297,8 @@ export function useCaptureForm(bookingId: string, cap: ClinicalCapture, editable
   statusRef.current = status;
   const editableRef = useRef(editable);
   editableRef.current = editable;
+  const ctxRef = useRef(ctx);
+  ctxRef.current = ctx;
   const own = useRef(new Set<number>());
 
   /** The stored record moved past this form's base revision, and not because of this form. */
@@ -188,10 +307,9 @@ export function useCaptureForm(bookingId: string, cap: ClinicalCapture, editable
   const save = useCallback((): boolean => {
     const cur = ref.current;
     if (!editableRef.current) return false;
-    const errs = formErrors(cur.values);
-    const first = Object.values(errs)[0];
+    const first = Object.values(formErrors(cur.values, ctxRef.current))[0];
     if (first) { setStatus({ kind: "invalid", message: first }); return false; }
-    const res = dispatch(act.saveCapture(bookingId, cur.baseRev, toPatch(cur.values)), { silent: true });
+    const res = dispatch(act.saveCapture(bookingId, cur.baseRev, toPatch(cur.values, ctxRef.current)), { silent: true });
     if (res.ok) {
       const after = getState().captureDrafts[bookingId];
       const rev = after ? after.rev : cur.baseRev + 1;
@@ -212,7 +330,7 @@ export function useCaptureForm(bookingId: string, cap: ClinicalCapture, editable
   useEffect(() => {
     if (!editable || !st.dirty) return;
     if (statusRef.current.kind === "conflict") return;
-    const first = Object.values(formErrors(st.values))[0];
+    const first = Object.values(formErrors(st.values, ctxRef.current))[0];
     if (first) { setStatus({ kind: "invalid", message: first }); return; }
     setStatus({ kind: "pending" });
     const h = window.setTimeout(() => { save(); }, 600);
@@ -223,9 +341,12 @@ export function useCaptureForm(bookingId: string, cap: ClinicalCapture, editable
   useEffect(() => () => {
     const cur = ref.current;
     if (!cur.dirty) { held.delete(bookingId); return; }
-    if (editableRef.current && statusRef.current.kind !== "conflict" && !Object.keys(formErrors(cur.values)).length) {
-      const res = dispatch(act.saveCapture(bookingId, cur.baseRev, toPatch(cur.values)), { silent: true });
-      if (res.ok) { held.delete(bookingId); return; }
+    if (editableRef.current && statusRef.current.kind !== "conflict" && !Object.keys(formErrors(cur.values, ctxRef.current)).length) {
+      const live = getState().captureDrafts[bookingId];
+      if (live && live.rev === cur.baseRev) {
+        const res = dispatch(act.saveCapture(bookingId, cur.baseRev, toPatch(cur.values, ctxRef.current)), { silent: true });
+        if (res.ok) { held.delete(bookingId); return; }
+      }
     }
     held.set(bookingId, cur);
   }, [bookingId]);
@@ -239,7 +360,9 @@ export function useCaptureForm(bookingId: string, cap: ClinicalCapture, editable
     const before = getState().captureDrafts[bookingId]?.rev;
     const res = dispatch(action);
     if (res.ok) {
-      const after = getState().captureDrafts[bookingId]?.rev;
+      const live = getState().captureDrafts[bookingId];
+      if (live?.savedAt && statusRef.current.kind === "idle") setStatus({ kind: "saved", at: live.savedAt });
+      const after = live?.rev;
       if (after !== undefined && after !== before && ref.current.baseRev === before) {
         own.current.add(after);
         ref.current = { ...ref.current, baseRev: after };
@@ -286,3 +409,4 @@ export function useCaptureForm(bookingId: string, cap: ClinicalCapture, editable
 
   return { values: st.values, dirty: st.dirty, baseRev: st.baseRev, status, stale, restored, update, save, flush, runOwn, mergeAndSave, discardMine, simulateOtherTab };
 }
+export type CaptureFormApi = ReturnType<typeof useCaptureForm>;

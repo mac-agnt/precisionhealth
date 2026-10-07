@@ -5,6 +5,13 @@ import { ROLE_LABEL, act } from "../model";
 import { dispatch, usePersona, usePh } from "../store";
 import { useNav } from "../nav-context";
 import { Avatar, Button, Icon } from "../ui";
+import type { GlyphName } from "../ui";
+
+const PORTALS: Array<{ id: "participant" | "nurse" | "client"; title: string; sub: string; icon: GlyphName }> = [
+  { id: "participant", title: "Participant portal", sub: "Book, consent, questionnaire and own released report.", icon: "user" },
+  { id: "nurse", title: "Nurse portal", sub: "Clinic day: check in, nurse form, specimens, sign-off.", icon: "heart" },
+  { id: "client", title: "Client portal", sub: "Employer view. Aggregate figures and approved reports only.", icon: "chart" },
+];
 
 export function PersonaMenu({ compact }: { compact?: boolean }) {
   const [open, setOpen] = useState(false);
@@ -49,14 +56,21 @@ export function PersonaMenu({ compact }: { compact?: boolean }) {
             </button>
           ))}
           <div style={{ borderTop: "1px solid var(--border)", margin: "8px 0 4px" }} />
-          <button type="button" className="ph-row" onClick={() => { setOpen(false); nav.openPortal(); }}
-            style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "9px 10px", border: 0, borderRadius: 10, background: "none", cursor: "pointer", textAlign: "left", color: "inherit", font: "inherit" }}>
-            <span style={{ width: 26, height: 26, borderRadius: 9, background: "var(--track)", display: "inline-flex", alignItems: "center", justifyContent: "center", color: "var(--dim)" }}><Icon name="user" size={14} /></span>
-            <span style={{ flex: 1 }}>
-              <span style={{ display: "block", fontSize: 12.5, color: "var(--ink)" }}>Participant portal preview</span>
-              <span style={{ display: "block", fontSize: 11, color: "var(--faint)" }}>Own released data only. Separate responsive preview.</span>
-            </span>
-          </button>
+          <div className="ph-eyebrow" style={{ padding: "4px 10px 4px" }}>Portals</div>
+          {PORTALS.map((x) => {
+            const launch = x.id === "participant" ? () => nav.openPortal() : x.id === "nurse" ? nav.openNursePortal : nav.openClientPortal;
+            if (!launch) return null;
+            return (
+              <button key={x.id} type="button" className="ph-row" onClick={() => { setOpen(false); launch(); }}
+                style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "9px 10px", border: 0, borderRadius: 10, background: "none", cursor: "pointer", textAlign: "left", color: "inherit", font: "inherit" }}>
+                <span style={{ width: 26, height: 26, borderRadius: 9, background: "var(--track)", display: "inline-flex", alignItems: "center", justifyContent: "center", color: "var(--dim)" }}><Icon name={x.icon} size={14} /></span>
+                <span style={{ flex: 1 }}>
+                  <span style={{ display: "block", fontSize: 12.5, color: "var(--ink)" }}>{x.title}</span>
+                  <span style={{ display: "block", fontSize: 11, color: "var(--faint)" }}>{x.sub}</span>
+                </span>
+              </button>
+            );
+          })}
           <div className="ph-faint" style={{ fontSize: 11, lineHeight: 1.45, padding: "8px 10px 6px" }}>
             A frontend visibility simulation. It does not change authentication and is not production security.
           </div>

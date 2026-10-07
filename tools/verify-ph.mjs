@@ -94,11 +94,14 @@ try {
   /* ---------- Ciara resolution and re-upload ---------- */
   const rePre = M.reuploadPreview(s, "BATCH-20261002-01");
   eq("re-upload baseline", [rePre.alreadySeen, rePre.unresolved, rePre.newRows], [117, 3, 0]);
+  // The count was 1088 when every episode had only the five core results. With the full Comprehensive
+  // panel the baseline holds more observations, so the re-upload is checked against the count before it.
+  const obsBeforeReupload = s.observations.length;
   run(act.loadSampleCsv("BATCH-20261002-01"));
   const c1 = run(act.commitImportPreview());
   check("commit preview ok", c1.ok);
   check("second commit blocked", !run(act.commitImportPreview()).ok);
-  eq("no new observations", s.observations.length, 1088);
+  eq("no new observations", s.observations.length, obsBeforeReupload);
   const ciaraRow = s.importRows.find((r) => r.quarantine?.reason === "dob_mismatch");
   run(act.setPersona("fiona"));
   check("fiona cannot resolve identity", !run(act.resolveRow(ciaraRow.id, "PH-E-0102", ["specimen", "dob"], "Verified with requisition")).ok);
@@ -251,7 +254,8 @@ try {
   check("appointment completed", done.ok, done.message);
   eq("after completion", [M.totalCounts(s).attended, M.totalCounts(s).episodes, M.totalCounts(s).awaiting, M.totalCounts(s).released, M.totalCounts(s).booked], [226, 226, 16, 184, 366]);
   eq("not released", s.episodes.find((e) => e.bookingId === orlaNow.id).reportState, "awaiting_results");
-  eq("pending tests stay visible", M.pendingTests(s, s.episodes.find((e) => e.bookingId === orlaNow.id)).length, 5);
+  // Every expected test of the programme's panel stays pending and visible: the full Comprehensive (LAB) panel now, not five core tests.
+  eq("pending tests stay visible", M.pendingTests(s, s.episodes.find((e) => e.bookingId === orlaNow.id)).length, M.COMPREHENSIVE_PANEL.length);
   const orlaEp = s.episodes.find((e) => e.bookingId === orlaNow.id).id;
   check("liz cannot load results without imports.view", run(act.setPersona("anita")) && !run(act.deliverSampleResults(orlaEp)).ok);
   run(act.setPersona("neil"));
@@ -405,6 +409,170 @@ try {
   run(act.setPersona("ian"));
   check("support cannot read lab import detail", M.answerQuery(s, "Show the three lab import exceptions.").scenario === "restricted");
   check("nurse cannot read employer report detail", (run(act.setPersona("fiona")), M.answerQuery(s, "Prepare the Sisk programme report.").scenario === "restricted"));
+
+  /* ---------- analyte catalogue and the illustrative rule set ---------- */
+  s = createInitialState();
+  const B4 = (code, v, ctx) => M.bandFor(code, v, ctx);
+  const male = { sex: "male", age: 55 }, female = { sex: "female", age: 40 };
+  eq("panel size", [Object.keys(M.ANALYTES).length, M.COMPREHENSIVE_PANEL.length, M.CALCULATED_ANALYTES.length], [32, 28, 2]);
+  check("every analyte in a report group", Object.values(M.ANALYTES).every((a) => M.ANALYTE_GROUPS.some((g) => g.key === a.group)));
+  eq("rule set label", M.RULE_SET_LABEL, "Illustrative rule set v0.1. Clinician-owned. To be replaced by Precision Health's approved rules.");
+  eq("TC bands", [4.9, 5.0, 6.0, 6.1].map((v) => B4("TC", v)), ["normal", "borderline", "borderline", "abnormal"]);
+  eq("HbA1c bands", [41, 42, 47, 48].map((v) => B4("HBA1C", v)), ["normal", "borderline", "borderline", "abnormal"]);
+  eq("HbA1c words", ["normal", "borderline", "abnormal"].map((b) => M.reportFlagWord("HBA1C", b)), ["NORMAL", "HIGHER RISK", "RAISED"]);
+  eq("HDL bands", [1.1, 1.0, 0.9, 0.8].map((v) => B4("HDL", v)), ["normal", "borderline", "borderline", "abnormal"]);
+  eq("HDL low word", M.reportFlagWord("HDL", "abnormal", M.bandDetail("HDL", 0.8).direction), "LOW");
+  eq("LDL 10 percent rule", [2.9, 3.0, 3.3, 3.4].map((v) => B4("LDL", v)), ["normal", "borderline", "borderline", "abnormal"]);
+  eq("TG limit is <2.0", [1.9, 2.0].map((v) => B4("TG", v)), ["normal", "borderline"]);
+  eq("haemoglobin by sex", [B4("HB", 12.5, female), B4("HB", 12.5, male)], ["normal", "borderline"]);
+  eq("ferritin by sex", [B4("FERR", 170, male), B4("FERR", 170, female)], ["normal", "abnormal"]);
+  eq("PSA by age", [B4("PSA", 2.5, { sex: "male", age: 45 }), B4("PSA", 2.5, { sex: "male", age: 55 })], ["abnormal", "normal"]);
+  eq("FIT qualitative", [B4("FIT", 0), B4("FIT", 1), M.reportFlagWord("FIT", "abnormal")], ["normal", "abnormal", "POSITIVE"]);
+  eq("not tested", [B4("TC", null), M.reportFlagWord("TC", "not_tested")], ["not_tested", "NOT TESTED"]);
+  check("flagFor follows the band", [["LDL", 3.2], ["TC", 4.9], ["VITD", 45], ["CA", 2.4]].every(([c, v]) => M.flagFor(c, v) === (["borderline", "abnormal"].includes(B4(c, v)) ? "review_required" : "none")));
+  eq("BP words", [[118, 76], [139, 84], [148, 94], [165, 102], [182, 100]].map(([a, b]) => M.bpCategory(a, b).word), ["IDEAL", "MILD", "RAISED", "SIGNIFICANTLY RAISED", "IMMEDIATE TREATMENT"]);
+  eq("BP below 140/90 is not flagged (client viewer shows 128/86 green)", [M.bpCategory(128, 86).band, M.bpCategory(139, 84).band, M.bpCategory(140, 84).band], ["normal", "normal", "abnormal"]);
+  eq("BMI words and bands", [22, 26.3, 28.7, 31, 17].map((v) => M.bmiCategory(v).word + "/" + M.bmiCategory(v).band), ["NORMAL/normal", "OVERWEIGHT/borderline", "OVERWEIGHT/abnormal", "OBESE/abnormal", "UNDERWEIGHT/borderline"]);
+  eq("relative risk bands", [0.9, 1.0, 1.5, 1.6].map((v) => M.relativeRiskBand(v)), ["normal", "borderline", "borderline", "abnormal"]);
+
+  /* ---------- baseline data: bands, panels, batches, unique IDs, QRISK3 ---------- */
+  check("observation flag follows its band", s.observations.every((o) => (o.unitDiscrepancy && !o.unitDiscrepancy.confirmed) ? o.band === "not_tested" && o.flag === "none" : o.flag === (["borderline", "abnormal"].includes(o.band) ? "review_required" : "none")));
+  const queue = M.reviewQueueAll(s);
+  check("routine ready episodes are all normal across the whole panel", queue.filter((i) => i.routine).every((i) => !i.flags.length && M.panelResults(s, i.episode.id).every((r) => r.band === "normal")));
+  check("flagged ready episodes have out-of-range laboratory results", queue.filter((i) => i.flagged).every((i) => i.flags.some((f) => f.kind === "observation")));
+  check("routine releases are all normal", s.reportVersions.filter((v) => v.releaseMode === "routine").every((v) => !M.episodeFlags(s, s.episodes.find((e) => e.id === v.episodeId)).length));
+  check("some releases are routine", s.reportVersions.filter((v) => v.releaseMode === "routine").length > 20);
+  check("ready and released episodes have every expected test", s.episodes.filter((e) => e.reportState === "ready_for_review" || e.reportState === "released").every((e) => M.pendingTests(s, e).length === 0));
+  check("every episode expects the full Comprehensive panel", s.episodes.every((e) => M.COMPREHENSIVE_PANEL.every((c) => e.expectedTests.some((t) => t.code === c))));
+  check("PSA and FIT only when the nurse form says so", s.episodes.every((e) => e.expectedTests.some((t) => t.code === "PSA") === (e.capture.form.psaTaken === "Yes") && e.expectedTests.some((t) => t.code === "FIT") === (e.capture.form.fitKit === "Yes")));
+  check("PSA only for men", s.episodes.filter((e) => e.expectedTests.some((t) => t.code === "PSA")).every((e) => s.persons.find((p) => p.id === e.personId).sex === "male"));
+  check("awaiting episodes show what is pending", s.episodes.filter((e) => e.reportState === "awaiting_results").every((e) => M.pendingTests(s, e).length > 0));
+  check("baseline batch holds only lipid and HbA1c rows", M.batchRowsAll(s, "BATCH-20261002-01").every((r) => M.CORE_PANEL.includes(r.analyteCode)));
+  const EXT = M.batchStats(s, "BATCH-20261002-02");
+  eq("extended batch", [EXT.batch.kind, EXT.batch.status, EXT.batch.filename, EXT.quarantined, EXT.duplicates, EXT.rows === EXT.imported], ["extended", "complete", "eurofins_extended_2026-10-02_demo.csv", 0, 0, true]);
+  check("extended batch has no core rows", M.batchRowsAll(s, "BATCH-20261002-02").every((r) => !M.CORE_PANEL.includes(r.analyteCode)));
+  check("every observation points at a real row", (() => { const rows = new Set(s.importRows.map((r) => r.id)); return s.observations.every((o) => o.source.kind !== "batch" || rows.has(o.source.rowId)); })());
+  const refs = s.episodes.map((e) => e.screeningRef);
+  check("screening refs unique in COMP0 format", new Set(refs).size === refs.length && refs.every((r) => /^COMP0\d{4}$/.test(r)));
+  const ageAt = (e) => M.ageOn(s.persons.find((p) => p.id === e.personId).dob, M.localDateOf(e.collectedAt));
+  check("QRISK3 not calculated under 25", s.episodes.filter((e) => ageAt(e) < 25).every((e) => e.qrisk && !e.qrisk.eligible && e.qrisk.score10y === null && e.qrisk.reason === "Not calculated under 25"));
+  check("QRISK3 sample outputs labelled", s.episodes.every((e) => !e.qrisk || e.qrisk.source === "licensed_engine_sample"));
+  const withQ = s.episodes.filter((e) => e.qrisk && e.qrisk.relativeRisk !== null);
+  check("heart age follows relative risk", withQ.length > 150 && withQ.every((e) => e.qrisk.relativeRisk === 1 || (e.qrisk.relativeRisk > 1) === (e.qrisk.heartAge > ageAt(e))));
+  const avgRR = (l) => l.reduce((n, e) => n + e.qrisk.relativeRisk, 0) / l.length;
+  check("smokers have higher QRISK3 relative risk", avgRR(withQ.filter((e) => /cigarettes per day/.test(String(e.capture.form.smoking)))) > avgRR(withQ.filter((e) => e.capture.form.smoking === "No")));
+  check("awaiting without lipids has no QRISK3 numbers", s.episodes.filter((e) => e.reportState === "awaiting_results" && !M.latestObservations(s, e.id).some((o) => o.code === "TC")).every((e) => e.qrisk.score10y === null));
+  eq("QRISK3 default display", M.QRISK3.state, "licensed_engine_sample");
+  const ldl = M.latestObservations(s, "PH-E-0201").find((o) => o.code === "LDL");
+  eq("ronan ldl band", [ldl.band, ldl.legacyDisplayedFlag], ["borderline", "normal"]);
+  const aisCalc = M.latestObservations(s, "PH-E-0101").filter((o) => o.source.kind === "calc").map((o) => [o.code, o.value]);
+  eq("calculated non-HDL and ratio", aisCalc, [["NONHDL", 2.8], ["TCHDL", 2.75]]);
+  const maeve = s.episodes.find((e) => e.id === "PH-E-0103");
+  check("maeve nurse referral", !!maeve.nurseReferral && maeve.capture.form.approve === M.NURSE_REFERRAL_VALUE && M.episodeFlags(s, maeve).some((f) => f.kind === "nurse_referral"));
+  check("seeded nurse forms are valid", s.episodes.every((e) => !Object.keys(M.nurseFormErrors(e.capture, { sex: s.persons.find((p) => p.id === e.personId).sex, age: ageAt(e) })).length));
+  check("seeded nurse forms complete where sex is recorded", s.episodes.filter((e) => s.persons.find((p) => p.id === e.personId).sex !== "not_recorded").every((e) => M.nurseFormMissing(e.capture, { sex: s.persons.find((p) => p.id === e.personId).sex, age: ageAt(e) }).length === 0));
+
+  /* ---------- questionnaire, report content and the report document ---------- */
+  eq("questionnaire sections", M.QUESTIONNAIRE_SECTIONS.map((x) => x.key), ["lifestyle", "heart", "cancer", "medication"]);
+  eq("lifestyle questions", M.SECTION_QUESTIONS.lifestyle.length, 15);
+  const siskMan = s.episodes.find((e) => e.programmeId === "PRG-SISK-26" && e.reportState === "released" && s.persons.find((p) => p.id === e.personId).sex === "male");
+  const life = M.lifestyleAnswersForReport(s, siskMan.personId);
+  check("lifestyle rows for the report", life.length === 14 && life.some((r) => r.question.includes("that Sisk has to offer")) && life.some((r) => r.question === "Do you examine your testicles?") && life.every((r) => r.answered));
+  const rf = M.riskFactorSummary(s, "PH-E-0201");
+  check("viewer answers derivable", rf && rf.smoker !== null && rf.familyHistoryCvd !== null && rf.diabetes !== null && rf.hypertensionTreatment !== null && typeof rf.alcoholUnitsPerWeek === "number");
+  eq("advice signature", M.ADVICE_SIGNATURE, "Advice provided by Dr Neil Reddy (MCRN demo-0000)");
+  const doc = M.reportDocument(s, siskMan.id);
+  check("report document released", doc && doc.versionStatus === "released" && doc.header.screeningRef === siskMan.screeningRef && doc.advice.written && doc.header.clinician === "Dr Neil Reddy");
+  eq("report sections for a man", doc.sections.map((x) => x.key).filter((k) => ["breast_cervical", "testicular"].includes(k)), ["testicular"]);
+  check("report rows never call a missing result normal", doc.sections.flatMap((x) => x.rows).every((r) => r.status === "resulted" || (r.flagWord === "" && r.band === "not_tested")));
+  check("blood pressure table in the report", doc.sections.find((x) => x.key === "blood_pressure").table.length === 5);
+  const awaitEp = s.episodes.find((e) => e.reportState === "awaiting_results" && M.pendingTests(s, e).length >= M.COMPREHENSIVE_PANEL.length);
+  const awaitDoc = M.reportDocument(s, awaitEp.id);
+  check("pending tests shown as pending", awaitDoc.sections.flatMap((x) => x.rows).filter((r) => r.code && M.COMPREHENSIVE_PANEL.includes(r.code)).every((r) => r.status === "pending" && r.resultText === "Awaiting result"));
+  run(act.setPersona("participant")); run(act.setPortalPerson(siskMan.personId));
+  check("participant sees own released report only", !!M.reportDocument(s, siskMan.id) && !M.reportDocument(s, "PH-E-0201"));
+  run(act.setPersona("brenda"));
+  check("operations cannot read the report", M.reportDocument(s, siskMan.id) === null && M.panelResults(s, siskMan.id) === null);
+  run(act.setPersona("neil"));
+
+  /* ---------- nurse form: prefill, validation, referral, ECG review, PSA and FIT ---------- */
+  s = createInitialState();
+  run(act.setPersona("liz"));
+  const ibmNow = M.todaySessions(s).find((x) => x.programmeId === "PRG-IBM-26");
+  const ibmBookings = M.activeBookings(s, ibmNow.id).map((b) => ({ b, p: s.persons.find((x) => x.id === b.personId) }));
+  const dmy = (iso) => iso.split("-").reverse().join("/");
+  const ready = (bk) => { run(act.checkIn(bk.b.id)); run(act.confirmIdentity(bk.b.id, dmy(bk.p.dob), bk.b.id)); };
+  const rev = (id) => s.captureDrafts[id].rev;
+  const baseMeasures = { heightM: { value: 1.75, state: "recorded" }, weightKg: { value: 72, state: "recorded" }, bpSys: { value: 124, state: "recorded" }, bpDia: { value: 78, state: "recorded" } };
+  const first = ibmBookings[0];
+  ready(first);
+  const pre = s.captureDrafts[first.b.id].form;
+  check("check-in prefills the nurse form", pre.employer === "IBM" && pre.company === first.p.site && pre.walkIn === "No" && pre.screeningClinician === "Liz Bawle" && typeof pre.famHistoryCvd === "boolean");
+  check("invalid option rejected", !run(act.saveCapture(first.b.id, rev(first.b.id), { form: { urinalysis: "Maybe" } })).ok);
+  check("unknown form field rejected", !run(act.saveCapture(first.b.id, rev(first.b.id), { form: { madeUp: "x" } })).ok);
+  check("advice is the doctor's field", !run(act.saveCapture(first.b.id, rev(first.b.id), { form: { advice: "Nurse advice" } })).ok);
+  check("old dipstick wording rejected", !run(act.saveCapture(first.b.id, rev(first.b.id), { urine: { protein: "Negative", glucose: "Nil", blood: "Nil", wcc: "Nil" } })).ok);
+  check("client dipstick options accepted", run(act.saveCapture(first.b.id, rev(first.b.id), { urine: { protein: "Nil", glucose: "Nil", blood: "+", wcc: ">100" } })).ok);
+  const tasksBefore = s.tasks.length;
+  check("irregular ECG with regular pulse raises nothing", run(act.saveCapture(first.b.id, rev(first.b.id), { form: { ecg: "Done", ecgAdvice: "J Irregular heart rate", manualPulse: "Regular" } })).ok && s.tasks.length === tasksBefore);
+  check("irregular ECG and pulse saved", run(act.saveCapture(first.b.id, rev(first.b.id), { measures: baseMeasures, form: { manualPulse: "Irregular", approve: M.NURSE_REFERRAL_VALUE }, notes: "Participant felt light-headed during the ECG." })).ok);
+  const ecgTask = s.tasks.find((t) => t.title === "ECG review requested");
+  check("ECG review task for the clinician", !!ecgTask && ecgTask.ownerId === "neil" && ecgTask.clinical && ecgTask.linked.kind === "booking" && s.captureDrafts[first.b.id].ecgReview.taskId === ecgTask.id);
+  check("ECG photo shared to the clinical channel (simulated)", s.activity.some((e) => e.verb === "clinic.ecg_review" && e.summary.includes("ECG photo shared to clinical channel (simulated, replaces Slack)") && e.restricted));
+  run(act.saveCapture(first.b.id, rev(first.b.id), { form: { ecgComment: "Light-headed during ECG." } }));
+  eq("ECG review raised once", s.tasks.filter((t) => t.title === "ECG review requested").length, 1);
+  run(act.toggleChecklist(first.b.id, "specimens")); run(act.toggleChecklist(first.b.id, "labels"));
+  const doneRef = run(act.completeAppointment(first.b.id));
+  check("referral appointment completed", doneRef.ok, doneRef.message);
+  const refEp = s.episodes.find((e) => e.bookingId === first.b.id);
+  const refTask = s.tasks.find((t) => t.id === refEp.nurseReferral?.taskId);
+  check("nurse referral creates a doctor review task", !!refTask && refTask.title === "Nurse referral: review before release" && refTask.ownerId === "neil" && refTask.linked.kind === "episode" && refTask.linked.id === refEp.id);
+  check("nurse referral activity", s.activity.some((e) => e.verb === "clinic.nurse_referral" && e.entity && e.entity.id === refEp.id));
+  check("completion still never releases", refEp.reportState === "awaiting_results" && !M.currentReleased(s, refEp.id));
+  check("ECG task follows the episode", s.tasks.find((t) => t.id === ecgTask.id).linked.id === refEp.id);
+  check("new episode gets the next unique ID", refEp.screeningRef === "COMP02826");
+  run(act.setPersona("neil"));
+  run(act.deliverSampleResults(refEp.id));
+  check("referred episode is ready but not routine", refEp && s.episodes.find((e) => e.id === refEp.id).reportState === "ready_for_review" && !M.routineEligibility(s, s.episodes.find((e) => e.id === refEp.id)).ok);
+  check("routine shortcut blocked by the referral", !run(act.releaseRoutine(refEp.id)).ok && M.episodeFlags(s, s.episodes.find((e) => e.id === refEp.id)).some((f) => f.kind === "nurse_referral"));
+  check("referral task is open until release", M.taskViews(s).find((t) => t.task.id === refTask.id).status === "open");
+  run(act.ackFlags(refEp.id)); run(act.setAdvice(refEp.id, "Sample advice after the nurse referral.")); run(act.toggleReviewCheck(refEp.id, "advice")); run(act.toggleReviewCheck(refEp.id, "preview"));
+  check("referred episode released individually", run(act.releaseReport(refEp.id)).ok && M.currentReleased(s, refEp.id).releaseMode === "individual");
+  check("referral task done after release", M.taskViews(s).find((t) => t.task.id === refTask.id).status === "done");
+  check("in-session QRISK3 waits for the engine", s.episodes.find((e) => e.id === refEp.id).qrisk.score10y === null);
+  run(act.setPersona("liz"));
+  const man = ibmBookings.find((x) => x.p.sex === "male" && x.b.id !== first.b.id);
+  ready(man);
+  const manAge = M.ageOn(man.p.dob, M.today(s));
+  check("PSA and FIT decisions saved", run(act.saveCapture(man.b.id, rev(man.b.id), { measures: baseMeasures, form: { ...(manAge <= 45 ? { psaRequested: true } : {}), psaTaken: "Yes", fitKit: "Yes", approve: "Yes" } })).ok);
+  run(act.toggleChecklist(man.b.id, "specimens")); run(act.toggleChecklist(man.b.id, "labels"));
+  check("PSA and FIT appointment completed", run(act.completeAppointment(man.b.id)).ok);
+  const manEp = s.episodes.find((e) => e.bookingId === man.b.id);
+  check("PSA and FIT added to expected tests", ["PSA", "FIT"].every((c) => manEp.expectedTests.some((t) => t.code === c && t.addOn)) && manEp.expectedTests.length === M.COMPREHENSIVE_PANEL.length + 2);
+  check("no referral without the referral answer", manEp.nurseReferral === null && s.tasks.filter((t) => t.title === "Nurse referral: review before release").length === 1);
+  run(act.setPersona("neil"));
+  run(act.deliverSampleResults(manEp.id));
+  const manFit = M.latestObservations(s, manEp.id).find((o) => o.code === "FIT");
+  check("sample FIT and PSA results arrive classified", !!manFit && manFit.valueText === "Negative" && manFit.band === "normal" && M.latestObservations(s, manEp.id).some((o) => o.code === "PSA" && o.band === "normal"));
+  check("sample results all normal", M.latestObservations(s, manEp.id).every((o) => o.band === "normal") && M.episodeFlags(s, s.episodes.find((e) => e.id === manEp.id)).every((f) => f.kind === "blood_pressure"));
+  check("mild blood pressure alone does not need individual review", !M.episodeFlags(s, s.episodes.find((e) => e.id === manEp.id)).some((f) => f.kind === "blood_pressure" && f.band === "borderline"));
+
+  /* ---------- nurse form: bloods not taken ---------- */
+  run(act.setPersona("liz"));
+  const nob = ibmBookings.find((x) => x.b.id !== first.b.id && x.b.id !== man.b.id && !s.episodes.some((e) => e.bookingId === x.b.id));
+  ready(nob);
+  check("bloods not taken saved", run(act.saveCapture(nob.b.id, rev(nob.b.id), { measures: baseMeasures, form: { bloodsTaken: "No", fitKit: "No", approve: "Yes" } })).ok);
+  check("bloods not taken needs a reason in nurse comments", !run(act.completeAppointment(nob.b.id)).ok);
+  run(act.saveCapture(nob.b.id, rev(nob.b.id), { notes: "Participant declined venepuncture today." }));
+  const specBefore = s.specimens.length;
+  check("bloods not taken completes without a specimen", run(act.completeAppointment(nob.b.id)).ok && s.specimens.length === specBefore);
+  const nobEp = s.episodes.find((e) => e.bookingId === nob.b.id);
+  check("no blood panel expected and straight to review", nobEp.expectedTests.length === 0 && nobEp.reportState === "ready_for_review" && nobEp.specimenIds.length === 0);
+  run(act.setPersona("neil"));
+  const nobDoc = M.reportDocument(s, nobEp.id);
+  const nobChol = nobDoc.sections.find((x) => x.key === "cholesterol").rows;
+  check("report says blood tests not done, never normal", nobChol.every((r) => r.status === "not_done" && r.resultText.startsWith("Not done")));
+  check("QRISK3 explains the missing blood sample", /no blood sample/.test(nobEp.qrisk.reason || ""));
 
   /* ---------- reset ---------- */
   s = createInitialState();

@@ -2,13 +2,15 @@
    follow-up and reminder retry. Every action is idempotent: a repeated click returns a
    failure and changes nothing, so no logical record is created twice. */
 import type { AnalyteCode, Episode, ImportRow, Observation, ReportVersion, StaffId } from "../types";
-import { ANALYTES, FOLLOW_UP_OUTCOMES, HOLD_CATEGORY, flagFor } from "../constants";
+import { ANALYTES, FOLLOW_UP_OUTCOMES, HOLD_CATEGORY, rangeFor } from "../constants";
+import type { BandCtx } from "../constants";
 import { ADVICE_FLAGGED, ADVICE_ROUTINE, aiDraftFor } from "../advice";
+import { bandCtxFor, classifyResult, parseResultText, resultRowText } from "../interpret";
 import { makeRng } from "../rng";
 import type { Rng } from "../rng";
 import { localDateOf } from "../time";
 import {
-  currentReleased, draftVersion, episodeFlags, episodeHeldByRow, expectedTests, hasUnitDiscrepancy, latestObservations, releaseChecklist, reuploadPreview, routineEligibility, versionsOf,
+  currentReleased, draftVersion, episodeFlags, episodeHeldByRow, expectedTests, hasUnitDiscrepancy, latestObservations, releaseChecklist, reuploadPreview, routineEligibility, storedRefs, versionsOf,
 } from "../selectors/clinical";
 import { staffName } from "../selectors/core";
 import { Ctx, pad } from "./ctx";
@@ -20,6 +22,8 @@ const MG_DL_TO_MMOL: Partial<Record<string, number>> = { TC: 0.02586, HDL: 0.025
 const WORDS = ["No", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten"];
 
 function epOf(c: Ctx, id: string): Episode | undefined { return c.ix().episodeById.get(id); }
+/** Sex and age at collection, for sex- and age-specific ranges. */
+function ctxOf(c: Ctx, ep: Episode): BandCtx { return bandCtxFor(c.ix().personById.get(ep.personId)!, ep.collectedAt); }
 /** A reason as one sentence ending in a full stop. */
 const sentence = (s: string) => s.trim().replace(/[.\s]+$/, "") + ".";
 
@@ -60,22 +64,27 @@ function refreshBatchNote(c: Ctx, batchId: string): void {
 
 handlers["import/resolveRow"] = (c, a: { rowId: string; episodeId: string; checks: string[]; reason: string }) => {
   const d = c.need("identity.resolve", "resolve identity exceptions"); if (d) return d;
-  const row = c.s.importRows.find((r) => r.id === a.rowId);
-  if (!row || row.state !== "quarantined") return c.fail("This row is not held for review. It was already resolved.");
+  const at = c.s.importRows.findIndex((r) => r.id === a.rowId);
+  if (at < 0 || c.s.importRows[at].state !== "quarantined") return c.fail("This row is not held for review. It was already resolved.");
+  // Rows are shared with the previous state: change a copy (see workingCopy in reducer.ts).
+  const row: ImportRow = { ...c.s.importRows[at] };
   if (!a.checks || !a.checks.includes("specimen") || !a.checks.includes("dob")) return c.fail("Confirm two identifiers: the specimen identifier and the date of birth from the collection record.");
   if (!(a.reason || "").trim() || a.reason.trim().length < 8) return c.fail("Record a reason for the resolution, at least a short sentence.");
   const held = episodeHeldByRow(c.s, row.id);
   if (!held) return c.fail("No held episode is linked to this row.");
   if (a.episodeId !== held.id) return c.fail("The selected episode does not match the collection record. Verify the identifiers again.");
   const code = row.analyteCode;
-  const value = Number(row.valueText);
-  if (!Number.isFinite(value)) return c.fail("The row value is not numeric.");
+  const parsed = parseResultText(code, row.valueText);
+  if (!parsed) return c.fail(ANALYTES[code].qualitative ? "The row result is not a recognised result word." : "The row value is not numeric.");
+  const { value, valueText } = parsed;
   const n = c.nextNo("observation");
+  const cl = classifyResult(code, value, ctxOf(c, held));
   const obs: Observation = {
-    id: `OBS-${pad(n, 5)}`, episodeId: held.id, specimenId: held.specimenIds[0], code, value, unit: row.unit, limitText: ANALYTES[code].limit.text, flag: flagFor(code, value),
+    id: `OBS-${pad(n, 5)}`, episodeId: held.id, specimenId: held.specimenIds[0], code, value, valueText, unit: row.unit, limitText: cl.limitText, flag: cl.flag, band: cl.band,
     legacyDisplayedFlag: null, source: { kind: "batch", batchId: row.batchId, rowId: row.id }, recordedAt: c.stamp(), unitDiscrepancy: null, original: null, version: 1,
   };
   c.s.observations.push(obs);
+  c.s.importRows[at] = row;
   row.state = "resolved";
   row.episodeId = held.id;
   row.observationId = obs.id;
@@ -109,9 +118,10 @@ handlers["import/confirmUnit"] = (c, a: { episodeId: string; reason: string }) =
   const at = c.stamp();
   const original = { value: obs.value, unit: obs.unit };
   const converted = Math.round(obs.value * factor * 10) / 10;
+  const cl = classifyResult(obs.code, converted, ctxOf(c, ep));
   // The new version carries the confirmation reason. The received value stays on the earlier version and in original.
   const next: Observation = {
-    ...obs, id: `OBS-${pad(c.nextNo("observation"), 5)}`, value: converted, unit: ANALYTES[obs.code].unit, flag: flagFor(obs.code, converted), unitDiscrepancy: { ...obs.unitDiscrepancy!, confirmed: true }, original, version: obs.version + 1, recordedAt: at,
+    ...obs, id: `OBS-${pad(c.nextNo("observation"), 5)}`, value: converted, unit: ANALYTES[obs.code].unit, flag: cl.flag, band: cl.band, limitText: cl.limitText, unitDiscrepancy: { ...obs.unitDiscrepancy!, confirmed: true }, original, version: obs.version + 1, recordedAt: at,
     correction: { kind: "unit_confirmation", reason, by: c.persona().id as StaffId, at, previous: { id: obs.id, value: obs.value, unit: obs.unit, version: obs.version } },
   };
   c.s.observations.push(next);
@@ -124,17 +134,25 @@ handlers["import/confirmUnit"] = (c, a: { episodeId: string; reason: string }) =
   return c.ok(`Unit confirmed and the original value kept. ${ep.id} is now ${ep.reportState === "ready_for_review" ? "ready for review" : "awaiting results"}.`, "ok", ep.id);
 };
 
-/** Normal illustrative values for simulated sample results, deterministic per episode. Sample data, not a clinical reference. */
-function sampleValue(code: AnalyteCode, r: Rng): number {
-  const one = (x: number) => Math.round(x * 10) / 10;
+/**
+ * A value comfortably inside this person's normal range, deterministic per episode, for simulated
+ * sample results. Sample data, not a clinical reference. FIT samples are Negative.
+ */
+function sampleValue(code: AnalyteCode, r: Rng, ctx: BandCtx): number {
+  const a = ANALYTES[code];
+  if (a.qualitative) return 0;
+  const one = (x: number) => Math.round(x * Math.pow(10, a.decimals)) / Math.pow(10, a.decimals);
   switch (code) {
     case "TC": return one(4.0 + r.next() * 0.8);
     case "HDL": return one(1.3 + r.next() * 0.5);
     case "LDL": return one(1.9 + r.next() * 0.8);
     case "TG": return one(0.8 + r.next() * 0.6);
     case "HBA1C": return Math.round(32 + r.next() * 6);
-    case "VITD": return Math.round(60 + r.next() * 25);
-    case "FERR": return Math.round(60 + r.next() * 80);
+    default: {
+      const b = rangeFor(code, ctx)!;
+      const lo = b.lo !== undefined ? b.lo : (b.hi ?? 1) * 0.3, hi = b.hi !== undefined ? b.hi : lo * 3;
+      return one(lo + (hi - lo) * (0.3 + r.next() * 0.4));
+    }
   }
 }
 
@@ -159,24 +177,31 @@ handlers["import/deliverSampleResults"] = (c, a: { episodeId: string }) => {
   const filename = seq === 1 ? `eurofins_results_${date}_demo.csv` : `eurofins_results_${date}_${pad(seq, 2)}_demo.csv`;
   const at = c.stamp();
   const r = makeRng("ph-sample-results-" + ep.id);
+  const ctx = ctxOf(c, ep);
   pending.forEach((t, i) => {
-    const value = sampleValue(t.code, r);
+    const value = sampleValue(t.code, r, ctx);
+    const cl = classifyResult(t.code, value, ctx);
+    const q = ANALYTES[t.code].qualitative;
     const rowId = `${batchId}-R${pad(i + 1, 3)}`;
     const obsId = `OBS-${pad(c.nextNo("observation"), 5)}`;
     const row: ImportRow = {
-      id: rowId, batchId, line: i + 2, specimenKey: ep.specimenIds[0], analyteCode: t.code, valueText: value.toFixed(ANALYTES[t.code].decimals), unit: ANALYTES[t.code].unit, resultAt: at,
+      id: rowId, batchId, line: i + 2, specimenKey: ep.specimenIds[0], analyteCode: t.code, valueText: resultRowText(t.code, value), unit: ANALYTES[t.code].unit, resultAt: at,
       dobInFile: person.dob, nameInFile: `${person.family}, ${person.given[0]}`, state: "imported", episodeId: ep.id, observationId: obsId, quarantine: null, duplicateOfObservationId: null, resolution: null,
     };
     c.s.importRows.push(row);
     c.s.observations.push({
-      id: obsId, episodeId: ep.id, specimenId: ep.specimenIds[0], code: t.code, value, unit: ANALYTES[t.code].unit, limitText: ANALYTES[t.code].limit.text, flag: flagFor(t.code, value),
+      id: obsId, episodeId: ep.id, specimenId: ep.specimenIds[0], code: t.code, value, valueText: q ? q.normal : null, unit: ANALYTES[t.code].unit, limitText: cl.limitText, flag: cl.flag, band: cl.band,
       legacyDisplayedFlag: null, source: { kind: "batch", batchId, rowId }, recordedAt: at, unitDiscrepancy: null, original: null, version: 1,
     });
   });
   c.s.batches.push({
     id: batchId, lab: "Eurofins", filename, receivedAt: at, processedAt: at, specimenCount: 1, source: "Eurofins Dublin CSV (FTP), held in Google Workspace. Simulated.", status: "complete",
-    note: `Simulated sample results for ${ep.id}, loaded in this session. Sample values for demonstration only.`,
+    note: `Simulated sample results for ${ep.id}, loaded in this session. Sample values for demonstration only.`, kind: "sample",
   });
+  // The QRISK3 inputs are now complete, but the licensed engine is not connected, so no sample output appears for a new episode.
+  if (ep.qrisk && ep.qrisk.eligible && pending.some((t) => t.code === "TC" || t.code === "HDL")) {
+    ep.qrisk = { ...ep.qrisk, inputsComplete: true, reason: "Inputs complete. The licensed QRISK3 engine is not connected in this demo, so no output is shown for an episode created in this session." };
+  }
   c.inv();
   c.settleEpisode(ep);
   c.inv();
@@ -236,7 +261,7 @@ function doRelease(c: Ctx, ep: Episode, draft: ReportVersion, mode: "routine" | 
   draft.releasedAt = c.stamp();
   draft.releasedBy = c.persona().id as StaffId;
   draft.releaseMode = mode;
-  draft.observationRefs = latestObservations(c.s, ep.id).map((o) => ({ id: o.id, version: o.version }));
+  draft.observationRefs = storedRefs(c.s, ep.id);
   if (prev) { prev.status = "superseded"; prev.supersededBy = draft.id; draft.participantNoticeAt = draft.releasedAt; }
   ep.reportState = "released";
   if (episodeFlags(c.s, ep).length) ep.flagAckBy = c.persona().id as StaffId;
@@ -299,7 +324,7 @@ handlers["review/aiDraft"] = (c, a: { episodeId: string }) => {
   if (!c.s.settings.aiDraftingOn) return c.fail("AI drafting preview is off. Write advice manually. The manual workflow is unaffected.");
   const ep = epOf(c, a.episodeId);
   const why = notReviewable(c, ep); if (why) return c.fail(why);
-  const flags = episodeFlags(c.s, ep!).map((f) => (f.code ? ANALYTES[f.code].name : "blood pressure"));
+  const flags = episodeFlags(c.s, ep!).map((f) => (f.code ? ANALYTES[f.code].name : f.label.toLowerCase()));
   const pending = expectedTests(c.s, ep!).filter((t) => t.status !== "received").map((t) => t.name);
   const text = aiDraftFor(flags, pending);
   // A repeated request for the same episode returns the same preview without a new event.
@@ -370,20 +395,25 @@ handlers["correction/start"] = (c, a: { episodeId: string; reason: string; edits
   for (const e of edits) {
     const o = latest.find((x) => x.code === e.code);
     if (!o) return c.fail(`${e.code} is not a result on ${ep.id}.`);
+    if (o.source.kind === "calc") return c.fail(`${ANALYTES[o.code].name} is calculated from total and HDL cholesterol. Correct one of those results instead.`);
     if (typeof e.value !== "number" || !Number.isFinite(e.value) || e.value < 0) return c.fail(`Enter a valid number for ${ANALYTES[o.code].name}.`);
+    if (ANALYTES[o.code].qualitative && e.value !== 0 && e.value !== 1) return c.fail(`${ANALYTES[o.code].name} is a ${ANALYTES[o.code].qualitative!.normal} or ${ANALYTES[o.code].qualitative!.abnormal} result: use 0 or 1.`);
     if (e.value === o.value) return c.fail(`${ANALYTES[o.code].name} already has that value. Nothing to correct.`);
   }
   const at = c.stamp();
+  const ctx = ctxOf(c, ep);
   for (const e of edits) {
     const o = latest.find((x) => x.code === e.code)!;
+    const cl = classifyResult(o.code, e.value, ctx);
+    const q = ANALYTES[o.code].qualitative;
     c.s.observations.push({
-      ...o, id: `OBS-${pad(c.nextNo("observation"), 5)}`, value: e.value, flag: flagFor(o.code, e.value), legacyDisplayedFlag: null, recordedAt: at, version: o.version + 1,
+      ...o, id: `OBS-${pad(c.nextNo("observation"), 5)}`, value: e.value, valueText: q ? (e.value >= 1 ? q.abnormal : q.normal) : null, flag: cl.flag, band: cl.band, limitText: cl.limitText, legacyDisplayedFlag: null, recordedAt: at, version: o.version + 1,
       correction: { kind: "result_correction", reason, by: c.persona().id as StaffId, at, previous: { id: o.id, value: o.value, unit: o.unit, version: o.version } },
     });
   }
   if (edits.length) c.inv();
   const draft = ensureDraft(c, ep, reason);
-  draft.observationRefs = latestObservations(c.s, ep.id).map((o) => ({ id: o.id, version: o.version }));
+  draft.observationRefs = storedRefs(c.s, ep.id);
   const changed = edits.length ? ` ${edits.length === 1 ? "One result is" : `${edits.length} results are`} corrected in the draft; the released version keeps its values.` : "";
   c.emit({ verb: "correction.started", summary: `${c.first()} started a correction on ${ep.id}: draft v${draft.version}. Released v${draft.version - 1} stays unchanged until v${draft.version} is re-reviewed and released.${changed}`, entity: { kind: "report", id: draft.id }, programmeId: ep.programmeId, personId: ep.personId });
   return c.ok(`Draft v${draft.version} created.${changed} Re-review it and release it to supersede v${draft.version - 1}.`, "ok", draft.id);

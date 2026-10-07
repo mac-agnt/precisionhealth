@@ -1,5 +1,6 @@
-/* Reducer context. Handlers mutate a structured clone of the state, so they can be written
-   plainly. The context provides permission checks, id sequences, timestamps and the
+/* Reducer context. Handlers mutate a working copy of the state, so they can be written
+   plainly. Observations and import rows are the exception: their arrays are new but their
+   elements are shared with the previous state, so replace an element with a copy to change it. The context provides permission checks, id sequences, timestamps and the
    append-only activity log. Handlers read memoised selectors, so call inv() after pushing
    new objects into arrays and before reading selectors again. */
 import type { ActivityEvent, EntityRef, Episode, Id, Perm, PhState, ProgrammeId, StoryId, Toast } from "../types";

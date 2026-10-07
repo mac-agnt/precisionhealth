@@ -294,7 +294,7 @@ export function answerQuery(state: PhState, q: string): Answer {
         actions: [{ label: "Open Forms & Templates", target: { page: "Programmes", tab: "forms-templates" }, primary: true }],
       };
     case "qrisk":
-      return { scenario: sc, supported: true, tool: "pulse_calculations", effect: "read", text: QRISK3.text, actions: [{ label: "Open the review", target: { page: "Results", tab: "review" } }] };
+      return { scenario: sc, supported: true, tool: "pulse_calculations", effect: "read", text: `${QRISK3.text} Pulse never calculates a score itself: it shows the engine's 10-year risk, heart age and relative risk, and episodes created in this session wait for the engine.`, actions: [{ label: "Open the review", target: { page: "Results", tab: "review" } }] };
   }
   return unsupported(state);
 }

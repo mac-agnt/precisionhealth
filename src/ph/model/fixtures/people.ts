@@ -8,10 +8,12 @@ import {
   CLINIC_DAY, FIRST_NAMES_F, FIRST_NAMES_M, INVITED, PERSON_START, PROGRAMME_BY_ID, PROGRAMME_ORDER, RESERVED_FULL_NAMES, SURNAMES,
   buildSlots,
 } from "../constants";
-import { dublinToUtc } from "../time";
+import { ageOn, dublinToUtc } from "../time";
 import type { Hhmm, Iso, LocalDate } from "../time";
 import { makeRng } from "../rng";
 import type { Rng } from "../rng";
+import { HIGH_BP_HISTORY_ANSWERS, QUESTIONNAIRE_SECTIONS, SECTION_QUESTIONS, SMOKING_AMOUNT } from "../questionnaire";
+import type { Answers } from "../questionnaire";
 
 export type EpRole =
   | "released"
@@ -360,20 +362,28 @@ export function buildRoster(): RosterPlan {
 
   /* 7. memberships */
   const draftPersonIds = draftNos.map(personId);
+  const sectionsTotal = QUESTIONNAIRE_SECTIONS.length;
   const memberships: Membership[] = persons.map((p) => {
     const r = rng.fork("m" + p.id);
     const draft = draftPersonIds.includes(p.id);
     const booked = bookedPersons.has(p.id);
     const stage = booked ? "booked" : draft ? "onboarding" : "invited";
+    const age = ageOn(p.dob, visitDateOf.get(p.id) || todayVisit);
+    const role = roleOf[p.id];
+    const lowRisk = role === "ready_batch_routine" || role === "ready_aged_routine" || (role === "released" && healthyArchetype(p.id));
     return {
       id: `MB-${p.id.slice(5)}`, personId: p.id, programmeId: p.programmeId, stage,
       inviteCodeId: codeFor(p.programmeId, p.site, r), invitedAt: invitedAtFor(p.programmeId),
       consent: booked ? "complete" : "not_started", consentVersion: booked ? "BC-3" : null,
       questionnaire: booked ? "complete" : draft ? "draft" : "not_started",
       draft: draft
-        ? { sectionsDone: p.id === "PH-P-0801" ? 2 : r.int(1, 3), sectionsTotal: 5, answers: (p.id === "PH-P-0801" ? { smoking: "Never", alcohol: 6 } : { smoking: "Former" }) as Record<string, string | number | boolean> }
+        ? (() => {
+          const done = p.id === "PH-P-0801" ? 2 : r.int(1, 3);
+          return { sectionsDone: done, sectionsTotal, answers: answersForSections(seededAnswers(p, age, false), done, p, age) };
+        })()
         : null,
-      answers: booked ? makeAnswers(r) : {},
+      // The membership rng still advances by the nine draws the earlier answer set used, so contact preferences stay as they were.
+      answers: booked ? (burn(r, 9), seededAnswers(p, age, lowRisk)) : {},
       eligible: true,
       contactPreference: r.chance(0.55) ? "email" : "sms",
     };
@@ -382,19 +392,101 @@ export function buildRoster(): RosterPlan {
   return { persons, memberships, sessions, bookings, codes, attendees, roleOf, draftPersonIds };
 }
 
-function makeAnswers(r: Rng): Record<string, string | number | boolean> {
-  return {
-    smoking: r.pick(["Never", "Never", "Former", "Current"]),
-    alcohol: r.int(0, 18),
-    activity: r.int(0, 6),
-    sleep: r.int(5, 9),
-    famCvd: r.chance(0.2),
-    chestPain: false,
-    knownDiabetes: r.chance(0.04),
-    famCancer: r.chance(0.18),
-    medication: r.pick(["None", "None", "None", "Regular prescription"]),
-    allergies: r.pick(["None", "None", "Penicillin", "Latex"]),
-  };
+/**
+ * About three in ten released participants are drawn as all-normal (low-risk answers, normal
+ * measurements and results), so the release history has a realistic share of routine releases.
+ */
+export function healthyArchetype(personId: Id): boolean {
+  return makeRng("ph-demo-healthy-v1-" + personId).next() < 0.3;
+}
+
+/** Advance an rng without using the values, so a later draw keeps its position in the sequence. */
+function burn(r: Rng, n: number): void { for (let i = 0; i < n; i++) r.next(); }
+
+const pickW = <T,>(r: Rng, items: Array<[T, number]>): T => {
+  const total = items.reduce((n, [, w]) => n + w, 0);
+  let x = r.next() * total;
+  for (const [v, w] of items) { x -= w; if (x < 0) return v; }
+  return items[items.length - 1][0];
+};
+
+/**
+ * Deterministic questionnaire answers with the questionnaire.ts keys. lowRisk is used for people whose
+ * episode is a routine (all normal) review: non-smoker, no QRISK3 risk conditions, no family history.
+ * Synthetic content only.
+ */
+export function seededAnswers(p: Person, age: number, lowRisk: boolean): Answers {
+  const r = makeRng("ph-demo-answers-v1-" + p.id);
+  const male = p.sex === "male", female = p.sex === "female";
+  const a: Answers = {};
+  a.healthChange = pickW(r, [["Improved", 25], ["Stayed the same", 60], ["Got worse", 15]]);
+  a.smokesCigarettes = lowRisk ? pickW(r, [["No", 85], ["Ex-smoker", 15]]) : pickW(r, [["No", 72], ["Ex-smoker", 18], ["Yes", 10]]);
+  a.vaping = pickW(r, [["No", 85], ["Yes, occasionally", 10], ["Yes, daily", 5]]);
+  a.alcoholFrequency = pickW(r, [["Never", 12], ["Monthly or less", 18], ["2-4 times per month", 30], ["2-3 times per week", 30], ["4 or more times per week", 10]]);
+  if (a.alcoholFrequency !== "Never") a.alcoholUnits = pickW(r, [["1-2", 30], ["3-4", 35], ["5-6", 20], ["7-9", 10], ["10 or more", 5]]);
+  const freq = (w: [number, number, number, number]) => pickW(r, [["Never", w[0]], ["Less than 3 times per week", w[1]], ["3-6 times per week", w[2]], ["Daily", w[3]]]);
+  a.fruitVeg = freq([10, 30, 35, 25]);
+  a.sugarDrinks = freq([45, 35, 12, 8]);
+  a.redMeat = freq([8, 40, 45, 7]);
+  a.addSalt = freq([40, 30, 15, 15]);
+  a.water = pickW(r, [["I usually drink the recommended amount.", 35], ["I sometimes drink the recommended amount.", 35], ["I usually drink less than the recommended amount.", 30]]);
+  a.exerciseDays = r.int(0, 7);
+  a.mentalHealthAware = pickW(r, [["Strongly agree", 20], ["Agree", 45], ["Neither agree nor disagree", 20], ["Disagree", 12], ["Strongly disagree", 3]]);
+  a.foodLabels = pickW(r, [["Always", 20], ["Sometimes", 55], ["Never", 25]]);
+  if (male) a.examineTesticles = pickW(r, [["Yes, regularly", 25], ["Sometimes", 35], ["No", 40]]);
+  if (female) a.examineBreasts = pickW(r, [["Yes, regularly", 35], ["Sometimes", 40], ["No", 25]]);
+  // Heart: the QRISK3 inputs in participant wording.
+  a.ethnicity = pickW(r, [["White or not stated", 88], ["Indian", 3], ["Pakistani", 1], ["Other Asian", 2], ["Black African", 3], ["Chinese", 2], ["Other ethnic group", 1]]);
+  if (a.smokesCigarettes === "Yes") a.smokingAmount = pickW(r, [[SMOKING_AMOUNT[0], 60], [SMOKING_AMOUNT[1], 35], [SMOKING_AMOUNT[2], 5]]);
+  const chance = (pct: number) => !lowRisk && r.next() < pct;
+  a.diabetesType2 = chance(age >= 45 ? 0.05 : 0.015);
+  a.diabetesType1 = !a.diabetesType2 && chance(0.005);
+  a.migraine = r.next() < 0.05;
+  a.rheumatoidArthritis = chance(0.01);
+  a.sle = chance(0.003);
+  a.ckd = chance(0.005);
+  a.atrialFibrillation = false;
+  a.severeMentalIllness = chance(0.01);
+  a.treatedHypertension = chance(age >= 45 ? 0.12 : 0.03);
+  a.atypicalAntipsychotic = chance(0.005);
+  if (male) a.erectileDysfunction = chance(age >= 50 ? 0.06 : 0.015);
+  a.oralSteroids = chance(0.01);
+  a.famCvd = chance(0.18);
+  a.strokeOrMi = chance(age >= 50 ? 0.01 : 0.002);
+  if (a.strokeOrMi) a.strokeOrMiAge = Math.max(30, age - r.int(1, 8));
+  // Cancer questions.
+  a.bowelScreen2y = r.next() < (age >= 60 ? 0.4 : 0.05);
+  a.bloodInStool = chance(0.02);
+  a.bowelHabitChange = chance(0.03);
+  a.famHistoryBowel = chance(0.08);
+  if (male && age >= 46) {
+    a.prostateFamilyHistory = chance(0.06);
+    a.afroCaribbean = a.ethnicity === "Black Caribbean" || a.ethnicity === "Black African";
+    a.prostateWeakStream = chance(age >= 55 ? 0.12 : 0.05);
+    a.prostateNocturia = chance(age >= 55 ? 0.08 : 0.03);
+    a.prostateDoubleVoid = chance(0.04);
+  }
+  if (male) a.testicularLumpsNow = false;
+  if (female) a.breastLumpsNow = false;
+  if (female && age >= 25) a.cervicalScreening = pickW(r, [["Yes", 75], ["No", 15], ["Not sure", 10]]);
+  // Medication and blood pressure.
+  const meds: string[] = [];
+  if (a.treatedHypertension) meds.push(r.next() < 0.5 ? "Amlodipine" : "Ramipril");
+  if (a.diabetesType2) meds.push("Metformin");
+  if (a.diabetesType1) meds.push("Insulin");
+  if (!meds.length && r.next() < 0.25) meds.push(r.pick(female ? ["Levothyroxine", "Omeprazole", "Salbutamol inhaler", "Sertraline", "Cetirizine", "Combined oral contraceptive"] : ["Levothyroxine", "Omeprazole", "Salbutamol inhaler", "Sertraline", "Cetirizine", "Atorvastatin"]));
+  a.medications = meds.length ? meds.join(", ") : "None";
+  a.highBpHistory = a.treatedHypertension ? HIGH_BP_HISTORY_ANSWERS[1] : lowRisk ? "No" : pickW(r, [["No", 92], [HIGH_BP_HISTORY_ANSWERS[2], 5], ["Yes", 3]]);
+  return a;
+}
+
+/** The answers belonging to the first n questionnaire sections, for a saved draft. */
+function answersForSections(all: Answers, n: number, p: Person, age: number): Answers {
+  void p; void age;
+  const keys = new Set(QUESTIONNAIRE_SECTIONS.slice(0, n).flatMap((s) => (SECTION_QUESTIONS[s.key] || []).map((q) => q.key)));
+  const out: Answers = {};
+  for (const [k, v] of Object.entries(all)) if (keys.has(k)) out[k] = v;
+  return out;
 }
 
 export function invitedAtFor(pid: ProgrammeId): Iso {

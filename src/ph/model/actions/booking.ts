@@ -3,11 +3,15 @@
    appointment creates an episode awaiting results. It never releases a report.
    Staff book with the Manage bookings permission. The participant preview acts only on the
    participant's own record. */
-import type { Booking, ClinicalCapture, Episode, InvitationCode, ProgrammeId, Specimen, StaffId } from "../types";
-import { CORE_PANEL, HEALTH_INFO_PATTERN, PROGRAMME_BY_ID, QUESTIONNAIRE_SECTIONS } from "../constants";
-import { captureErrors, captureMissing, isRealDate, measureError, parseIrishDate } from "../capture";
+import type { AnalyteCode, Booking, ClinicalCapture, EntityRef, Episode, InvitationCode, NurseFormValue, ProgrammeId, Specimen, StaffId } from "../types";
+import { ANALYTES, HEALTH_INFO_PATTERN, PROGRAMME_BY_ID, QUESTIONNAIRE_SECTIONS, expectedPanel } from "../constants";
+import {
+  URINE_DIPSTICK_OPTIONS, URINE_WCC_OPTIONS, captureErrors, captureMissing, fitKitGiven, isNurseReferral, isRealDate, measureError, needsEcgReview, nurseFormPatchError, nurseFormPrefill,
+  parseIrishDate, psaTaken,
+} from "../capture";
 import type { MeasureKey } from "../capture";
-import { dublinToUtc, fmtDate, fmtDayMonth, fmtNumericDate } from "../time";
+import { screeningRefFor } from "../fixtures/clinical";
+import { ageOn, dublinToUtc, fmtDate, fmtDayMonth, fmtNumericDate, localDateOf } from "../time";
 import { sessionSlots, activeBookings, membershipOf, plural, previewSessionEdit, slotGrid, sessionStats, today } from "../selectors/core";
 import type { SessionPatch } from "../selectors/core";
 import { invitationRecipientIssues } from "../selectors/ops";
@@ -203,6 +207,39 @@ handlers["booking/cancel"] = (c, a: { bookingId: string; reason?: string }) => {
 
 /* ---- nurse clinical workspace ---- */
 function captureOf(c: Ctx, bookingId: string): ClinicalCapture | undefined { return c.s.captureDrafts[bookingId]; }
+
+/** A clinical Work task for the programme's clinical lead. Returns the task id. */
+function addClinicalTask(c: Ctx, o: { title: string; detail: string; programmeId: ProgrammeId; linked: EntityRef; dueHours: number }): string {
+  const ownerId = PROGRAMME_BY_ID[o.programmeId].clinicalLeadId;
+  const owner = c.s.staff.find((x) => x.id === ownerId)!;
+  const id = `TSK-${pad(c.nextNo("task"), 4)}`;
+  c.s.tasks.push({
+    id, title: o.title, detail: o.detail, storyId: null, ownerId, team: owner.team, priority: "high", dueAt: new Date(Date.parse(c.now) + o.dueHours * 3600000).toISOString(),
+    status: "open", clinical: true, linked: o.linked, createdAt: c.stamp(), completedAt: null, completedBy: null,
+  });
+  return id;
+}
+
+/**
+ * Irregular ECG (machine advice J or K) and an irregular manual pulse: an ECG review task for the
+ * clinical lead, and the ECG photo goes to the clinical channel (simulated; it replaces the Slack
+ * step). Raised once per appointment.
+ */
+function raiseEcgReview(c: Ctx, b: Booking, cap: ClinicalCapture, linked: EntityRef): void {
+  if (cap.ecgReview || !needsEcgReview(cap)) return;
+  const name = c.personName(b.personId);
+  const taskId = addClinicalTask(c, {
+    title: "ECG review requested", programmeId: b.programmeId, linked, dueHours: 4,
+    detail: `ECG machine advice "${String(cap.form.ecgAdvice)}" with an irregular manual pulse at the appointment for ${name} (${b.id}). Review the ECG photo shared to the clinical channel.`,
+  });
+  cap.ecgReview = { at: c.stamp(), taskId };
+  c.emit({
+    verb: "clinic.ecg_review", summary: `ECG review requested for ${name} (${b.id}): irregular ECG and irregular pulse. ECG photo shared to clinical channel (simulated, replaces Slack). Task ${taskId} for ${PROGRAMME_BY_ID[b.programmeId].clinicalLeadId === "neil" ? "Neil" : "the clinical lead"}.`,
+    entity: { kind: "task", id: taskId }, programmeId: b.programmeId, personId: b.personId, restricted: true, publicSummary: "ECG review requested at a clinic", simulated: true, integrationId: "slack",
+  });
+}
+
+const urineOk = (k: "protein" | "glucose" | "blood" | "wcc", v: string | undefined) => v === undefined || v === "" || (k === "wcc" ? URINE_WCC_OPTIONS : URINE_DIPSTICK_OPTIONS).includes(v);
 function canWork(c: Ctx, bookingId: string): string | null {
   const b = c.ix().bookingById.get(bookingId);
   if (!b || b.status !== "confirmed") return "Unknown appointment.";
@@ -227,6 +264,11 @@ handlers["clinic/checkIn"] = (c, a: { bookingId: string }) => {
   b.attendance = "checked_in";
   const cap = emptyCapture("", b.id);
   cap.checkedInAt = c.stamp();
+  // Answers the participant already gave, carried onto the nurse form for the nurse to confirm.
+  const person = c.ix().personById.get(b.personId)!;
+  const answers = membershipOf(c.s, b.personId, b.programmeId)?.answers || {};
+  const nurse = c.s.staff.find((x) => x.id === s.nurseId);
+  cap.form = nurseFormPrefill(answers, { site: person.site, employer: PROGRAMME_BY_ID[b.programmeId].clientName, sex: person.sex, clinician: nurse ? nurse.name : null });
   c.s.captureDrafts[b.id] = cap;
   c.emit({ verb: "clinic.checkin", summary: `${c.first()} checked in ${c.personName(b.personId)} for ${b.slotStart} (${b.id}).`, entity: { kind: "booking", id: b.id }, programmeId: b.programmeId, personId: b.personId });
   return c.ok("Checked in. Confirm identity before any specimen is created.", "ok", b.id);
@@ -250,11 +292,17 @@ handlers["clinic/confirmIdentity"] = (c, a: { bookingId: string; dob: string; re
   return c.ok("Two identifiers confirmed. Specimen creation is unlocked.", "ok");
 };
 
-handlers["clinic/saveCapture"] = (c, a: { bookingId: string; baseRev: number; measures?: Partial<Record<MeasureKey, { value: number | null; state: "recorded" | "missing" | "not_done" | "declined"; provenance?: "measured" | "self_reported" }>>; urine?: ClinicalCapture["urine"]; notes?: string }) => {
+handlers["clinic/saveCapture"] = (c, a: { bookingId: string; baseRev: number; measures?: Partial<Record<MeasureKey, { value: number | null; state: "recorded" | "missing" | "not_done" | "declined"; provenance?: "measured" | "self_reported" }>>; urine?: ClinicalCapture["urine"]; notes?: string; form?: Record<string, NurseFormValue> }) => {
   const blocked = canWork(c, a.bookingId); if (blocked) return c.fail(blocked);
   const cap = captureOf(c, a.bookingId);
   if (!cap) return c.fail("Check the participant in first.");
   if (a.baseRev !== cap.rev) return { ok: false, conflict: true, tone: "warn", message: `Save conflict: this record changed (revision ${cap.rev}) since you opened it. Your edits were not saved. Reload to merge.` };
+  if (a.form) { const fe = nurseFormPatchError(a.form); if (fe) return c.fail(fe); }
+  if (a.urine) {
+    for (const k of ["protein", "glucose", "blood", "wcc"] as const) {
+      if (!urineOk(k, a.urine[k])) return c.fail(`Urine ${k === "wcc" ? "white cells" : k}: choose ${(k === "wcc" ? URINE_WCC_OPTIONS : URINE_DIPSTICK_OPTIONS).join(", ")}.`);
+    }
+  }
   for (const [k, m] of Object.entries(a.measures || {}) as Array<[MeasureKey, NonNullable<typeof a.measures>[MeasureKey]]>) {
     if (!m) continue;
     const err = m.state === "recorded" ? measureError(k, m.value) : null;
@@ -267,10 +315,13 @@ handlers["clinic/saveCapture"] = (c, a: { bookingId: string; baseRev: number; me
   if (errs.bp) return c.fail(errs.bp);
   if (a.urine !== undefined) cap.urine = a.urine;
   if (a.notes !== undefined) cap.notes = a.notes;
+  if (a.form) cap.form = { ...cap.form, ...a.form };
   cap.status = "draft";
   cap.rev++;
   cap.savedAt = c.stamp();
-  return c.ok("Saved.", "info");
+  const b = c.ix().bookingById.get(a.bookingId)!;
+  raiseEcgReview(c, b, cap, { kind: "booking", id: b.id });
+  return c.ok(cap.ecgReview && cap.ecgReview.at === cap.savedAt ? "Saved. ECG review requested: the photo was shared to the clinical channel (simulated)." : "Saved.", "info");
 };
 
 handlers["clinic/toggleChecklist"] = (c, a: { bookingId: string; key: "specimens" | "labels" | "questionnaire" }) => {
@@ -295,8 +346,11 @@ handlers["clinic/complete"] = (c, a: { bookingId: string }) => {
   if (missing.length) problems.push(`missing required values: ${missing.join(", ")} (record a value, or mark not done or declined)`);
   const errs = captureErrors(cap);
   if (Object.keys(errs).length) problems.push("a value is outside its allowed range");
-  if (!cap.checklist.specimens) problems.push("specimen not created");
-  if (!cap.checklist.labels) problems.push("labels not previewed");
+  // Bloods taken = No is a valid outcome: no blood specimen, the reason goes in the nurse comments.
+  const noBloods = cap.form?.bloodsTaken === "No";
+  if (noBloods && !cap.notes.trim()) problems.push("bloods were not taken: record the reason in Nurse comments");
+  if (!noBloods && !cap.checklist.specimens) problems.push("specimen not created");
+  if (!noBloods && !cap.checklist.labels) problems.push("labels not previewed");
   if (problems.length) return c.fail(`Cannot complete yet: ${problems.join("; ")}.`);
   const person = c.ix().personById.get(b.personId)!;
   const n = c.nextNo("episode");
@@ -306,24 +360,54 @@ handlers["clinic/complete"] = (c, a: { bookingId: string }) => {
   const blocks: Record<string, string> = {};
   ver.blocks.forEach((x) => (blocks[x.blockId] = x.version));
   const collectedAt = c.stamp();
-  const specimen: Specimen = { id: `PH-S-${pad(n, 4)}`, episodeId: epId, type: "serum", collectedAt, status: "collected", labelPrinted: true };
+  const fitOnly = noBloods && fitKitGiven(cap);
+  const specimen: Specimen | null = noBloods && !fitOnly ? null : { id: `PH-S-${pad(n, 4)}`, episodeId: epId, type: fitOnly ? "stool" : "serum", collectedAt, status: "collected", labelPrinted: true };
   cap.status = "complete";
   cap.completedAt = collectedAt;
   cap.rev++;
   cap.savedAt = collectedAt;
+  // Expected tests: the programme's panel, plus PSA when taken and FIT when a kit was given.
+  const codes = noBloods ? (fitKitGiven(cap) ? (["FIT"] as AnalyteCode[]) : []) : expectedPanel(tpl.id, { psaTaken: psaTaken(cap), fitGiven: fitKitGiven(cap) });
+  const age = ageOn(person.dob, localDateOf(collectedAt));
   const ep: Episode = {
     id: epId, personId: b.personId, programmeId: b.programmeId, bookingId: b.id, sessionId: b.sessionId, collectedAt, formSnapshot: { templateId: tpl.id, version: ver.version, blocks }, capture: cap,
-    specimenIds: [specimen.id], expectedTests: CORE_PANEL.map((code) => ({ code, addOn: false })), reportState: "awaiting_results", hold: null, readyAt: null, reviewAssigneeId: null,
+    specimenIds: specimen ? [specimen.id] : [], expectedTests: codes.map((code) => ({ code, addOn: ANALYTES[code].addOn })), reportState: "awaiting_results", hold: null, readyAt: null, reviewAssigneeId: null,
     reportVersionIds: [], followUpIds: [], flagAckBy: null,
+    screeningRef: screeningRefFor(c.nextNo("screeningRef")),
+    qrisk: { score10y: null, heartAge: null, relativeRisk: null, source: "licensed_engine_sample", inputsComplete: false, eligible: age >= 25, reason: age < 25 ? "Not calculated under 25" : noBloods ? "Not calculated: no blood sample for cholesterol" : "Waiting for cholesterol results" },
+    nurseReferral: null,
   };
   c.s.episodes.push(ep);
-  c.s.specimens.push(specimen);
+  if (specimen) c.s.specimens.push(specimen);
   delete c.s.captureDrafts[b.id];
   b.attendance = "completed";
   b.episodeId = epId;
   c.inv();
-  c.emit({ verb: "clinic.completed", summary: `${c.first()} completed the appointment for ${person.given} ${person.family} (${b.id}). Episode ${epId} is awaiting expected results. No report was released.`, entity: { kind: "episode", id: epId }, programmeId: b.programmeId, personId: b.personId });
-  return c.ok(`Appointment completed. ${epId} is awaiting results. Completing an appointment never releases a report.`, "ok", epId);
+  const name = `${person.given} ${person.family}`;
+  const addOns = codes.filter((x) => ANALYTES[x].addOn).map((x) => (x === "PSA" ? "PSA" : "FIT"));
+  c.emit({ verb: "clinic.completed", summary: `${c.first()} completed the appointment for ${name} (${b.id}). Episode ${epId} (${ep.screeningRef}) is awaiting ${codes.length} expected results${addOns.length ? `, including ${addOns.join(" and ")}` : ""}. No report was released.`, entity: { kind: "episode", id: epId }, programmeId: b.programmeId, personId: b.personId });
+  // An ECG review raised during the appointment now points at the episode; one not yet raised is raised now.
+  if (cap.ecgReview) { const t = c.s.tasks.find((x) => x.id === cap.ecgReview!.taskId); if (t) t.linked = { kind: "episode", id: epId }; }
+  else raiseEcgReview(c, b, cap, { kind: "episode", id: epId });
+  // Nurse referral: a doctor review task, a visible marker, and no routine release shortcut.
+  let referral = "";
+  if (isNurseReferral(cap)) {
+    const taskId = addClinicalTask(c, {
+      title: "Nurse referral: review before release", programmeId: b.programmeId, linked: { kind: "episode", id: epId }, dueHours: 24,
+      detail: `${c.persona().name} chose "${String(cap.form.approve)}" on the nurse form for ${name} (${epId}). Review the episode individually before any report is released. Nurse comments are in the clinical record.`,
+    });
+    ep.nurseReferral = { at: collectedAt, by: c.persona().isParticipant ? null : (c.persona().id as StaffId), reason: String(cap.form.approve), comment: cap.notes, taskId };
+    c.emit({
+      verb: "clinic.nurse_referral", summary: `${c.first()} referred ${name} to the doctor at screening (${epId}). Doctor review task ${taskId} created for ${c.s.staff.find((x) => x.id === PROGRAMME_BY_ID[b.programmeId].clinicalLeadId)?.name || "the clinical lead"}. The routine release shortcut is blocked for this episode.`,
+      entity: { kind: "episode", id: epId }, programmeId: b.programmeId, personId: b.personId, restricted: true, publicSummary: "Nurse referral raised on a clinical episode",
+    });
+    referral = " Nurse referral recorded: a doctor review task was created.";
+  }
+  // With nothing left to wait for (bloods not taken, no FIT kit) the episode goes straight to review.
+  c.settleEpisode(ep);
+  c.inv();
+  if (ep.reportState !== "awaiting_results") return c.ok(`Appointment completed without a blood sample. ${epId} is ready for the doctor's review of the nurse measurements. No report was released.${referral}`, "ok", epId);
+  return c.ok(`Appointment completed. ${epId} is awaiting results. Completing an appointment never releases a report.${referral}`, "ok", epId);
 };
 
 /* ---- session edits ---- */

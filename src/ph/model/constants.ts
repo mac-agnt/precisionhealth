@@ -2,8 +2,8 @@
    permissions, systems register, agents. Public staff names and roles come from the
    company website. Everything operational is a fictional demo fixture. */
 import type {
-  AgentDef, Analyte, AnalyteCode, AppointmentType, Company, Contact, FormBlock, FormTemplate, GovernanceItem,
-  HoldKind, IntegrationDef, Perm, Programme, ProgrammeId, ReportState, Resource, RoleKey, Staff, StaffId, Story, Team,
+  AgentDef, Analyte, AnalyteCode, AnalyteGroup, AnalyteRange, AppointmentType, Band, Company, Contact, FormBlock, FormTemplate, GovernanceItem,
+  HoldKind, IntegrationDef, Perm, Programme, ProgrammeId, RangeBound, ReportState, Resource, RoleKey, SexRecorded, Staff, StaffId, Story, Team,
 } from "./types";
 import { hhmmToMinutes, minutesToHhmm } from "./time";
 import type { Hhmm } from "./time";
@@ -207,26 +207,246 @@ export const RESOURCES: Resource[] = [
   { id: "pr-4", kind: "printer", name: "Label printer LP-04 (fictional)", location: "Spare, Blanchardstown office", note: "Spare unit." },
 ];
 
-/* ---- laboratory analytes: illustrative display limits, clinician-owned ---- */
+/* ---- laboratory analytes: illustrative rule set, clinician-owned ---- */
+/** Shown wherever a band, flag word or range is displayed. */
+export const RULE_SET_LABEL = "Illustrative rule set v0.1. Clinician-owned. To be replaced by Precision Health's approved rules.";
+
+type Bound = RangeBound;
+const lt = (hi: number, text: string): Bound => ({ hi, hiIncl: false, text: `<${text}` });
+const gt = (lo: number, text: string): Bound => ({ lo, loIncl: false, text: `>${text}` });
+const between = (lo: number, hi: number, text: string): Bound => ({ lo, loIncl: true, hi, hiIncl: true, text });
+/** One analyte. The limit field keeps the older single-limit shape for screens that still read it. */
+function analyte(code: AnalyteCode, o: {
+  name: string; reportName?: string; unit: string; decimals: number; group: AnalyteGroup; range: AnalyteRange;
+  calculated?: Analyte["calculated"]; qualitative?: Analyte["qualitative"]; conditional?: Analyte["conditional"]; illustrativeRange?: boolean; bandNote?: string;
+}): Analyte {
+  const b = o.range.all || o.range.male || (o.range.byAge && o.range.byAge[0].range) || { text: o.range.text };
+  const kind: Analyte["limit"]["kind"] = b.lo !== undefined && b.hi !== undefined ? "range" : b.lo !== undefined ? "min" : "max";
+  const value = kind === "min" ? b.lo! : b.hi ?? 0;
+  return {
+    code, name: o.name, reportName: o.reportName || o.name, unit: o.unit, decimals: o.decimals, group: o.group, range: o.range,
+    limit: { kind, value, text: o.range.all ? o.range.all.text : o.range.text },
+    addOn: !!o.conditional, calculated: o.calculated || null, qualitative: o.qualitative || null, conditional: o.conditional || null,
+    illustrativeRange: !!o.illustrativeRange, bandNote: o.bandNote || null,
+  };
+}
+
+/**
+ * The Comprehensive (LAB) panel with the ranges from Precision Health's sample report. Ranges marked
+ * illustrativeRange are placeholders where the client material gives none. Sample content, not a
+ * validated threshold library. Interpretation is clinician-owned.
+ */
 export const ANALYTES: Record<AnalyteCode, Analyte> = {
-  TC: { code: "TC", name: "Total cholesterol", unit: "mmol/L", decimals: 1, limit: { kind: "max", value: 5.0, text: "<5.0" }, addOn: false },
-  HDL: { code: "HDL", name: "HDL cholesterol", unit: "mmol/L", decimals: 1, limit: { kind: "min", value: 1.0, text: ">1.0" }, addOn: false },
-  LDL: { code: "LDL", name: "LDL cholesterol", unit: "mmol/L", decimals: 1, limit: { kind: "max", value: 3.0, text: "<3.0" }, addOn: false },
-  TG: { code: "TG", name: "Triglycerides", unit: "mmol/L", decimals: 1, limit: { kind: "max", value: 1.7, text: "<1.7" }, addOn: false },
-  HBA1C: { code: "HBA1C", name: "HbA1c", unit: "mmol/mol", decimals: 0, limit: { kind: "max", value: 42, text: "<42" }, addOn: false },
-  VITD: { code: "VITD", name: "Vitamin D (25-OH)", unit: "nmol/L", decimals: 0, limit: { kind: "min", value: 50, text: ">50" }, addOn: true },
-  FERR: { code: "FERR", name: "Ferritin", unit: "ug/L", decimals: 0, limit: { kind: "min", value: 30, text: ">30" }, addOn: true },
+  TC: analyte("TC", { name: "Total cholesterol", reportName: "Total Cholesterol", unit: "mmol/L", decimals: 1, group: "cholesterol", range: { all: lt(5.0, "5.0"), text: "less than 5.0" }, bandNote: "5.0 to 6.0 borderline, above 6.0 abnormal" }),
+  HDL: analyte("HDL", { name: "HDL cholesterol", reportName: "HDL Cholesterol", unit: "mmol/L", decimals: 1, group: "cholesterol", range: { all: gt(1.0, "1.0"), text: "more than 1.0" }, bandNote: "0.9 to 1.0 borderline, below 0.9 abnormal" }),
+  LDL: analyte("LDL", { name: "LDL cholesterol", reportName: "LDL Cholesterol", unit: "mmol/L", decimals: 1, group: "cholesterol", range: { all: lt(3.0, "3.0"), text: "less than 3.0" } }),
+  NONHDL: analyte("NONHDL", { name: "Non-HDL cholesterol", reportName: "Non-HDL Cholesterol", unit: "mmol/L", decimals: 1, group: "cholesterol", range: { all: lt(3.8, "3.8"), text: "less than 3.8" },
+    calculated: { from: ["TC", "HDL"], method: "Total cholesterol minus HDL cholesterol" } }),
+  TG: analyte("TG", { name: "Triglycerides", unit: "mmol/L", decimals: 1, group: "cholesterol", range: { all: lt(2.0, "2.0"), text: "less than 2.0" } }),
+  TCHDL: analyte("TCHDL", { name: "Total:HDL cholesterol ratio", reportName: "Total:HDL Cholesterol", unit: "ratio", decimals: 2, group: "cholesterol", range: { all: lt(4.0, "4.0"), text: "less than 4:1" },
+    calculated: { from: ["TC", "HDL"], method: "Total cholesterol divided by HDL cholesterol" } }),
+  HBA1C: analyte("HBA1C", { name: "HbA1c", reportName: "HbA1c", unit: "mmol/mol", decimals: 0, group: "glucose", range: { all: lt(48, "48"), text: "less than 48" }, bandNote: "42 to 47 higher risk, 48 or more raised" }),
+  HB: analyte("HB", { name: "Haemoglobin", unit: "g/dL", decimals: 1, group: "fbc", range: { male: between(13, 17, "13-17"), female: between(12, 16, "12-16"), text: "13-17 (m) / 12-16 (f)" } }),
+  WCC: analyte("WCC", { name: "White cell count", reportName: "White Cell Count", unit: "x10^9/L", decimals: 1, group: "fbc", range: { all: between(3.5, 10, "3.5-10"), text: "3.5-10" } }),
+  PLT: analyte("PLT", { name: "Platelets", unit: "x10^9/L", decimals: 0, group: "fbc", range: { all: between(150, 410, "150-410"), text: "150-410" } }),
+  BILI: analyte("BILI", { name: "Bilirubin", unit: "umol/L", decimals: 1, group: "liver", range: { all: lt(24, "24"), text: "less than 24" } }),
+  TPROT: analyte("TPROT", { name: "Total protein", reportName: "Total Protein", unit: "g/L", decimals: 0, group: "liver", range: { all: between(60, 83, "60-83"), text: "60-83" } }),
+  ALP: analyte("ALP", { name: "Alkaline phosphatase", reportName: "Alkaline Phosphatase", unit: "U/L", decimals: 0, group: "liver", range: { all: between(30, 130, "30-130"), text: "30-130" }, illustrativeRange: true }),
+  GGT: analyte("GGT", { name: "Gamma-GT", unit: "U/L", decimals: 0, group: "liver", range: { all: lt(55, "55"), text: "less than 55" } }),
+  AST: analyte("AST", { name: "AST", reportName: "Aspartate Transferase", unit: "U/L", decimals: 0, group: "liver", range: { all: lt(34, "34"), text: "less than 34" } }),
+  ALT: analyte("ALT", { name: "ALT", reportName: "Alanine Transferase", unit: "U/L", decimals: 0, group: "liver", range: { all: lt(45, "45"), text: "less than 45" } }),
+  UREA: analyte("UREA", { name: "Urea", unit: "mmol/L", decimals: 1, group: "kidney", range: { all: lt(8, "8"), text: "less than 8" } }),
+  CREAT: analyte("CREAT", { name: "Creatinine", unit: "umol/L", decimals: 0, group: "kidney", range: { all: lt(106, "106"), text: "less than 106" } }),
+  URATE: analyte("URATE", { name: "Uric acid", reportName: "Uric Acid", unit: "umol/L", decimals: 0, group: "kidney", range: { all: between(220, 450, "220-450"), text: "220-450" } }),
+  FERR: analyte("FERR", { name: "Ferritin", unit: "ug/L", decimals: 0, group: "iron", range: { male: between(15, 200, "15-200"), female: between(15, 150, "15-150"), text: "15-200 (m) / 15-150 (f)" } }),
+  IRON: analyte("IRON", { name: "Iron", unit: "umol/L", decimals: 1, group: "iron", range: { all: between(9.0, 30.4, "9.0-30.4"), text: "9.0-30.4" } }),
+  TIBC: analyte("TIBC", { name: "Total iron binding capacity", reportName: "Total Iron Binding Capacity (TIBC)", unit: "umol/L", decimals: 1, group: "iron", range: { all: between(44, 76, "44-76"), text: "44-76" } }),
+  FT4: analyte("FT4", { name: "Free T4", unit: "pmol/L", decimals: 1, group: "thyroid", range: { all: between(9, 19, "9-19"), text: "9-19" } }),
+  TSH: analyte("TSH", { name: "TSH", unit: "mIU/L", decimals: 2, group: "thyroid", range: { all: between(0.35, 4.94, "0.35-4.94"), text: "0.35-4.94" } }),
+  VITD: analyte("VITD", { name: "Vitamin D (25-OH)", reportName: "Vitamin D", unit: "nmol/L", decimals: 0, group: "vitamins_minerals", range: { all: gt(50, "50"), text: "more than 50" } }),
+  B12: analyte("B12", { name: "Vitamin B12", unit: "ng/L", decimals: 0, group: "vitamins_minerals", range: { all: gt(200, "200"), text: "more than 200" }, illustrativeRange: true }),
+  FOLATE: analyte("FOLATE", { name: "Folate (folic acid)", reportName: "Folic Acid", unit: "ug/L", decimals: 1, group: "vitamins_minerals", range: { all: gt(3.9, "3.9"), text: "more than 3.9" }, illustrativeRange: true }),
+  CA: analyte("CA", { name: "Adjusted calcium", reportName: "Adjusted Calcium", unit: "mmol/L", decimals: 2, group: "vitamins_minerals", range: { all: between(2.2, 2.6, "2.2-2.6"), text: "2.2-2.6" } }),
+  MG: analyte("MG", { name: "Magnesium", unit: "mmol/L", decimals: 2, group: "vitamins_minerals", range: { all: between(0.7, 1.0, "0.7-1.0"), text: "0.7-1.0" } }),
+  PO4: analyte("PO4", { name: "Phosphate", unit: "mmol/L", decimals: 2, group: "vitamins_minerals", range: { all: between(0.8, 1.5, "0.8-1.5"), text: "0.8-1.5" } }),
+  PSA: analyte("PSA", { name: "PSA (total)", reportName: "PSA", unit: "ug/L", decimals: 2, group: "cancer", conditional: "psa_taken",
+    range: {
+      byAge: [
+        { minAge: 0, maxAge: 50, range: lt(2, "2") }, { minAge: 50, maxAge: 60, range: lt(3, "3") },
+        { minAge: 60, maxAge: 70, range: lt(4, "4") }, { minAge: 70, maxAge: null, range: lt(5, "5") },
+      ],
+      text: "under 50 years <2; 50-60 years <3; 60-70 years <4; over 70 years <5",
+    } }),
+  FIT: analyte("FIT", { name: "FIT (bowel screening)", reportName: "FIT result", unit: "", decimals: 0, group: "cancer", conditional: "fit_given",
+    qualitative: { normal: "Negative", abnormal: "Positive" }, range: { text: "Negative" } }),
 };
+/** The lipid and HbA1c rows of the baseline Eurofins batch. */
 export const CORE_PANEL: AnalyteCode[] = ["TC", "HDL", "LDL", "TG", "HBA1C"];
-export const ADD_ON_PANEL: AnalyteCode[] = ["VITD", "FERR"];
+/** Conditional tests: PSA when taken, FIT when a kit was given. */
+export const ADD_ON_PANEL: AnalyteCode[] = ["PSA", "FIT"];
+/** Calculated in Pulse from total and HDL cholesterol. Not laboratory rows and never expected tests. */
+export const CALCULATED_ANALYTES: AnalyteCode[] = ["NONHDL", "TCHDL"];
+/** Every laboratory-delivered test on the Comprehensive (LAB) panel, in report order. PSA and FIT are added per episode. */
+export const COMPREHENSIVE_PANEL: AnalyteCode[] = [
+  "TC", "HDL", "LDL", "TG", "HBA1C", "UREA", "CREAT", "URATE", "HB", "WCC", "PLT", "BILI", "TPROT", "ALP", "GGT", "AST", "ALT",
+  "FT4", "TSH", "IRON", "FERR", "TIBC", "VITD", "B12", "FOLATE", "CA", "MG", "PO4",
+];
+/** The Comprehensive panel minus the lipid and HbA1c rows: what the separate extended batch delivers. */
+export const EXTENDED_PANEL: AnalyteCode[] = COMPREHENSIVE_PANEL.filter((c) => !CORE_PANEL.includes(c));
+/** Laboratory panel per form template. Every programme in the demo uses the Comprehensive (LAB) screen. */
+export const PANEL_BY_TEMPLATE: Record<string, AnalyteCode[]> = { "tpl-comprehensive-lab": COMPREHENSIVE_PANEL, "tpl-cardiovascular": COMPREHENSIVE_PANEL };
+/** Expected laboratory tests for an episode: the template's panel plus PSA and FIT when the nurse form says so. */
+export function expectedPanel(templateId: string, o: { psaTaken: boolean; fitGiven: boolean }): AnalyteCode[] {
+  const base = PANEL_BY_TEMPLATE[templateId] || COMPREHENSIVE_PANEL;
+  return base.concat(o.psaTaken ? ["PSA"] : [], o.fitGiven ? ["FIT"] : []);
+}
+export const ANALYTE_GROUPS: Array<{ key: AnalyteGroup; title: string }> = [
+  { key: "cholesterol", title: "Cholesterol" },
+  { key: "glucose", title: "Blood sugar (HbA1c)" },
+  { key: "kidney", title: "Kidney function" },
+  { key: "fbc", title: "Full blood count" },
+  { key: "liver", title: "Liver function" },
+  { key: "thyroid", title: "Thyroid function" },
+  { key: "iron", title: "Iron and ferritin" },
+  { key: "vitamins_minerals", title: "Vitamins and minerals" },
+  { key: "cancer", title: "Cancer screening" },
+];
 export const LIMITS_DISCLAIMER =
   "Illustrative display limits for demonstration. Sample content, not a validated clinical threshold library. Interpretation is clinician-owned.";
+/** Blood pressure at or above this is Raised in the participant report table. Borderline starts at 120/80. */
 export const BP_REVIEW_LIMIT = { sys: 140, dia: 90, text: "<140/90" };
 
-export function flagFor(code: AnalyteCode, value: number): "none" | "review_required" {
-  const l = ANALYTES[code].limit;
-  if (l.kind === "max") return value > l.value ? "review_required" : "none";
-  return value < l.value ? "review_required" : "none";
+/* ---- bands and report flag words ---- */
+/** Sex and age at collection. Sex-specific and age-specific ranges need both. */
+export interface BandCtx { sex: SexRecorded; age: number }
+export type BandDirection = "high" | "low" | null;
+export type ReportFlagWord =
+  | "NORMAL" | "BORDERLINE" | "RAISED" | "LOW" | "HIGHER RISK" | "NEGATIVE" | "POSITIVE" | "NOT TESTED"
+  | "IDEAL" | "SIGNIFICANTLY RAISED" | "IMMEDIATE TREATMENT"
+  | "UNDERWEIGHT" | "OVERWEIGHT" | "OBESE" | "ABNORMAL" | "MILD";
+const DEFAULT_CTX: BandCtx = { sex: "not_recorded", age: 40 };
+const EPS = 1e-9;
+
+/**
+ * The reference interval that applies to this person. When sex is not recorded the stricter
+ * overlap of the male and female ranges applies, so a value is never called normal by default.
+ */
+export function rangeFor(code: AnalyteCode, ctx: BandCtx = DEFAULT_CTX): RangeBound | null {
+  const r = ANALYTES[code].range;
+  if (r.byAge) return (r.byAge.find((x) => ctx.age >= x.minAge && (x.maxAge === null || ctx.age < x.maxAge)) || r.byAge[r.byAge.length - 1]).range;
+  if (r.all) return r.all;
+  if (r.male && r.female) {
+    if (ctx.sex === "male") return r.male;
+    if (ctx.sex === "female") return r.female;
+    const lo = Math.max(r.male.lo ?? -Infinity, r.female.lo ?? -Infinity), hi = Math.min(r.male.hi ?? Infinity, r.female.hi ?? Infinity);
+    return { lo, loIncl: true, hi, hiIncl: true, text: `${lo}-${hi}` };
+  }
+  return null;
+}
+/** The range in compact form for this person, for example "<3.0", "13-17" or "<3" for PSA at 55. */
+export function limitTextFor(code: AnalyteCode, ctx: BandCtx = DEFAULT_CTX): string {
+  const a = ANALYTES[code];
+  if (a.qualitative) return a.qualitative.normal;
+  return rangeFor(code, ctx)?.text || a.range.text;
+}
+/** The range in the participant report's words for this person: "less than 3.0", "more than 1.0", "13-17 (male)". */
+export function rangeTextFor(code: AnalyteCode, ctx: BandCtx = DEFAULT_CTX): string {
+  const a = ANALYTES[code];
+  if (a.qualitative) return a.qualitative.normal;
+  if (code === "TCHDL") return a.range.text;
+  const b = rangeFor(code, ctx);
+  if (!b) return a.range.text;
+  const words = b.text.startsWith("<") ? `less than ${b.text.slice(1)}` : b.text.startsWith(">") ? `more than ${b.text.slice(1)}` : b.text;
+  if (a.range.male && a.range.female) return ctx.sex === "male" ? `${words} (male)` : ctx.sex === "female" ? `${words} (female)` : `${a.range.text}. Sex not recorded: ${words} applied`;
+  if (a.range.byAge) return `${words} (age ${ctx.age})`;
+  return words;
+}
+
+function genericBand(b: RangeBound, v: number): { band: Band; direction: BandDirection } {
+  const below = b.lo !== undefined && (b.loIncl ? v < b.lo - EPS : v <= b.lo + EPS);
+  const above = b.hi !== undefined && (b.hiIncl ? v > b.hi + EPS : v >= b.hi - EPS);
+  if (!below && !above) return { band: "normal", direction: null };
+  if (above) return { band: v <= b.hi! * 1.1 + EPS ? "borderline" : "abnormal", direction: "high" };
+  return { band: v >= b.lo! * 0.9 - EPS ? "borderline" : "abnormal", direction: "low" };
+}
+
+/**
+ * Band and direction for one result under the illustrative rule set: borderline is outside the range
+ * by up to 10%, abnormal is further out. Analyte-specific rules: total cholesterol 5.0-6.0 borderline
+ * and above 6.0 abnormal; HbA1c 42-47 borderline (higher risk) and 48 or more abnormal; HDL 0.9-1.0
+ * borderline and below 0.9 abnormal. FIT: Negative normal, Positive abnormal.
+ */
+export function bandDetail(code: AnalyteCode, value: number | null | undefined, ctx: BandCtx = DEFAULT_CTX): { band: Band; direction: BandDirection } {
+  if (value === null || value === undefined || !Number.isFinite(value)) return { band: "not_tested", direction: null };
+  const a = ANALYTES[code];
+  if (a.qualitative) return value >= 1 ? { band: "abnormal", direction: "high" } : { band: "normal", direction: null };
+  if (code === "TC") return value < 5.0 - EPS ? { band: "normal", direction: null } : { band: value <= 6.0 + EPS ? "borderline" : "abnormal", direction: "high" };
+  if (code === "HBA1C") return value < 42 - EPS ? { band: "normal", direction: null } : { band: value < 48 - EPS ? "borderline" : "abnormal", direction: "high" };
+  if (code === "HDL") return value > 1.0 + EPS ? { band: "normal", direction: null } : { band: value >= 0.9 - EPS ? "borderline" : "abnormal", direction: "low" };
+  const b = rangeFor(code, ctx);
+  return b ? genericBand(b, value) : { band: "not_tested", direction: null };
+}
+export function bandFor(code: AnalyteCode, value: number | null | undefined, ctx: BandCtx = DEFAULT_CTX): Band {
+  return bandDetail(code, value, ctx).band;
+}
+/** Review required exactly when the band is borderline or abnormal. */
+export function flagFor(code: AnalyteCode, value: number, ctx: BandCtx = DEFAULT_CTX): "none" | "review_required" {
+  const b = bandFor(code, value, ctx);
+  return b === "borderline" || b === "abnormal" ? "review_required" : "none";
+}
+/** The participant report's word for a laboratory result: NORMAL, BORDERLINE, RAISED or LOW, with HbA1c and FIT wording. */
+export function reportFlagWord(code: AnalyteCode, band: Band, direction: BandDirection = "high"): ReportFlagWord {
+  if (band === "not_tested") return "NOT TESTED";
+  if (ANALYTES[code].qualitative) return band === "normal" ? "NEGATIVE" : "POSITIVE";
+  if (code === "HBA1C") return band === "normal" ? "NORMAL" : band === "borderline" ? "HIGHER RISK" : "RAISED";
+  if (band === "normal") return "NORMAL";
+  if (band === "borderline") return "BORDERLINE";
+  return direction === "low" ? "LOW" : "RAISED";
+}
+/** Result text for display, with the analyte's decimals. Qualitative results show their word. */
+export function formatResult(code: AnalyteCode, value: number, valueText?: string | null): string {
+  const a = ANALYTES[code];
+  if (a.qualitative) return valueText || (value >= 1 ? a.qualitative.abnormal : a.qualitative.normal);
+  return value.toFixed(a.decimals);
+}
+
+/** The blood pressure significance table from the participant report. */
+export const BP_SIGNIFICANCE: Array<{ reading: string; significance: string; word: ReportFlagWord; band: Band }> = [
+  { reading: "Less than 120/80", significance: "Ideal", word: "IDEAL", band: "normal" },
+  /* The clinician's viewer shows 128/86 green and the sample report words 139/84 "MILD":
+     below 140/90 does not need individual review, so the band stays normal. */
+  { reading: "120/80 to 140/90", significance: "Borderline", word: "MILD", band: "normal" },
+  { reading: "140/90 to 160/100", significance: "Raised", word: "RAISED", band: "abnormal" },
+  { reading: "160/100 to 180/110", significance: "Significantly raised", word: "SIGNIFICANTLY RAISED", band: "abnormal" },
+  { reading: "More than 180/110", significance: "Immediate treatment", word: "IMMEDIATE TREATMENT", band: "abnormal" },
+];
+/** Blood pressure word and band. The higher of the systolic and diastolic categories applies. */
+export function bpCategory(sys: number | null | undefined, dia: number | null | undefined): { word: ReportFlagWord; band: Band } {
+  if (sys == null || dia == null || !Number.isFinite(sys) || !Number.isFinite(dia)) return { word: "NOT TESTED", band: "not_tested" };
+  const level = (s: number, d: number) => (s >= 180 || d >= 110 ? 4 : s >= 160 || d >= 100 ? 3 : s >= 140 || d >= 90 ? 2 : s >= 120 || d >= 80 ? 1 : 0);
+  const row = BP_SIGNIFICANCE[level(sys, dia)];
+  return { word: row.word, band: row.band };
+}
+/** BMI word and band. Words follow the report (below 18 underweight, above 25 overweight, above 30 obese). Band: 10% outside 18-25 is borderline. */
+export function bmiCategory(bmi: number | null | undefined): { word: ReportFlagWord; band: Band } {
+  if (bmi == null || !Number.isFinite(bmi)) return { word: "NOT TESTED", band: "not_tested" };
+  const word: ReportFlagWord = bmi < 18 ? "UNDERWEIGHT" : bmi <= 25 ? "NORMAL" : bmi <= 30 ? "OVERWEIGHT" : "OBESE";
+  const band: Band = bmi >= 18 && bmi <= 25 ? "normal" : bmi > 25 ? (bmi <= 27.5 ? "borderline" : "abnormal") : bmi >= 16.2 ? "borderline" : "abnormal";
+  return { word, band };
+}
+export const BMI_RANGE_TEXT = "18-25";
+/** Waist: less than 80 cm (female), less than 90 cm (male). Sex not recorded uses the lower limit. Up to 10% over is borderline. */
+export function waistCategory(cm: number | null | undefined, sex: SexRecorded): { word: ReportFlagWord; band: Band; limit: number } {
+  const limit = sex === "male" ? 90 : 80;
+  if (cm == null || !Number.isFinite(cm)) return { word: "NOT TESTED", band: "not_tested", limit };
+  if (cm < limit) return { word: "NORMAL", band: "normal", limit };
+  return cm <= limit * 1.1 ? { word: "BORDERLINE", band: "borderline", limit } : { word: "RAISED", band: "abnormal", limit };
+}
+export const WAIST_RANGE_TEXT = "Less than 80cm (Female) / Less than 90cm (Male)";
+/** QRISK3 relative risk band: below 1.0 normal, 1.0 to 1.5 borderline, above 1.5 abnormal. */
+export function relativeRiskBand(rr: number | null | undefined): Band {
+  if (rr == null || !Number.isFinite(rr)) return "not_tested";
+  return rr < 1.0 ? "normal" : rr <= 1.5 ? "borderline" : "abnormal";
 }
 
 /* ---- labels ---- */
@@ -317,17 +537,18 @@ export const FORM_BLOCKS: FormBlock[] = [
       { key: "ecgDone", label: "ECG performed", type: "choice", options: ["Yes", "No", "Declined"], required: true, absence: ["missing"] },
       { key: "ecgRate", label: "Heart rate", type: "number", unit: "bpm", required: false, min: 20, max: 250, showIf: { key: "ecgDone", equals: "Yes" }, absence: ["missing"] },
     ] },
-  { id: "blk-urine", name: "Urine", version: "1.0", summary: "Point-of-care dipstick.", approvedBy: "Clinical Review",
+  { id: "blk-urine", name: "Urine", version: "1.0", summary: "Point-of-care dipstick, with the nurse form's options.", approvedBy: "Clinical Review",
     fields: [
-      { key: "urineProtein", label: "Protein", type: "choice", options: ["Negative", "Trace", "+", "++", "+++"], required: true, absence: absence3 },
-      { key: "urineGlucose", label: "Glucose", type: "choice", options: ["Negative", "Trace", "+", "++", "+++"], required: true, absence: absence3 },
-      { key: "urineBlood", label: "Blood", type: "choice", options: ["Negative", "Trace", "+", "++", "+++"], required: true, absence: absence3 },
+      { key: "urineProtein", label: "Protein", type: "choice", options: ["Nil", "+", "++", "+++", "Not done"], required: true, absence: absence3 },
+      { key: "urineGlucose", label: "Glucose", type: "choice", options: ["Nil", "+", "++", "+++", "Not done"], required: true, absence: absence3 },
+      { key: "urineBlood", label: "Blood", type: "choice", options: ["Nil", "+", "++", "+++", "Not done"], required: true, absence: absence3 },
+      { key: "urineWcc", label: "WCC", type: "choice", options: ["Nil", "10", "100", ">100", "Not done"], required: true, absence: absence3 },
     ] },
-  { id: "blk-bloodpanel", name: "Blood panel selection", version: "1.3", summary: "Core panel (lipids and HbA1c) and optional add-ons, each with its specimen.", approvedBy: "Clinical Review",
+  { id: "blk-bloodpanel", name: "Blood panel selection", version: "1.3", summary: "Comprehensive (LAB) panel, with PSA and FIT added when the nurse form records them.", approvedBy: "Clinical Review",
     fields: [
-      { key: "panelCore", label: "Core panel (TC, HDL, LDL, TG, HbA1c)", type: "boolean", required: true, absence: ["missing"] },
-      { key: "addVitD", label: "Add-on: Vitamin D (25-OH)", type: "boolean", required: false, absence: ["missing"] },
-      { key: "addFerritin", label: "Add-on: Ferritin", type: "boolean", required: false, absence: ["missing"] },
+      { key: "panelCore", label: "Comprehensive panel (cholesterol, HbA1c, kidney, full blood count, liver, thyroid, iron, vitamins and minerals)", type: "boolean", required: true, absence: ["missing"] },
+      { key: "addPsa", label: "Add-on: PSA (when taken)", type: "boolean", required: false, absence: ["missing"] },
+      { key: "addFit", label: "Add-on: FIT kit (when given)", type: "boolean", required: false, absence: ["missing"] },
     ] },
   { id: "blk-cancer", name: "Cancer questions", version: "1.0", summary: "Clinically approved symptom and family history questions.", approvedBy: "Clinical Review",
     fields: [
@@ -440,6 +661,9 @@ export const INTEGRATIONS: IntegrationDef[] = [
   { id: "email", name: "Email", purpose: "Notification channel for confirmations, reminders and report availability.",
     boundary: "Message text only. Report access is separate from delivery.", statusLabel: "Notification channel; production provider and transport to confirm", tone: "warn",
     note: "No Gmail API or Microsoft Graph connection is claimed. Google Workspace being used for files does not imply an email integration." },
+  { id: "slack", name: "Slack", purpose: "Clinical channel for ECG photos today.",
+    boundary: "Photos of an irregular ECG with an irregular pulse, sent by the nurse. In Pulse the photo stays with the clinical record and the clinician gets a review task.", statusLabel: "Replaced by Pulse alert, to confirm", tone: "warn",
+    note: "Named on the nurse form: \"take photos of the ECG and send to the Slack channel\". Whether the Pulse clinical alert fully replaces it is to confirm. Nothing is posted to Slack." },
   { id: "meddbase", name: "Meddbase", purpose: "Occupational-health platform identified on the public website.",
     boundary: "Outside this screening demo. No records, sync events or replacement promise.", statusLabel: "Existing separate system · outside this screening demo integration scope", tone: "neutral",
     note: "Its replacement or integration has not been agreed for this project." },
@@ -480,10 +704,5 @@ export const SURNAMES = ["Murphy", "Walsh", "O'Brien", "Byrne", "O'Sullivan", "M
 /** Names reserved for named cases and staff, never generated at random. */
 export const RESERVED_FULL_NAMES = ["Aisling Byrne", "Ciara Doyle", "Maeve Ryan", "Dara Quinn", "Ronan Walsh", "Niamh Keane", "Eoin Daly", "Orla Kavanagh", "Neil Reddy", "Stephen Kelly", "Liz Bawle", "Fiona Fenton", "Anita Mulhere", "Ian Murtagh", "Martina Beattie", "Brenda Madden"];
 
-export const QUESTIONNAIRE_SECTIONS = [
-  { key: "about", title: "About you" },
-  { key: "lifestyle", title: "Lifestyle" },
-  { key: "heart", title: "Heart health" },
-  { key: "family", title: "Family history" },
-  { key: "medication", title: "Medication and allergies" },
-];
+/** The participant questionnaire sections, defined with their questions in questionnaire.ts. */
+export { QUESTIONNAIRE_SECTIONS } from "./questionnaire";

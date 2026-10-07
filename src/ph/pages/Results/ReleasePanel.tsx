@@ -4,13 +4,16 @@
    Every change goes through dispatch(act.*); the model rejects anything out of order. */
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
-import { ADVICE_FLAGGED, ADVICE_ROUTINE, act, fmtTime, fmtWhen, staffName } from "../../model";
+import { ADVICE_FLAGGED, ADVICE_ROUTINE, HOLD_LABEL, act, fmtTime, fmtWhen, staffName } from "../../model";
 import { dispatch, usePersona, usePhState } from "../../store";
 import { useNav } from "../../nav-context";
 import { Button, Card, DemoTag, Icon, Pill, Select, Textarea } from "../../ui";
+import { BAND_LOOK } from "../../report/bands";
 import type { Bundle } from "./EpisodePanels";
 import { Banner, SecTitle } from "./shared";
 import { hasUrgentFollowUp } from "./select";
+import { buildViewer } from "./Sheet";
+import type { ViewerModel } from "./Sheet";
 
 /* ---- checklist ---- */
 function CheckRow({ done, label, note, onToggle, disabled, reason }: { done: boolean; label: string; note?: ReactNode; onToggle?: () => void; disabled?: boolean; reason?: string }) {
@@ -66,6 +69,32 @@ function buildChecklist(b: Bundle, mode: "review" | "correction", canAct: boolea
   return { rows, open };
 }
 
+/* ---- the all normal shortcut ---- */
+/**
+ * Why the all normal shortcut is unavailable, in short lines. Starts from the model's
+ * routineEligibility and adds the viewer's own checks (any borderline or abnormal cell, a nurse
+ * referral, an ECG review, a pending test), so the shortcut can never be offered while the
+ * sheet shows anything that is not normal.
+ */
+export function routineBlockers(b: Bundle, v: ViewerModel | null): string[] {
+  const out: string[] = [];
+  const st = b.episode.reportState;
+  if (st === "on_hold") out.push(`On hold: ${b.episode.hold ? HOLD_LABEL[b.episode.hold.kind] : "hold open"}.`);
+  else if (st === "released") out.push("Already released.");
+  else if (st !== "ready_for_review") out.push("Not ready for review.");
+  const pend = Array.from(new Set(b.tests.filter((t) => t.status !== "received").map((t) => t.name).concat(v ? v.pending.map((c) => c.label) : [])));
+  if (pend.length) out.push(`Pending: ${pend.join(", ")}.`);
+  if ((v && v.referral) || b.flags.some((f) => f.kind === "nurse_referral")) out.push("Nurse referral: significantly abnormal results, refer to doctor.");
+  if (v && v.ecgReview) out.push("ECG review requested.");
+  const flagged = b.flags.filter((f) => f.kind !== "nurse_referral");
+  const covered = (c: { code?: string; key?: string }) => flagged.some((f) => (!!c.code && f.code === c.code) || (!!c.key && f.key === c.key));
+  const abn = Array.from(new Set(flagged.map((f) => f.label).concat(v ? v.nonNormal.filter((c) => !covered(c)).map((c) => c.label) : [])));
+  if (abn.length) out.push(`Borderline or abnormal: ${abn.join(", ")}.`);
+  const known = /^(On hold|Already released|Not ready for review|Expected tests not accounted for|Review required)/;
+  for (const r of b.routine.reasons) if (!known.test(r)) out.push(r.replace(/\.?$/, "."));
+  return out;
+}
+
 /* ---- release card ---- */
 export function ReleaseCard({ b, mode, canAct, previewSeen }: { b: Bundle; mode: "review" | "correction"; canAct: boolean; previewSeen: boolean }) {
   const state = usePhState();
@@ -74,8 +103,8 @@ export function ReleaseCard({ b, mode, canAct, previewSeen }: { b: Bundle; mode:
   const last = b.versions.length ? b.versions[b.versions.length - 1].version : 0;
   const nextVersion = b.draft ? b.draft.version : last + 1;
   const urgent = hasUrgentFollowUp(state, b.episode);
-  const routineReasons = b.routine.reasons;
-  const routineOk = mode === "review" && b.routine.ok;
+  const blockers = mode === "review" ? routineBlockers(b, buildViewer(state, b)) : [];
+  const routineOk = mode === "review" && b.routine.ok && blockers.length === 0;
   const stateOk = mode === "review" ? b.episode.reportState === "ready_for_review" : !!b.draft && !!b.draft.correctionReason;
   const ready = stateOk && open.length === 0;
   const doneCount = rows.length - open.length;
@@ -91,22 +120,49 @@ export function ReleaseCard({ b, mode, canAct, previewSeen }: { b: Bundle; mode:
             {mode === "review" ? `Finalise and release v${nextVersion}` : `Release corrected v${nextVersion}`}
           </Button>
           {!ready ? <div className="phr-sub">{stateOk ? `Complete the open items first: ${open.map((x) => x.label.toLowerCase()).join("; ")}.` : mode === "review" ? "Only an episode that is ready for review can be released." : "Start a correction with a reason first."}</div> : null}
-          {mode === "review" ? (
-            <div style={{ borderTop: "1px solid var(--border)", paddingTop: 10 }}>
-              <Button icon={routineOk ? "check" : "lock"} disabled={!routineOk} onClick={() => dispatch(act.releaseRoutine(id))}
-                title={routineOk ? "Releases this one episode. Never in bulk." : routineReasons.join(" ")}>
-                {routineOk ? "Routine release, one click" : "Routine shortcut unavailable"}
-              </Button>
-              <div className="phr-sub" style={{ marginTop: 5 }}>
-                {routineOk
-                  ? "Available: every expected result is in, nothing is flagged and nothing is on hold. Uses your advice, or the approved routine wording if none is written. One episode per click, never in bulk."
-                  : `${b.flags.length ? "Flagged findings require individual review. " : ""}${routineReasons.join(" ")}`}
-              </div>
-              {urgent ? <div className="phr-sub" style={{ marginTop: 5, color: "var(--warn)" }}>A clinician-assigned urgent follow-up is recorded on this episode ({b.episode.followUpIds.join(", ")}). Check its outcome before choosing the release route.</div> : null}
-            </div>
-          ) : null}
+          {mode === "review" ? <RoutineShortcut id={id} ok={routineOk} blockers={blockers} urgent={urgent ? b.episode.followUpIds.join(", ") : null} /> : null}
         </div>
       ) : null}
+    </Card>
+  );
+}
+
+function RoutineShortcut({ id, ok, blockers, urgent }: { id: string; ok: boolean; blockers: string[]; urgent: string | null }) {
+  return (
+    <div style={{ borderTop: "1px solid var(--border)", paddingTop: 10 }}>
+      <Button icon={ok ? "check" : "lock"} disabled={!ok} onClick={() => dispatch(act.releaseRoutine(id))}
+        title={ok ? "Releases this one episode with the approved routine wording if no advice is written. Never in bulk." : blockers.join(" ")}>
+        {ok ? "All normal: approve and release" : "All normal shortcut unavailable"}
+      </Button>
+      {ok ? (
+        <div className="phr-sub" style={{ marginTop: 5 }}>Every value on the sheet is normal, every expected result is in and nothing is on hold. One episode per click, never in bulk.</div>
+      ) : (
+        <>
+          <div className="phr-sub" style={{ marginTop: 5 }}>Needs individual review:</div>
+          <ul className="phr-blockers">{blockers.map((x) => <li key={x}>{x}</li>)}</ul>
+        </>
+      )}
+      {urgent ? <div className="phr-sub" style={{ marginTop: 5, color: "var(--warn)" }}>A clinician-assigned urgent follow-up is recorded on this episode ({urgent}). Check its outcome before choosing the release route.</div> : null}
+    </div>
+  );
+}
+
+/** Release is not available: on hold or awaiting results. Shows why, including the shortcut blockers. */
+export function ReleaseUnavailableCard({ b, onNext }: { b: Bundle; onNext?: () => void }) {
+  const state = usePhState();
+  const st = b.episode.reportState;
+  const blockers = routineBlockers(b, buildViewer(state, b));
+  return (
+    <Card pad="sm">
+      <SecTitle right={<Pill tone={st === "on_hold" ? "warn" : "neutral"} icon={st === "on_hold" ? "flag" : "clock"}>{st === "on_hold" ? "On hold" : "Awaiting results"}</Pill>}>Release not available</SecTitle>
+      <div className="phr-note">
+        {st === "on_hold" ? "Resolve the hold first; the episode then joins the review queue for individual review." : "Expected results are still missing. Missing tests are never treated as normal."}
+      </div>
+      <div style={{ marginTop: 10 }}>
+        <Button icon="lock" disabled title={blockers.join(" ")}>All normal shortcut unavailable</Button>
+        <ul className="phr-blockers">{blockers.map((x) => <li key={x}>{x}</li>)}</ul>
+      </div>
+      {onNext ? <div style={{ marginTop: 10 }}><Button size="sm" icon="arrow" onClick={onNext}>Back to the queue</Button></div> : null}
     </Card>
   );
 }
@@ -121,8 +177,12 @@ export function FlagsCard({ b, canAct }: { b: Bundle; canAct: boolean }) {
   return (
     <Card pad="sm">
       <SecTitle right={<Pill tone="warn" icon="flag">{b.flags.length === 1 ? "1 flag" : `${b.flags.length} flags`}</Pill>}>Individual review required</SecTitle>
-      <ul style={{ margin: 0, paddingLeft: 18, fontSize: 12.5, lineHeight: 1.5, color: "var(--ink)" }}>
-        {b.flags.map((f, i) => <li key={i}>Review required: {f.text}</li>)}
+      <ul style={{ margin: 0, paddingLeft: 0, listStyle: "none", display: "flex", flexDirection: "column", gap: 5, fontSize: 12.5, lineHeight: 1.45, color: "var(--ink)" }}>
+        {b.flags.map((f, i) => (
+          <li key={i}>
+            {f.band ? <span className="phr-band-chip" style={{ background: BAND_LOOK[f.band].fill, color: BAND_LOOK[f.band].ink }}>{BAND_LOOK[f.band].label}</span> : null} {f.text}
+          </li>
+        ))}
       </ul>
       {legacy.length ? (
         <div style={{ marginTop: 10 }}>
@@ -155,16 +215,27 @@ const WORDING = [
   ...ADVICE_FLAGGED.map((t, i) => ({ id: `f${i}`, label: `Approved wording for flagged results ${i + 1}`, text: t })),
 ];
 
-function AdviceEditor({ b, editable }: { b: Bundle; editable: boolean }) {
+/**
+ * The clinician's advice editor. Saves the draft through act.setAdvice after a short pause and on
+ * blur, and reports every keystroke through onTextChange so the report preview shows the text as
+ * typed. variant "sheet" is the NEW ADVICE box under the results viewer, with the optional
+ * drafting preview behind a secondary button; "card" is the stacked editor used in Corrections.
+ */
+export function AdviceEditor({ b, editable, variant = "card", onTextChange, readOnlyNote }: {
+  b: Bundle; editable: boolean; variant?: "sheet" | "card"; onTextChange?: (text: string) => void; readOnlyNote?: string;
+}) {
   const state = usePhState();
   const id = b.episode.id;
   const stored = b.draft ? b.draft.advice : b.released && b.episode.reportState === "released" ? b.released.advice : "";
   const [text, setText] = useState(stored);
   const [status, setStatus] = useState<"idle" | "pending" | "saved">("idle");
+  const [aiOpen, setAiOpen] = useState(false);
   const sent = useRef(stored);
   const latest = useRef(stored);
   const timer = useRef<number | null>(null);
   const mounted = useRef(true);
+  const report = useRef(onTextChange);
+  report.current = onTextChange;
 
   const flush = useCallback(() => {
     if (timer.current !== null) { window.clearTimeout(timer.current); timer.current = null; }
@@ -176,13 +247,14 @@ function AdviceEditor({ b, editable }: { b: Bundle; editable: boolean }) {
   }, [id]);
   // Adopt changes that did not come from this editor, such as an accepted drafting preview.
   useEffect(() => {
-    if (stored !== sent.current) { sent.current = stored; latest.current = stored; setText(stored); }
+    if (stored !== sent.current) { sent.current = stored; latest.current = stored; setText(stored); report.current?.(stored); }
   }, [stored]);
   useEffect(() => { mounted.current = true; return () => { mounted.current = false; flush(); }; }, [flush]);
 
   const change = (v: string) => {
     setText(v);
     latest.current = v;
+    report.current?.(v);
     setStatus("pending");
     if (timer.current !== null) window.clearTimeout(timer.current);
     timer.current = window.setTimeout(flush, 600);
@@ -190,38 +262,69 @@ function AdviceEditor({ b, editable }: { b: Bundle; editable: boolean }) {
   const ai = state.aiDrafts[id];
   const aiOn = state.settings.aiDraftingOn;
   const usedAi = !!ai && !!b.draft && b.draft.adviceSource === "ai_draft_approved" && b.draft.advice === ai.text;
+  const statusText = !editable ? (readOnlyNote || "Read only")
+    : status === "pending" ? "Saving draft"
+    : status === "saved" ? "Draft saved"
+    : b.draft ? `Draft v${b.draft.version}, ${b.draft.adviceSource === "ai_draft_approved" ? "from the drafting preview, edited by you" : "written by you"}`
+    : "No draft yet";
+  const insert = editable ? (
+    <Select value="" aria-label="Insert approved wording" onChange={(e) => { const w = WORDING.find((x) => x.id === e.target.value); if (w) { change(w.text); flush(); } }}>
+      <option value="">Insert approved sample wording</option>
+      {WORDING.map((w) => <option key={w.id} value={w.id}>{w.label}</option>)}
+    </Select>
+  ) : null;
+  const aiPreview = ai ? (
+    <div className="phr-gap" style={{ gap: 8 }}>
+      <div className="phr-csv" style={{ whiteSpace: "pre-wrap", fontFamily: "inherit", fontSize: 12 }}>{ai.text}</div>
+      <div className="phr-row" style={{ justifyContent: "space-between" }}>
+        <span className="phr-sub">Prepared {fmtTime(ai.at)}. Demo content for you to edit and approve. It never diagnoses, invents values or decides urgency.</span>
+        <Button size="sm" disabled={usedAi} onClick={() => { flush(); dispatch(act.acceptAiDraft(id)); }}>{usedAi ? "Copied into advice" : "Copy into advice"}</Button>
+      </div>
+    </div>
+  ) : null;
+
+  if (variant === "sheet") {
+    return (
+      <div className="phr-gap" style={{ gap: 0 }}>
+        <textarea className="phr-vw-advice-input" rows={4} value={text} disabled={!editable} onChange={(e) => change(e.target.value)} onBlur={flush}
+          aria-label="New advice for the participant"
+          placeholder={editable ? "Write the participant's advice in plain language. Only what the results support." : "No advice written."} />
+        <div className="phr-vw-advice-bar">
+          <span className="phr-sub">{statusText}</span>
+          <span className="phr-sub ph-num">{text.trim().length} characters</span>
+          <span className="ph-grow" />
+          {insert ? <div style={{ minWidth: 0, flex: "0 1 260px" }}>{insert}</div> : null}
+          {editable ? (
+            <Button size="sm" variant="ghost" icon="spark" disabled={!aiOn} aria-expanded={aiOpen}
+              title={aiOn ? "Optional. Prepares a draft from this episode's own flags for you to edit." : "Switched off in Settings, AI Controls. Writing advice manually is unaffected."}
+              onClick={() => { if (!ai) dispatch(act.aiDraft(id)); setAiOpen((o) => !o || !ai); }}>
+              Draft with AI, optional
+            </Button>
+          ) : null}
+        </div>
+        {editable && aiOpen && ai ? <div className="phr-vw-advice-ai">{aiPreview}</div> : null}
+      </div>
+    );
+  }
 
   return (
     <div className="phr-gap">
       <Textarea rows={6} value={text} disabled={!editable} onChange={(e) => change(e.target.value)} onBlur={flush}
         aria-label="Advice for the participant" placeholder="Write advice for the participant in plain language. Do not include anything not supported by the results." />
       <div className="phr-row" style={{ justifyContent: "space-between" }}>
-        <span className="phr-sub">{!editable ? "Read only" : status === "pending" ? "Saving draft" : status === "saved" ? "Draft saved" : b.draft ? `Draft v${b.draft.version}, ${b.draft.adviceSource === "ai_draft_approved" ? "from the drafting preview, edited by you" : "written by you"}` : "No draft yet"}</span>
+        <span className="phr-sub">{statusText}</span>
         <span className="phr-sub ph-num">{text.trim().length} characters</span>
       </div>
-      {editable ? (
-        <Select value="" aria-label="Insert approved wording" onChange={(e) => { const w = WORDING.find((x) => x.id === e.target.value); if (w) { change(w.text); flush(); } }}>
-          <option value="">Insert approved sample wording</option>
-          {WORDING.map((w) => <option key={w.id} value={w.id}>{w.label}</option>)}
-        </Select>
-      ) : null}
+      {insert}
       {editable ? (
         <div style={{ borderTop: "1px solid var(--border)", paddingTop: 10 }}>
           <div className="phr-row" style={{ justifyContent: "space-between", gap: 6 }}>
-            <span style={{ fontSize: 12, fontWeight: 600, color: "var(--ink)" }}>Clinical Drafting preview</span>
+            <span style={{ fontSize: 12, fontWeight: 600, color: "var(--ink)" }}>Draft with AI</span>
             <DemoTag>Optional, no model connected</DemoTag>
           </div>
           {!aiOn ? (
             <div className="phr-sub" style={{ marginTop: 6 }}>Switched off in Settings, AI Controls. Writing advice manually is unaffected.</div>
-          ) : ai ? (
-            <div className="phr-gap" style={{ marginTop: 8 }}>
-              <div className="phr-csv" style={{ whiteSpace: "pre-wrap", fontFamily: "inherit", fontSize: 12 }}>{ai.text}</div>
-              <div className="phr-row" style={{ justifyContent: "space-between" }}>
-                <span className="phr-sub">Prepared {fmtTime(ai.at)}. Demo content for you to edit and approve.</span>
-                <Button size="sm" disabled={usedAi} onClick={() => { flush(); dispatch(act.acceptAiDraft(id)); }}>{usedAi ? "Copied into advice" : "Copy into advice"}</Button>
-              </div>
-            </div>
-          ) : (
+          ) : ai ? <div style={{ marginTop: 8 }}>{aiPreview}</div> : (
             <div className="phr-gap" style={{ marginTop: 6 }}>
               <div className="phr-sub">Drafts wording from this episode's own flag labels and approved content. It never diagnoses, invents values or decides urgency.</div>
               <div><Button size="sm" icon="spark" onClick={() => dispatch(act.aiDraft(id))}>Prepare a drafting preview</Button></div>
@@ -233,11 +336,11 @@ function AdviceEditor({ b, editable }: { b: Bundle; editable: boolean }) {
   );
 }
 
-export function AdviceCard({ b, editable, mode }: { b: Bundle; editable: boolean; mode: "review" | "correction" }) {
+export function AdviceCard({ b, editable, mode, onTextChange }: { b: Bundle; editable: boolean; mode: "review" | "correction"; onTextChange?: (text: string) => void }) {
   return (
     <Card pad="sm">
       <SecTitle right={<>{b.draft ? <Pill tone="info" icon="edit">Draft</Pill> : null}<span className="phr-sub">{mode === "correction" ? "Starts from the released advice" : "Clinician-owned"}</span></>}>Participant advice</SecTitle>
-      <AdviceEditor key={b.episode.id + ":" + mode} b={b} editable={editable} />
+      <AdviceEditor key={b.episode.id + ":" + mode} b={b} editable={editable} onTextChange={onTextChange} />
     </Card>
   );
 }
@@ -247,6 +350,7 @@ export function PreviewCard({ b, onOpen, seen, mode }: { b: Bundle; onOpen: () =
   const advice = b.draft ? b.draft.advice : b.released ? b.released.advice : "";
   const review = b.observations.filter((o) => o.flag === "review_required").length;
   const pend = b.tests.filter((t) => t.status !== "received").length;
+  const q = b.episode.qrisk;
   const visible = b.episode.reportState === "released" && !b.draft;
   return (
     <Card pad="sm">
@@ -254,11 +358,11 @@ export function PreviewCard({ b, onOpen, seen, mode }: { b: Bundle; onOpen: () =
       <div style={{ marginBottom: 8 }}><Button size="sm" icon="eye" onClick={onOpen}>Preview participant report</Button></div>
       <ul style={{ margin: 0, paddingLeft: 18, fontSize: 12, lineHeight: 1.6, color: "var(--body)" }}>
         <li>Advice page: {advice.trim() ? "written" : "not written yet"}</li>
-        <li>Your answers: questionnaire, self-reported</li>
-        <li>Test sections: {b.tests.length} expected tests{review ? `, ${review} marked Review required` : ""}{pend ? `, ${pend} not yet received` : ""}</li>
-        <li>Body measurements, BMI calculated locally</li>
-        <li>QRISK3: approved integration required, no score</li>
-        <li>Explanation, limitations and next steps</li>
+        <li>Lifestyle questionnaire answers, self-reported</li>
+        <li>Test pages: {b.tests.length} laboratory tests{review ? `, ${review} borderline or abnormal` : ""}{pend ? `, ${pend} not yet received` : ""}</li>
+        <li>Blood pressure, BMI, waist, ECG and urinalysis</li>
+        <li>QRISK3: {q && q.eligible && q.score10y != null ? "licensed engine, sample output" : q && !q.eligible ? "not calculated for this participant" : "awaiting the licensed engine"}</li>
+        <li>What is tested, limitations and what to do, per topic</li>
       </ul>
       <div className="phr-sub" style={{ marginTop: 8 }}>
         {visible ? "This version is visible to the participant in the portal." : mode === "correction" ? "The participant keeps seeing the released version until the correction is released." : "Not visible to the participant until it is released."}

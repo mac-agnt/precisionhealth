@@ -13,6 +13,7 @@ import {
   upcomingSessions,
 } from "./selectors";
 import { ProgTag, SlotLegend, SlotTimeline, StateIcon } from "./shared";
+import { requestNursePortalNurse } from "../NursePortal/data";
 
 export default function Overview() {
   const state = usePhState();
@@ -31,6 +32,7 @@ export default function Overview() {
           title="Today's clinics"
           sub={`${plural(ds.sessions, "clinic")} today, ${ds.booked} of ${ds.capacity} slots booked. Slots come from each clinic day: 09:00 to 16:15 in 15-minute slots around breaks that are never bookable. Sites, rooms and assignments are illustrative.`}
           actions={<>
+            {nav.openNursePortal ? <Button icon="heart" onClick={nav.openNursePortal} title="Open the tablet nurse portal preview: check in, the nurse form, specimens and clinic close">Open nurse portal</Button> : null}
             <Button icon="calendar" onClick={() => nav.go({ page: "Clinics", tab: "schedule", params: { date: t } })}>Schedule</Button>
             <Button variant="primary" icon="list" onClick={() => nav.go({ page: "Clinics", tab: "appointments", params: { date: t } })}>Today's appointments</Button>
           </>}
@@ -168,6 +170,7 @@ function ClinicCard({ session: s }: { session: ClinicSession }) {
       <div className="ph-wrap" style={{ marginTop: "auto" }}>
         <Button size="sm" variant="primary" icon="list" onClick={() => nav.go({ page: "Clinics", tab: "appointments", params: { date: s.date, session: s.id } })}>Day list</Button>
         <Button size="sm" icon="calendar" onClick={() => nav.go({ page: "Clinics", tab: "schedule", params: { view: "day", date: s.date, session: s.id } })}>Session</Button>
+        {nav.openNursePortal ? <Button size="sm" icon="heart" title={`Open ${staffName(state, s.nurseId)}'s clinic in the nurse portal preview`} onClick={() => { requestNursePortalNurse(s.nurseId); nav.openNursePortal?.(); }}>Nurse portal</Button> : null}
       </div>
     </Card>
   );

@@ -23,19 +23,37 @@ Every screen is linkable: `#/Results/imports?batch=BATCH-20261002-01`, `#/Partic
 | Module | Tabs |
 | --- | --- |
 | Home | Pulse chat, deterministic answers with links to the records behind them |
-| Agents | Overview, Conversations, Activity (seven agents, all drafting or watching, none acting) |
+| Agents | Conversations, Activity (seven agents, all drafting or watching, none acting) |
 | Dashboard | Executive, Clinic Operations, Clinical Delivery |
 | Programmes | Overview, Programmes, Forms & Templates, Invitations |
 | Clinics | Overview, Schedule, Appointments, Team & Resources |
 | Participants | Directory, Screening History, Communications |
 | Results | Inbox, Imports, Review, Follow-up, Corrections |
 | Reporting | Overview, Report Builder, Exports |
-| Work | Tasks, Approvals, Workflows, Schedules |
+| Work | Automations, Tasks, Approvals, Workflows, Schedules |
 | Records | Ontology, Files, Contacts, Companies, Staff |
 | Activity | Everything, People, Agents, Needs Attention |
 | Settings | Organisation, Teams, Permissions, Systems & Integrations, Governance, AI Controls, Experience |
 
-The Participant Portal Preview is a separate responsive view (Overview, Appointments, Questionnaire, My Results, Account). Open it from the persona menu or from a participant record.
+Three portal previews sit outside the staff navigation. Open them from the persona menu (top right):
+
+| Portal | For | What it does |
+| --- | --- | --- |
+| Participant | The screened employee | Invitation code, your details (Irish mobile format), Precision Health's consent form, pre-screening questionnaire, then a time slot. Consent and questionnaire come before a booking is confirmed. My Results shows the released report in the same structure as the PDF sent today. Deep link `?portal=1&person=PH-P-0801`. |
+| Nurse | The nurse on clinic day | Picks the nurse, opens today's clinic, checks in with two identifiers, and runs the Sisk Comprehensive (LAB) V2 nurse form section by section, with questionnaire answers to confirm, ECG codes, FIT and PSA informed choice, specimen labels, sign-off and a courier manifest at clinic close. Deep link `?nurse=1`. |
+| Client | The employer's HR contact | Aggregate programme figures, upcoming clinic capacity, the booking link to share, and approved employer reports. No names, no individual results. Deep link `?client=1`. |
+
+## Built from Precision Health's own material
+
+`docs/client-source/INPUTS.md` records everything Precision Health sent on 2 October 2026: the booking form, the Sisk Comprehensive (LAB) V2 nurse form, the clinician's Reporting Viewer, the 17-page sample report and the ten-page specification. Where the demo and that file disagree, that file wins.
+
+- **Nurse form**: every field, option and rule on their form, including "Approve? No. Significantly abnormal results. Refer to doctor." (creates a doctor review task) and "Irregular ECG and irregular pulse: send photos to the clinical channel" (creates an ECG review task; replaces Slack).
+- **Lab panel**: 28 tests plus calculated non-HDL and Total:HDL, with the ranges from their report and their four colours: green normal, yellow borderline, orange outside range, grey not tested.
+- **Clinician viewer**: Results, Review uses their viewer's labels and layout, with the red NEW ADVICE box as the advice editor.
+- **Participant report**: one renderer (`src/ph/report/ScreeningReport.tsx`) for the portal, the clinician preview and print. It follows their sample report page by page.
+- **Automations**: Work, Automations lists 16 flows, each with how it runs today (Jotform, Esendex, Eurofins FTP, Google Workspace, Excel, Slack, Monday.com) and how Pulse runs it, with live counts and a source label.
+
+Decisions for Precision Health to confirm: the illustrative band rules (`RULE_SET_LABEL`), ranges with no source in their material (ALP, B12, folate), blood pressure below 140/90 shown green with the word MILD (as in their viewer and report), QRISK3 values shown as sample output of a licensed engine, the drafted report text for vitamins and minerals and for breast and cervical screening, the preparation instructions in the booking flow, the 48-hour review escalation, and the small-cell rules (employer export blocked under 10, cells hidden under 5; the spec proposes 10 for both).
 
 Two layout rules come from `CLAUDE.md` and override the client brief: **Agents sits directly under Home**, and **Records opens on Ontology**.
 
@@ -68,7 +86,10 @@ src/views        original Pulse shell and pages (Home, Agents conversations, Rec
 | Failed reminders (2), retry moves one from failed to delivered | Participants, Communications |
 | Urgent follow-up due 09:00, needs an outcome and acknowledgement | Results, Follow-up |
 | Sisk employer report, six-person filter blocked | Reporting, Report Builder |
-| Orla books through the portal | Participant Portal Preview |
+| Orla books through the portal | Participant portal |
+| Nurse referral and irregular ECG raise doctor tasks | Nurse portal, then Work, Tasks and Work, Automations (AUT-06, AUT-07) |
+| Bloods not taken: completes with a reason, goes straight to review | Nurse portal |
+| Employer sees only aggregates | Client portal |
 
 ## Customising
 

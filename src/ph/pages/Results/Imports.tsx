@@ -6,10 +6,10 @@
 import { useState } from "react";
 import type { ReactNode } from "react";
 import {
-  ANALYTES, STORY_DEFS, act, batchList, batchRows, batchStats, fmtDateTime, fmtNumericDate, fmtShortDateTime, fmtTime, fmtWhen, persona,
+  ANALYTES, STORY_DEFS, act, batchList, batchRows, batchStats, fmtDateTime, fmtNumericDate, fmtShortDateTime, fmtTime, fmtWhen, ix, persona,
   reuploadPreview, staffName,
 } from "../../model";
-import type { BatchStats, ImportRow } from "../../model";
+import type { BatchStats, ImportBatch, ImportRow } from "../../model";
 import { dispatch, usePhState } from "../../store";
 import { useNav } from "../../nav-context";
 import {
@@ -26,6 +26,14 @@ type RowFilter = "all" | "imported" | "resolved" | "duplicate" | "quarantined" |
 /** Columns in the bundled Eurofins CSV, in file order. */
 const CSV_COLUMNS = ["Specimen ID", "Surname/Initial", "DOB", "Analyte", "Result", "Unit", "Result date"] as const;
 const FILTERS: RowFilter[] = ["all", "imported", "resolved", "duplicate", "quarantined", "unit", "dob"];
+
+/** Eurofins sends the lipids and HbA1c first and the rest of the Comprehensive panel in a separate file. */
+export const BATCH_KIND: Record<NonNullable<ImportBatch["kind"]>, { label: string; short: string; detail: string }> = {
+  core: { label: "Core batch: lipids and HbA1c", short: "Core", detail: "Total, HDL and LDL cholesterol, triglycerides and HbA1c." },
+  extended: { label: "Extended panel batch", short: "Extended", detail: "Full blood count, kidney, liver, thyroid, iron, vitamins and minerals, PSA and FIT where taken." },
+  sample: { label: "Sample delivery", short: "Sample", detail: "Simulated results loaded in this session for one episode." },
+};
+const kindOf = (b: ImportBatch) => BATCH_KIND[b.kind || "core"];
 
 export default function Imports() {
   const state = usePhState();
@@ -69,11 +77,10 @@ function ImportsWorkspace() {
         </>} />
 
       <KpiStrip>
-        <Kpi label="Observation rows" value={<Count n={stats.rows} unit="rows" />} sub={`In ${batchId}`} icon="list" />
-        <Kpi label="Imported" value={<Count n={stats.imported} unit="rows" />} sub={stats.resolved ? `Includes ${stats.resolved} resolved by a person` : "Accepted on arrival"} icon="check" />
-        <Kpi label="Duplicates skipped" value={<Count n={stats.duplicates} unit="rows" />} sub="Already imported, not created twice" icon="layers" />
-        <Kpi label="Quarantined" value={<Count n={stats.quarantined} unit="rows" />} sub="Held for explicit human resolution" icon="alert" onClick={() => setFilter("quarantined")} hint="Show the quarantined rows" />
-        <Kpi label="Specimen records" value={<Count n={stats.specimens} unit="specimens" />} sub="Labelled separately from rows and people" icon="flask" />
+        <Kpi label="Rows received" value={<Count n={stats.rows} unit="rows" />} sub={`${kindOf(stats.batch).short} batch, ${stats.specimens} specimens. Rows, not people`} icon="list" onClick={() => setFilter("all")} hint="Show every row" />
+        <Kpi label="Accepted" value={<Count n={stats.imported} unit="rows" />} sub={stats.resolved ? `Committed, ${stats.resolved} after a documented resolution` : "Committed to episode records"} icon="check" onClick={() => setFilter("imported")} hint="Show the accepted rows" />
+        <Kpi label="Quarantined" value={<Count n={stats.quarantined} unit="rows" />} sub="Identity conflicts, held for a person" icon="alert" onClick={() => setFilter("quarantined")} hint="Show the quarantined rows" />
+        <Kpi label="Duplicates" value={<Count n={stats.duplicates} unit="rows" />} sub="Excluded from commit, never created twice" icon="layers" onClick={() => setFilter("duplicate")} hint="Show the duplicate rows" />
       </KpiStrip>
 
       {stats.quarantined ? (
@@ -138,9 +145,10 @@ function BatchSummary({ s }: { s: BatchStats }) {
   const v = validationSummary(state, s.batch.id);
   return (
     <Card>
-      <CardHeader eyebrow={`${s.batch.lab}, ${s.partial ? "partially imported" : "imported in full"}`} title={<span className="phr-mono" style={{ fontSize: 14 }}>{s.batch.id}</span>}
+      <CardHeader eyebrow={`${s.batch.lab}, ${kindOf(s.batch).label.toLowerCase()}, ${s.partial ? "partially imported" : "imported in full"}`} title={<span className="phr-mono" style={{ fontSize: 14 }}>{s.batch.id}</span>}
         sub={<span className="phr-mono" style={{ fontSize: 11.5 }}>{s.batch.filename}</span>}
         right={<>
+          <KindPill batch={s.batch} />
           {s.partial ? <Pill tone="warn" icon="alert">{s.quarantined} rows held</Pill> : <Pill tone="ok" icon="check">Complete</Pill>}
           <Button size="sm" variant="ghost" icon="list" onClick={() => document.getElementById("phr-mapping")?.scrollIntoView({ behavior: "smooth", block: "start" })}>View column mapping</Button>
         </>} />
@@ -156,6 +164,7 @@ function BatchSummary({ s }: { s: BatchStats }) {
           { k: "Received", v: fmtDateTime(s.batch.receivedAt) },
           { k: "Processed", v: fmtDateTime(s.batch.processedAt) },
           { k: "Observations created", v: <span className="ph-num">{s.observations}</span> },
+          { k: "Panel", v: `${kindOf(s.batch).label}. ${kindOf(s.batch).detail}`, wide: true },
           { k: "Source", v: s.batch.source, wide: true },
           { k: "Note", v: s.batch.note, wide: true },
         ]} />
@@ -215,17 +224,31 @@ function Exceptions({ batchId, onOpen }: { batchId: string; onOpen: (id: string)
   );
 }
 
+function KindPill({ batch }: { batch: ImportBatch }) {
+  const k = batch.kind || "core";
+  return <Pill tone={k === "extended" ? "info" : k === "sample" ? "neutral" : "brand"} icon={k === "extended" ? "layers" : k === "sample" ? "flask" : "heart"} title={BATCH_KIND[k].detail}>{BATCH_KIND[k].short}</Pill>;
+}
+
 function BatchListCard({ batches, selected, onSelect }: { batches: BatchStats[]; selected: string; onSelect: (id: string) => void }) {
+  const [kind, setKind] = useState<"all" | "core" | "extended">("all");
+  const count = (k: "core" | "extended") => batches.filter((b) => (b.batch.kind || "core") === k).length;
+  const shown = batches.filter((b) => kind === "all" || (b.batch.kind || "core") === kind || (kind === "core" && b.batch.kind === "sample"));
   return (
     <Card pad={false}>
       <div style={{ padding: "14px 16px 4px" }}>
-        <CardHeader title="Batches" sub={`${batches.length} Eurofins files, newest first. Simulated history.`} />
+        <CardHeader title="Batches" sub={`${batches.length} Eurofins files, newest first. Lipids and HbA1c arrive first; the extended panel follows in its own file. Simulated history.`} />
+        <div className="phr-row" style={{ marginBottom: 6 }}>
+          <Chip on={kind === "all"} onClick={() => setKind("all")} count={batches.length}>All</Chip>
+          <Chip on={kind === "core"} onClick={() => setKind("core")} count={count("core") + batches.filter((b) => b.batch.kind === "sample").length}>Core</Chip>
+          <Chip on={kind === "extended"} onClick={() => setKind("extended")} count={count("extended")}>Extended panel</Chip>
+        </div>
       </div>
       <div className="phr-list" style={{ padding: "0 8px 10px" }}>
-        {batches.map((b) => (
+        {shown.map((b) => (
           <button key={b.batch.id} type="button" className="phr-item" aria-current={b.batch.id === selected} onClick={() => onSelect(b.batch.id)}>
             <div className="ph-row-flex" style={{ gap: 6 }}>
               <span className="phr-mono ph-grow ph-trunc" style={{ color: "var(--ink)" }}>{b.batch.id}</span>
+              <KindPill batch={b.batch} />
               {b.quarantined ? <Pill tone="warn" icon="alert">{b.quarantined} held</Pill> : <Pill tone="ok" icon="check">Complete</Pill>}
             </div>
             <div className="phr-sub" style={{ marginTop: 3 }}>
@@ -339,33 +362,53 @@ function RowsCard({ batchId, filter, setFilter, onOpen, selected }: { batchId: s
     if (filter === "dob" && participantCheck(state, r).status !== "mismatch") return false;
     if (["imported", "resolved", "duplicate", "quarantined"].includes(filter) && r.state !== filter) return false;
     if (!query) return true;
-    return `${r.id} ${r.specimenKey} ${r.nameInFile} ${r.analyteCode}`.toLowerCase().includes(query);
+    const ep = r.episodeId ? ix(state).episodeById.get(r.episodeId) : participantCheck(state, r).episode;
+    return `${r.id} ${r.specimenKey} ${r.nameInFile} ${r.analyteCode} ${ep ? `${ep.id} ${ep.screeningRef}` : ""}`.toLowerCase().includes(query);
   });
   const narrow = w > 0 && w < 820;
+  const checkPill = (r: ImportRow) => {
+    const c = participantCheck(state, r);
+    const look = c.status === "match" && c.nameMatch === false ? CHECK_TONE.mismatch : CHECK_TONE[c.status];
+    return <Pill tone={look.tone} icon={look.icon}>{checkLabel(c)}</Pill>;
+  };
+  const uniqueId = (r: ImportRow) => {
+    const ep = r.episodeId ? ix(state).episodeById.get(r.episodeId) : participantCheck(state, r).episode;
+    return ep ? <span className="phr-mono" style={{ color: "var(--ink)" }}>{ep.screeningRef}</span> : <span className="ph-faint">Not matched</span>;
+  };
+  const observation = (r: ImportRow) => {
+    const name = ANALYTES[r.analyteCode].name;
+    if (r.state === "quarantined") return <span>{name}, <span className="ph-faint">held</span></span>;
+    if (r.state === "duplicate") return <span>{name}, <span className="ph-faint">unchanged</span></span>;
+    return showValues
+      ? <span>{name} <span className="ph-num" style={{ color: "var(--ink)" }}>{r.valueText}</span> {r.unit === ANALYTES[r.analyteCode].unit ? <span className="ph-faint">{r.unit}</span> : <span style={{ color: "var(--warn)" }}>{r.unit}</span>}</span>
+      : <span>{name} <HiddenValue label="Value hidden" /></span>;
+  };
   const cols: Column<ImportRow>[] = [
-    { key: "line", header: "Line", align: "right", cell: (r) => <span className="ph-num">{r.line}</span>, sort: (a, b) => a.line - b.line },
-    { key: "spec", header: "Specimen", cell: (r) => <div><div className="phr-mono" style={{ color: "var(--ink)" }}>{r.specimenKey}</div>{narrow ? <div className="phr-sub">{r.analyteCode}, {showValues ? `${r.valueText} ${r.unit}` : "value hidden"}</div> : null}</div>, sort: (a, b) => (a.specimenKey < b.specimenKey ? -1 : 1) },
-    ...(narrow ? [] : [
-      { key: "test", header: "Test", cell: (r: ImportRow) => <span className="phr-mono">{r.analyteCode}</span> },
-      { key: "val", header: "Result", align: "right" as const, cell: (r: ImportRow) => showValues ? <span className="ph-num">{r.valueText}</span> : <HiddenValue label="Hidden" /> },
-      { key: "unit", header: "Unit", cell: (r: ImportRow) => r.unit === ANALYTES[r.analyteCode].unit ? r.unit : <span style={{ color: "var(--warn)" }}>{r.unit}</span> },
-      { key: "check", header: "Participant check", cell: (r: ImportRow) => { const c = participantCheck(state, r); const look = c.status === "match" && c.nameMatch === false ? CHECK_TONE.mismatch : CHECK_TONE[c.status]; return <Pill tone={look.tone} icon={look.icon}>{checkLabel(c)}</Pill>; } },
-      { key: "ep", header: "Episode", cell: (r: ImportRow) => r.episodeId ? <EntityLink kind="episode" id={r.episodeId} /> : <span className="ph-faint">None</span> },
-    ]),
-    { key: "state", header: "State", cell: (r) => <RowStatePill state={r.state} /> },
+    { key: "line", header: "Row", align: "right", cell: (r) => <span className="ph-num">{String(r.line).padStart(3, "0")}</span>, sort: (a, b) => a.line - b.line },
+    { key: "spec", header: "Episode / specimen", cell: (r) => (
+      <div>
+        <div className="phr-mono" style={{ color: "var(--ink)" }}>{r.episodeId || participantCheck(state, r).episode?.id || "No episode"}</div>
+        <div className="phr-mono ph-faint">{r.specimenKey}</div>
+        {narrow ? <div style={{ marginTop: 3 }}>{uniqueId(r)}</div> : null}
+      </div>
+    ), sort: (a, b) => (a.specimenKey < b.specimenKey ? -1 : 1) },
+    ...(narrow ? [] : [{ key: "uid", header: "Unique ID", cell: (r: ImportRow) => uniqueId(r) }]),
+    { key: "check", header: "Identity check", nowrap: false, cell: (r) => <div><div style={{ fontSize: 12 }}>{r.nameInFile}{r.dobInFile ? `, ${fmtNumericDate(r.dobInFile)}` : ""}</div><div style={{ marginTop: 3 }}>{checkPill(r)}</div></div> },
+    ...(narrow ? [] : [{ key: "obs", header: "Observation", nowrap: false, cell: (r: ImportRow) => observation(r) }]),
+    { key: "state", header: "Status", cell: (r) => <RowStatePill state={r.state} /> },
   ];
   return (
     <Card pad={false}>
       <div ref={ref} style={{ padding: "14px 16px 10px" }}>
         <CardHeader title="Rows" sub={`Every observation row in ${batchId}, exactly as received. Open a row for provenance, checks and its audit trail.`}
-          right={<SearchBox value={q} onChange={setQ} placeholder="Row, specimen, name or test" width={240} />} />
+          right={<SearchBox value={q} onChange={setQ} placeholder="Row, Unique ID, specimen, name or test" width={260} />} />
         <div className="phr-row">
           {FILTERS.filter((f) => f === "all" || counts[f] > 0 || f === filter).map((f) => <Chip key={f} on={filter === f} onClick={() => setFilter(f)} count={counts[f]}>{label[f]}</Chip>)}
         </div>
       </div>
       <DataTable rows={shown} columns={cols} rowKey={(r) => r.id} onRowClick={(r) => onOpen(r.id)} selectedKey={selected} pageSize={25}
         empty={<EmptyState title="No rows match" icon="search">Clear the search or choose another filter.</EmptyState>}
-        footerNote={`Matched on the unique specimen and test key; date of birth and name are cross-checked, never used to match.${showValues ? "" : " Result values are hidden for this role."}`} />
+        footerNote={`Matched on the specimen ID and the episode's Unique ID; date of birth and name are cross-checked before anything is attached. Specimen plus test is the duplicate key.${showValues ? "" : " Result values are hidden for this role."}`} />
     </Card>
   );
 }

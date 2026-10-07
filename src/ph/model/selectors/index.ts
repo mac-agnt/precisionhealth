@@ -3,3 +3,4 @@ export * from "./clinical";
 export * from "./ops";
 export * from "./reporting";
 export * from "./people";
+export * from "./report";

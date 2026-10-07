@@ -29,7 +29,7 @@ export const PAGES: PageDef[] = [
   { id: "Reporting", label: "Reporting", icon: "navReporting", hint: "Employer reports", tabs: [
     { id: "overview", label: "Overview" }, { id: "report-builder", label: "Report Builder" }, { id: "exports", label: "Exports" }] },
   { id: "Work", label: "Work", icon: "navWork", hint: "Tasks and approvals", tabs: [
-    { id: "tasks", label: "Tasks" }, { id: "approvals", label: "Approvals" }, { id: "workflows", label: "Workflows" }, { id: "schedules", label: "Schedules" }] },
+    { id: "automations", label: "Automations" }, { id: "tasks", label: "Tasks" }, { id: "approvals", label: "Approvals" }, { id: "workflows", label: "Workflows" }, { id: "schedules", label: "Schedules" }] },
   { id: "Records", label: "Records", icon: "navRecords", hint: "Companies, staff, files", tabs: [
     { id: "ontology", label: "Ontology" }, { id: "files", label: "Files" }, { id: "contacts", label: "Contacts" }, { id: "companies", label: "Companies" }, { id: "staff", label: "Staff" }] },
   { id: "Activity", label: "Activity", icon: "pulseLine", hint: "Audit history", tabs: [

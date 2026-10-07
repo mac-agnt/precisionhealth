@@ -1,11 +1,12 @@
 /* Agents, Overview: the seven agents with their job, permitted data scope, what each may and may
    not do, the last simulated action and the items waiting for a human. "AI handled" means a visible
    simulated preparation or check, never an automated decision. Every figure is derived from the
-   shared store, and the action counts are the same entries as the Activity feeds. */
+   shared store, and the action counts are the same entries as the Activity feeds. Each agent links to
+   the automations it supports in Work, Automations. */
 import { useMemo } from "react";
 import AgentFace from "../../../components/AgentFace";
 import {
-  AGENT_DEFS, agentEvents, batchStats, canViewEpisodeClinical, fmtWhen, jobViews, linkFor, localDateOf, plural, programmeCounts, reminderStats, scheduleOverlaps, sessionStats, staffName,
+  AGENT_DEFS, agentEvents, automationsForAgent, batchStats, canViewEpisodeClinical, fmtWhen, jobViews, linkFor, localDateOf, plural, programmeCounts, reminderStats, scheduleOverlaps, sessionStats, staffName,
   storyViews, today, todaySessions, visibleTasks,
 } from "../../model";
 import type { ActivityView, AgentDef, NavTarget, PhState } from "../../model";
@@ -13,7 +14,7 @@ import { usePersona, usePhState } from "../../store";
 import { useNav } from "../../nav-context";
 import { Button, Card, DemoTag, Icon, Kpi, KpiStrip, PageHeader, Pill, Drawer } from "../../ui";
 import type { GlyphName, Tone } from "../../ui";
-import { StaffOnly, Tag, WIDE_MIN, isClinicalViewer, mergeParams, storyVisible, useMeasure } from "../Work/shared";
+import { AutomationChip, StaffOnly, Tag, WIDE_MIN, isClinicalViewer, mergeParams, storyVisible, useMeasure } from "../Work/shared";
 import { EventDrawer, EventRow, useEventParam } from "../Activity/feed";
 import "../Work/phf.css";
 
@@ -259,6 +260,12 @@ function AgentDetail({ state, info, onOpenEvent, bare }: { state: PhState; info:
         <div className="phf-sectiontitle">Permitted data scope</div>
         <div className="ph-wrap" style={{ gap: 6 }}>{d.scope.map((s) => <Tag key={s}>{s}</Tag>)}</div>
       </div>
+      {automationsForAgent(d.id).length ? (
+        <div>
+          <div className="phf-sectiontitle">Automations it supports</div>
+          <div className="ph-wrap" style={{ gap: 6 }}>{automationsForAgent(d.id).map((a) => <AutomationChip key={a.id} id={a.id} withName />)}</div>
+        </div>
+      ) : null}
       <div className="phf-cols2 narrow" style={{ gap: 10 }}>
         <div>
           <div className="phf-sectiontitle">May do</div>

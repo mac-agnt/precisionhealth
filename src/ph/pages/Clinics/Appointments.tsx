@@ -12,6 +12,7 @@ import { apptRow, captureRule, checkInRule, dayAppointments, placeLabel, session
 import { APPT_META, ApptPill, ProgTag, useWidth } from "./shared";
 import { Workspace } from "./Workspace";
 import { LogisticsView } from "./Logistics";
+import { requestNursePortalNurse } from "../NursePortal/data";
 
 type StatusFilter = "active" | "arrive" | "in" | "done" | "cancelled";
 const STATUS_OF: Record<StatusFilter, ApptStatus[]> = {
@@ -144,6 +145,10 @@ function DayList() {
           sub={sessions.length
             ? `${fmtDateLong(date)}. Times are Europe/Dublin${date === t ? `, as of ${fmtTime(state.clock.nowUtc)}` : ""}. Select an appointment to open the clinical workspace or, for logistics roles, the appointment details.`
             : `${fmtDateLong(date)}: no clinics on this day.`}
+          actions={nav.openNursePortal && date === t && sessions.length ? (
+            <Button icon="heart" onClick={() => { const own = sessions.find((s) => s.nurseId === p.id) || (shown.length === 1 ? shown[0] : null); requestNursePortalNurse(own ? own.nurseId : null); nav.openNursePortal?.(); }}
+              title="Open the tablet nurse portal preview for today's clinic">Open nurse portal</Button>
+          ) : undefined}
         />
         {sessions.length ? (
           <KpiStrip>

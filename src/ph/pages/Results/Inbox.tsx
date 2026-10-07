@@ -79,6 +79,16 @@ export default function Inbox() {
   );
 }
 
+/** Episode identifiers. Clinical roles also see the Precision Health unique ID they match results on. */
+function EpisodeIds({ e, code, clinical }: { e: Episode; code?: string; clinical: boolean }) {
+  return (
+    <div className="phr-mono ph-faint">
+      {clinical ? <span style={{ color: "var(--dim)" }} title="Precision Health unique ID">{e.screeningRef} </span> : null}
+      {e.id}{code ? `, ${code}` : ""}
+    </div>
+  );
+}
+
 /* ---- awaiting tests: episodes ---- */
 interface AwaitRow { e: Episode; name: string; code: string; received: number; expected: number; pending: string[]; atLab: boolean }
 function AwaitingQueue() {
@@ -87,6 +97,7 @@ function AwaitingQueue() {
   const p = persona(state);
   const [ref, w] = useWidth();
   const I = ix(state);
+  const clinical = p.perms.has("clinical.view");
   const rows: AwaitRow[] = awaitingQueue(state).map((e) => {
     const t = expectedTests(state, e);
     const person = I.personById.get(e.personId)!;
@@ -95,7 +106,7 @@ function AwaitingQueue() {
   });
   const narrow = w > 0 && w < 560;
   const cols: Column<AwaitRow>[] = [
-    { key: "ep", header: "Episode", cell: (r) => <div><div style={{ color: "var(--ink)" }}>{r.name}</div><div className="phr-mono ph-faint">{r.e.id} · {r.code}</div></div>, sort: (a, b) => (a.e.id < b.e.id ? -1 : 1) },
+    { key: "ep", header: "Episode", cell: (r) => <div><div style={{ color: "var(--ink)" }}>{r.name}</div><EpisodeIds e={r.e} code={r.code} clinical={clinical} /></div>, sort: (a, b) => (a.e.id < b.e.id ? -1 : 1) },
     ...(narrow ? [] : [{ key: "col", header: "Collected", cell: (r: AwaitRow) => fmtDate(r.e.collectedAt), sort: (a: AwaitRow, b: AwaitRow) => (a.e.collectedAt < b.e.collectedAt ? -1 : 1) }]),
     { key: "rec", header: "Results", cell: (r) => <div style={{ minWidth: 90 }}><div className="ph-num" style={{ fontSize: 12 }}>{r.received} of {r.expected} tests</div><div style={{ marginTop: 4 }}><ProgressBar value={r.received} max={r.expected} label={`${r.received} of ${r.expected} tests received`} /></div></div>, sort: (a, b) => a.received / a.expected - b.received / b.expected },
     ...(narrow ? [] : [{ key: "pend", header: "Pending", nowrap: false, cell: (r: AwaitRow) => <span style={{ fontSize: 12 }}>{r.pending.join(", ")}</span> }]),
@@ -170,7 +181,7 @@ function ReadyQueue() {
   const routineOf = (i: ReviewItem) => i.routine;
   const rows = reviewQueue(state).filter((i) => f === "all" || (f === "aged" && i.aged) || (f === "flagged" && i.flagged) || (f === "routine" && routineOf(i)));
   const cols: Column<ReviewItem>[] = [
-    { key: "ep", header: "Episode", cell: (i) => <div><div style={{ color: "var(--ink)" }}>{i.person.given} {i.person.family}</div><div className="phr-mono ph-faint">{i.episode.id} · {i.programme.code}</div></div>, sort: (a, b) => (a.person.family < b.person.family ? -1 : 1) },
+    { key: "ep", header: "Episode", cell: (i) => <div><div style={{ color: "var(--ink)" }}>{i.person.given} {i.person.family}</div><EpisodeIds e={i.episode} code={i.programme.code} clinical /></div>, sort: (a, b) => (a.person.family < b.person.family ? -1 : 1) },
     { key: "wait", header: "Waiting", cell: (i) => <div className="phr-row" style={{ gap: 5 }}><span className="ph-num">{fmtAge(i.ageHours)}</span>{i.aged ? <Pill tone="warn" icon="clock">Over 48h</Pill> : null}</div>, sort: (a, b) => a.ageHours - b.ageHours },
     { key: "flags", header: "Review flags", cell: (i) => !canViewEpisodeClinical(state, i.episode.id) ? <Pill tone="neutral" icon="lock">Restricted</Pill> : i.flagged ? <Pill tone="warn" icon="flag">Review required ({i.flags.length})</Pill> : <Pill tone="neutral" icon="dot">None</Pill> },
     ...(narrow ? [] : [
@@ -220,7 +231,7 @@ function HeldQueue() {
     return fu && fuView ? <Button size="sm" onClick={() => nav.go(linkFor("followup", fu))}>Open follow-up</Button> : <span className="phr-sub">Clinician-owned</span>;
   };
   const cols: Column<HoldItem>[] = [
-    { key: "ep", header: "Episode", cell: (h) => minimal(h) ? <div><div style={{ color: "var(--ink)" }}>Clinical action assigned</div><div className="phr-sub">Owned by a clinician</div></div> : <div><div style={{ color: "var(--ink)" }}>{h.person.given} {h.person.family}</div><div className="phr-mono ph-faint">{h.episode.id}</div></div> },
+    { key: "ep", header: "Episode", cell: (h) => minimal(h) ? <div><div style={{ color: "var(--ink)" }}>Clinical action assigned</div><div className="phr-sub">Owned by a clinician</div></div> : <div><div style={{ color: "var(--ink)" }}>{h.person.given} {h.person.family}</div><EpisodeIds e={h.episode} clinical={clinical} /></div> },
     { key: "cat", header: "Category", cell: (h) => <HoldCategoryPill category={h.category} label={minimal(h) ? "Clinical action assigned" : undefined} /> },
     ...(narrow ? [] : [
       { key: "hold", header: "Hold", nowrap: false, cell: (h: HoldItem) => minimal(h) ? <span className="ph-faint">Details visible to clinical roles</span> : h.category === "data_quality" && !clinical ? <span>Held by the clinical team for a data quality check</span> : <span style={{ fontSize: 12 }}>{HOLD_LABEL[h.kind]}</span> },

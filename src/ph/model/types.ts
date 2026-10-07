@@ -228,6 +228,8 @@ export interface IdentityCheck {
   confirmedValue: string;
   confirmed: boolean;
 }
+/** One value on the nurse form that is not a measure, a urine result or the nurse comments. Null clears it. */
+export type NurseFormValue = string | number | boolean | null;
 export interface ClinicalCapture {
   status: "not_started" | "draft" | "complete";
   identity: IdentityCheck[];
@@ -237,10 +239,19 @@ export interface ClinicalCapture {
     waistCm: Measure;
     bpSys: Measure;
     bpDia: Measure;
+    /** Pulse rate from the ECG machine. */
     pulse: Measure;
+    /** Peak expiratory flow. Not done replaces the "write 0" convention on the paper form. */
+    peakFlow: Measure;
   };
-  urine: { protein: string; glucose: string; blood: string } | null;
+  /** Dipstick results. Options are Nil, +, ++, +++ and Not done; white cells use Nil, 10, 100, >100 and Not done. */
+  urine: { protein: string; glucose: string; blood: string; wcc?: string } | null;
+  /** Nurse comments (the "Nurse comments" field on the nurse form). */
   notes: string;
+  /** Every other nurse-form field, keyed as in NURSE_FORM_SECTIONS (capture.ts). */
+  form: Record<string, NurseFormValue>;
+  /** Set once when an irregular ECG and an irregular manual pulse raised an ECG review task. */
+  ecgReview?: null | { at: Iso; taskId: Id };
   checklist: Record<string, boolean>;
   savedAt: Iso | null;
   /** Bumped on each save, so a stale tab can be shown a save conflict. */
@@ -249,21 +260,69 @@ export interface ClinicalCapture {
   completedAt: Iso | null;
 }
 
-export type AnalyteCode = "TC" | "HDL" | "LDL" | "TG" | "HBA1C" | "VITD" | "FERR";
+export type AnalyteCode =
+  | "TC" | "HDL" | "LDL" | "NONHDL" | "TG" | "TCHDL" | "HBA1C"
+  | "HB" | "WCC" | "PLT"
+  | "BILI" | "TPROT" | "ALP" | "GGT" | "AST" | "ALT"
+  | "UREA" | "CREAT" | "URATE"
+  | "FERR" | "IRON" | "TIBC"
+  | "FT4" | "TSH"
+  | "VITD" | "B12" | "FOLATE" | "CA" | "MG" | "PO4"
+  | "PSA" | "FIT";
+/** Report sections the analytes are grouped under, in the participant report order. */
+export type AnalyteGroup = "cholesterol" | "glucose" | "kidney" | "fbc" | "liver" | "thyroid" | "iron" | "vitamins_minerals" | "cancer";
+/**
+ * Four-level classification shown as cell colours in the clinician viewer: green normal, yellow
+ * borderline, orange abnormal or raised, grey not tested or not applicable.
+ */
+export type Band = "normal" | "borderline" | "abnormal" | "not_tested";
+/** One reference interval. Bounds are exclusive unless marked inclusive ("less than 5.0" excludes 5.0). */
+export interface RangeBound {
+  lo?: number;
+  loIncl?: boolean;
+  hi?: number;
+  hiIncl?: boolean;
+  /** Compact form, for example "<5.0", ">1.0" or "13-17". */
+  text: string;
+}
+export interface AnalyteRange {
+  all?: RangeBound;
+  male?: RangeBound;
+  female?: RangeBound;
+  /** Upper limit by age, for example PSA. maxAge is exclusive. */
+  byAge?: Array<{ minAge: number; maxAge: number | null; range: RangeBound }>;
+  /** The whole range as the participant report prints it, for example "13-17 (m) / 12-16 (f)". */
+  text: string;
+}
 export interface Analyte {
   code: AnalyteCode;
   name: string;
   unit: string;
   decimals: number;
   /** Displayed illustrative decision limit. Sample content, not a validated threshold library. */
-  limit: { kind: "max" | "min"; value: number; text: string };
+  limit: { kind: "max" | "min" | "range"; value: number; text: string };
+  /** Only on the panel when the nurse form says so (PSA taken, FIT kit given). */
   addOn: boolean;
+  group: AnalyteGroup;
+  /** The test name as the participant report prints it. */
+  reportName: string;
+  range: AnalyteRange;
+  /** Calculated in Pulse from other results. Never delivered by the laboratory, never an expected test. */
+  calculated: null | { from: AnalyteCode[]; method: string };
+  /** Qualitative result words. The stored value is 0 for the normal word and 1 for the abnormal word. */
+  qualitative: null | { normal: string; abnormal: string };
+  /** Nurse-form condition that puts this test on an episode's panel. */
+  conditional: null | "psa_taken" | "fit_given";
+  /** True when the range is an illustrative placeholder, not a value from Precision Health material. */
+  illustrativeRange: boolean;
+  /** Analyte-specific band rule, shown next to the range. */
+  bandNote: string | null;
 }
 
 export interface Specimen {
   id: Id; // PH-S-00101
   episodeId: Id;
-  type: "serum" | "edta" | "urine";
+  type: "serum" | "edta" | "urine" | "stool";
   collectedAt: Iso;
   status: "collected" | "received" | "resulted";
   labelPrinted: boolean;
@@ -276,12 +335,17 @@ export interface Observation {
   specimenId: Id;
   code: AnalyteCode;
   value: number;
+  /** Result word for a qualitative test (FIT: Negative or Positive). Null for numeric results. */
+  valueText?: string | null;
   unit: string;
   limitText: string;
+  /** "review_required" exactly when band is borderline or abnormal. */
   flag: ObservationFlag;
+  /** Four-level band under the illustrative rule set, for the participant's sex and age at collection. */
+  band: Band;
   /** What the legacy spreadsheet-style summary displayed, where it differs from the rule. */
   legacyDisplayedFlag: "normal" | "review" | null;
-  source: { kind: "batch"; batchId: Id; rowId: Id } | { kind: "clinic" };
+  source: { kind: "batch"; batchId: Id; rowId: Id } | { kind: "clinic" } | { kind: "calc"; from: AnalyteCode[]; method: string };
   recordedAt: Iso;
   /** Source-unit discrepancy awaiting laboratory confirmation. */
   unitDiscrepancy: null | { sourceUnit: string; expectedUnit: string; confirmed: boolean };
@@ -319,6 +383,30 @@ export interface Hold {
 
 export type ReportState = "awaiting_results" | "ready_for_review" | "released" | "on_hold";
 
+/**
+ * QRISK3 outputs. Values come from the licensed calculation engine; in this demo they are labelled
+ * sample outputs and are never calculated in Pulse. Numbers are null when the engine has not
+ * produced them (not eligible, inputs incomplete, or engine not connected for this episode).
+ */
+export interface QriskResult {
+  score10y: number | null;
+  heartAge: number | null;
+  relativeRisk: number | null;
+  source: "licensed_engine_sample";
+  inputsComplete: boolean;
+  eligible: boolean;
+  reason?: string;
+}
+
+/** The nurse chose "No. Significantly abnormal results. Refer to doctor." on the nurse form. */
+export interface NurseReferral {
+  at: Iso;
+  by: StaffId | null;
+  reason: string;
+  comment: string;
+  taskId: Id | null;
+}
+
 export interface Episode {
   id: Id; // PH-E-0101
   personId: Id;
@@ -338,6 +426,12 @@ export interface Episode {
   followUpIds: Id[];
   /** Individual review-required acknowledgement given at release. */
   flagAckBy: StaffId | null;
+  /** Precision Health unique ID in the client's format (COMP0 and four digits). Display only; id stays the key. */
+  screeningRef: string;
+  /** QRISK3 sample outputs, or null when no calculation has been requested yet. */
+  qrisk: QriskResult | null;
+  /** Visible marker of a nurse referral. Blocks the routine release shortcut. */
+  nurseReferral: NurseReferral | null;
 }
 
 export interface ReportVersion {
@@ -411,6 +505,8 @@ export interface ImportBatch {
   source: string;
   status: "complete" | "partial";
   note: string;
+  /** Lipids and HbA1c, the extended panel (every other analyte), or one in-session sample delivery. */
+  kind?: "core" | "extended" | "sample";
 }
 
 export interface ImportPreview {

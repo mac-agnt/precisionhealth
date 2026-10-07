@@ -83,7 +83,7 @@ function FollowUpWorkspace() {
   const narrow = w > 0 && w < 560;
   const cols: Column<FollowUpView>[] = [
     { key: "id", header: "Item", cell: (v) => <div><div className="phr-mono" style={{ color: "var(--ink)" }}>{v.followUp.id}</div><div className="phr-sub">{followUpKindLabel(v.followUp.kind)}</div></div> },
-    { key: "who", header: "Participant", cell: (v) => <div><div>{v.person.given} {v.person.family}</div><div className="phr-mono ph-faint">{v.episode.id}</div></div> },
+    { key: "who", header: "Participant", cell: (v) => <div><div>{v.person.given} {v.person.family}</div><div className="phr-mono ph-faint"><span style={{ color: "var(--dim)" }} title="Precision Health unique ID">{v.episode.screeningRef}</span> {v.episode.id}</div></div> },
     ...(narrow ? [] : [
       { key: "due", header: "Due and owner", nowrap: false, cell: (v: FollowUpView) => <div><div style={{ color: v.overdue ? "var(--bad)" : undefined }}>{dueText(v, state.clock.nowUtc)}</div><div className="phr-sub">{staffName(state, v.followUp.ownerId)}</div></div>, sort: (a: FollowUpView, b: FollowUpView) => (a.followUp.dueAt < b.followUp.dueAt ? -1 : 1) },
       { key: "att", header: "Attempts", align: "right" as const, cell: (v: FollowUpView) => <span className="ph-num">{v.attempts}</span> },
@@ -149,6 +149,7 @@ function FollowUpDetail({ v }: { v: FollowUpView }) {
       <Kv items={[
         { k: "Owner", v: staffName(state, f.ownerId) },
         { k: "Due", v: <span style={{ color: v.overdue ? "var(--bad)" : undefined }}>{dueText(v, state.clock.nowUtc)}</span> },
+        { k: "Unique ID", v: <span className="phr-mono">{ep.screeningRef}</span> },
         { k: "Participant", v: <EntityLink kind="person" id={v.person.id}>{v.person.id}</EntityLink> },
         { k: "Episode", v: <span className="phr-row" style={{ gap: 6 }}><EntityLink kind="episode" id={ep.id} /><ReportStatePill state={ep.reportState} /></span> },
         { k: "Linked task", v: task ? <span className="phr-row" style={{ gap: 6 }}><EntityLink kind="task" id={task.task.id} /><span className="phr-sub">{task.statusLabel}</span></span> : f.taskId },

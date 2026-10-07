@@ -1,11 +1,12 @@
 /* Work, Workflows: Invite, Consent and questionnaire, Booking and Screening in the scheduling lane;
    Expected results, Clinical review and Released report in the clinical report lane, with branches
-   to identity resolution, source unit confirmation and follow-up. The two lanes are separate state.
+   to identity resolution, source unit confirmation and follow-up, plus the two nurse-form branches
+   at screening (nurse referral and ECG review). The two lanes are separate state.
    Named people sit wherever their records are now, so they move when anything changes elsewhere. */
 import { useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import {
-  HOLD_CATEGORY, HOLD_LABEL, PROGRAMME_BY_ID, PROGRAMME_ORDER, canViewEpisodeClinical, currentReleased, episodeFlags, fmtDayMonth, fmtWeekdayDate, holdQueue, ix, linkFor,
+  HOLD_CATEGORY, HOLD_LABEL, PROGRAMME_BY_ID, PROGRAMME_ORDER, canViewClinicalForSession, canViewEpisodeClinical, currentReleased, episodeFlags, fmtDayMonth, fmtWeekdayDate, holdQueue, ix, linkFor,
   openFollowUps, programmeCounts, rate, reviewQueue, sessionStats, todaySessions,
 } from "../../model";
 import type { EntityKind, PhState, ProgrammeId, StoryId } from "../../model";
@@ -13,7 +14,7 @@ import { usePersona, usePhState } from "../../store";
 import { useNav } from "../../nav-context";
 import { Card, CardHeader, DataTable, EntityLink, Icon, PageHeader, Pill, Segmented } from "../../ui";
 import type { Column, Tone } from "../../ui";
-import { ProgTag, Tag, WIDE_MIN, isClinicalViewer, useMeasure } from "./shared";
+import { AutomationChip, ProgTag, Tag, WIDE_MIN, isClinicalViewer, useMeasure } from "./shared";
 
 type SchedStep = "invite" | "questionnaire" | "booking" | "screening";
 type ReportStep = "awaiting" | "review" | "released" | "identity" | "data_quality" | "followup";
@@ -146,6 +147,22 @@ export default function Workflows() {
   const tIn = todayS.reduce((n, s) => n + s.checkedIn + s.inProgress, 0);
   const tDone = todayS.reduce((n, s) => n + s.completed, 0);
 
+  /* Nurse-form branches at screening: a referral to the doctor, and an ECG review. */
+  const I = ix(state);
+  const referred = state.episodes.filter((e) => !!e.nurseReferral && (!pid || e.programmeId === pid));
+  const referralsOpen = referred.filter((e) => e.reportState !== "released");
+  const ecgItems: Array<{ taskId: string; programmeId: ProgrammeId; personId: string; episodeId: string | null; visible: boolean }> = [];
+  state.episodes.forEach((e) => { if (e.capture.ecgReview) ecgItems.push({ taskId: e.capture.ecgReview.taskId, programmeId: e.programmeId, personId: e.personId, episodeId: e.id, visible: canViewEpisodeClinical(state, e.id) }); });
+  Object.entries(state.captureDrafts).forEach(([bookingId, cap]) => {
+    const b = I.bookingById.get(bookingId);
+    if (cap.ecgReview && b) ecgItems.push({ taskId: cap.ecgReview.taskId, programmeId: b.programmeId, personId: b.personId, episodeId: null, visible: canViewClinicalForSession(state, b.sessionId) });
+  });
+  const ecgShown = ecgItems.filter((x) => !pid || x.programmeId === pid);
+  const ecgOpen = ecgShown.filter((x) => state.tasks.find((t) => t.id === x.taskId)?.status !== "done");
+  const nameOf = (personId: string) => { const pp = I.personById.get(personId); return pp ? `${pp.given} ${pp.family}` : personId; };
+  const referralPeople = referralsOpen.filter((e) => canViewEpisodeClinical(state, e.id)).map((e) => ({ key: e.id, name: nameOf(e.personId), onClick: () => nav.go(linkFor("episode", e.id)) }));
+  const ecgPeople = ecgOpen.filter((x) => x.visible).map((x) => ({ key: x.taskId, name: nameOf(x.personId), onClick: () => nav.go(x.episodeId ? linkFor("episode", x.episodeId) : { page: "Work", tab: "tasks", params: { task: x.taskId } }) }));
+
   const journeys = useMemo(() => {
     const out: Journey[] = [];
     for (const n of NAMED) {
@@ -269,7 +286,18 @@ export default function Workflows() {
               sub={clinical ? `Closes only with a documented outcome and acknowledgement.${fus.length - caHolds > 0 ? ` Separately, ${fus.length - caHolds} routine call-back${fus.length - caHolds === 1 ? " is" : "s are"} open on released reports; they do not hold a report.` : ""}` : "Owned by a clinician. No count or clinical detail is shown to this role."}
               people={clinical ? report("followup") : []} />
           </div>
-          {!clinical ? <div className="phf-note" style={{ marginTop: 10 }}><Icon name="lock" size={11} style={{ verticalAlign: "-1px", marginRight: 5 }} />Names in clinical review, follow-up and data quality holds are visible to clinical roles only.</div> : null}
+          <div className="phf-sectiontitle" style={{ marginTop: 14 }}>Branches from the nurse form at screening. Both go straight to the clinical lead and both mean the episode is reviewed individually</div>
+          <div className={"phf-branches" + (wide ? "" : " narrow")}>
+            <Branch label="Nurse referral to the doctor" automation="AUT-06" count={clinical ? referralsOpen.length : null}
+              unit={clinical ? (referralsOpen.length === 1 ? "referral awaiting individual review" : "referrals awaiting individual review") : "Clinical action assigned"}
+              sub={clinical ? `Approve = "No. Significantly abnormal results. Refer to doctor." A doctor review task is created and the routine release shortcut is blocked until the report is released individually. ${referred.length - referralsOpen.length} released after review.` : "Owned by a clinician. No count or clinical detail is shown to this role."}
+              people={clinical ? referralPeople : []} />
+            <Branch label="ECG review" automation="AUT-07" count={clinical ? ecgOpen.length : null}
+              unit={clinical ? (ecgOpen.length === 1 ? "ECG review open" : "ECG reviews open") : "Clinical action assigned"}
+              sub={clinical ? `Irregular ECG (machine advice J or K) with an irregular manual pulse. The ECG photo goes to the clinical channel (simulated, replaces Slack) and a review task to the clinical lead. ${ecgShown.length} raised in total.` : "Owned by a clinician. No count or clinical detail is shown to this role."}
+              people={clinical ? ecgPeople : []} />
+          </div>
+          {!clinical ? <div className="phf-note" style={{ marginTop: 10 }}><Icon name="lock" size={11} style={{ verticalAlign: "-1px", marginRight: 5 }} />Names in clinical review, follow-up, data quality holds and nurse-form branches are visible to clinical roles only.</div> : null}
         </Card>
 
         <Card pad={false}>
@@ -317,12 +345,13 @@ function Step({ n, label, count, unit, sub, people }: { n: number; label: string
   );
 }
 
-function Branch({ label, count, unit, sub, people }: { label: string; count: number | null; unit: string; sub: ReactNode; people: PersonChip[] }) {
+function Branch({ label, count, unit, sub, people, automation }: { label: string; count: number | null; unit: string; sub: ReactNode; people: PersonChip[]; automation?: string }) {
   return (
     <div className="phf-branch">
       <span className="ph-row-flex" style={{ gap: 6 }}>
         <Icon name="arrow" size={13} style={{ color: "var(--faint)", transform: "rotate(45deg)" }} />
-        <span style={{ fontSize: 13, color: "var(--ink)", fontWeight: 500 }}>{label}</span>
+        <span className="ph-grow" style={{ fontSize: 13, color: "var(--ink)", fontWeight: 500 }}>{label}</span>
+        {automation ? <AutomationChip id={automation} /> : null}
       </span>
       <span className="ph-row-flex" style={{ gap: 6, alignItems: "baseline" }}>
         {count === null ? null : <span className="phf-step-count" style={{ fontSize: 20 }}>{count}</span>}

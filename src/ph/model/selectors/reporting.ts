@@ -7,7 +7,7 @@ import type {
 import { AGE_BANDS } from "../constants";
 import { ageOn, fmtDate, fmtNumericDate, localDateOf } from "../time";
 import { ix, memo, programmeCounts, rate } from "./core";
-import { bpFlagged, firstReleasedAt, releasedObservations } from "./clinical";
+import { bpRaised, firstReleasedAt, releasedObservations } from "./clinical";
 
 export const GENDER_LABEL: Record<GenderRecorded, string> = { woman: "Women", man: "Men", non_binary: "Non-binary", prefer_not_to_say: "Prefer not to say", not_recorded: "Not recorded" };
 export const SEX_LABEL: Record<SexRecorded, string> = { female: "Female", male: "Male", not_recorded: "Not recorded" };
@@ -177,9 +177,9 @@ export function employerMetrics(state: PhState, programmeId: CohortDef["programm
     // Released values only: a correction still in review does not change the employer figures.
     const obsOver = (code: string) => (e: Episode) => { const o = releasedObservations(state, e.id).find((x) => x.code === code); return o ? o.flag === "review_required" : null; };
     base.clinical = [
-      clinical("bp", "Blood pressure at or above the displayed limit", (e) => (e.capture.measures.bpSys.value == null ? null : bpFlagged(e.capture)), "Displayed limit <140/90 mmHg. Participants without a recorded value are excluded."),
+      clinical("bp", "Blood pressure at or above the displayed limit", (e) => (e.capture.measures.bpSys.value == null ? null : bpRaised(e.capture)), "Displayed limit <140/90 mmHg (Raised or worse in the report table). Participants without a recorded value are excluded."),
       clinical("ldl", "LDL cholesterol above the displayed limit", obsOver("LDL"), "Displayed limit <3.0 mmol/L. Participants without a result are excluded."),
-      clinical("hba1c", "HbA1c above the displayed limit", obsOver("HBA1C"), "Displayed limit <42 mmol/mol. Participants without a result are excluded."),
+      clinical("hba1c", "HbA1c at higher risk or raised", obsOver("HBA1C"), "Higher risk from 42 mmol/mol, raised from 48 (illustrative rule set). Participants without a result are excluded."),
     ];
     return base;
   });

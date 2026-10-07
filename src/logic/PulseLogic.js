@@ -93,7 +93,7 @@ export default class PulseLogic extends DCLogic {
             briefThread:[], briefDraft:"", briefPicks:{},
             agentSpec:{name:"", shape:"crown-pebble", tint:"#191c1f", persona:"", personality:"Straight-talking",
                    answer:"Short answers", context:["Organisations","Tasks"], skills:["Search records","Summarise activity"], tasks:[]},
-            phTab:{}, phParams:{}, portalOpen:false, density:"comfortable", reduceMotion:false };
+            phTab:{}, phParams:{}, portalOpen:false, nursePortalOpen:false, clientPortalOpen:false, density:"comfortable", reduceMotion:false };
 
   /* One event per stream on its own cadence, so the three columns never move in
      lockstep. A hovered column and a paused view are both simply skipped. */
@@ -1231,6 +1231,9 @@ export default class PulseLogic extends DCLogic {
       if (page === "Records") patch.recSection = tab; else patch.phTab = Object.assign({}, prev.phTab, {[page]: tab});
       if (page === "Agents" && t.params && t.params.agent) patch.agentId = t.params.agent;
       if (t.params && t.params.portal === "1" && !prev.portalOpen) patch.portalOpen = true;
+      /* One portal preview at a time. */
+      if (t.params && t.params.nurse === "1") { patch.nursePortalOpen = true; patch.clientPortalOpen = false; }
+      else if (t.params && t.params.client === "1") { patch.clientPortalOpen = true; patch.nursePortalOpen = false; }
       return patch;
     });
     if (t.params && t.params.portal === "1") this.openPortal(t.params.person);
@@ -1249,6 +1252,8 @@ export default class PulseLogic extends DCLogic {
     const st = this.state;
     const params = Object.assign({}, st.phParams || {});
     if (st.portalOpen) params.portal = "1"; else delete params.portal;
+    if (st.nursePortalOpen) params.nurse = "1"; else delete params.nurse;
+    if (st.clientPortalOpen) params.client = "1"; else delete params.client;
     const h = hashFor({page: st.page, tab: this.tabFor(st.page), params});
     if (window.location.hash !== h && (force || this._hashReady)){
       try { window.history.replaceState(null, "", h); } catch (e) { /* ignore */ }
@@ -1263,6 +1268,8 @@ export default class PulseLogic extends DCLogic {
       setTab: (tab) => this.phSetTab(tab),
       setParams: (p) => this.phSetParams(p),
       openPortal: (personId) => this.openPortal(personId),
+      openNursePortal: () => this.openNursePortal(),
+      openClientPortal: () => this.openClientPortal(),
       shell: {
         theme: st.theme,
         setTheme: (id) => this.setState(p => (id === "light" ? {theme:"light", darkTheme:p.theme === "light" ? p.darkTheme : p.theme} : {theme:id, darkTheme:id})),
@@ -1288,6 +1295,12 @@ export default class PulseLogic extends DCLogic {
     phDispatch(phAct.setPersona(this._prevPersona || "neil"), {silent:true});
     this.setState({portalOpen:false});
   }
+  /* The nurse portal (clinic-day capture, tablet first) and the client portal (employer, aggregate
+     only) are separate previews like the participant portal. Each manages its own persona. */
+  openNursePortal(){ if (this.state.portalOpen) this.closePortal(); this.setState({nursePortalOpen:true, portalOpen:false, clientPortalOpen:false, paletteOpen:false, showNotifs:false}); }
+  closeNursePortal(){ this.setState({nursePortalOpen:false}); }
+  openClientPortal(){ if (this.state.portalOpen) this.closePortal(); this.setState({clientPortalOpen:true, portalOpen:false, nursePortalOpen:false, paletteOpen:false, showNotifs:false}); }
+  closeClientPortal(){ this.setState({clientPortalOpen:false}); }
   /* Clinical clusters (Episodes, Results, Reports, Follow-up) are hidden from roles without clinical access. */
   phClinicalCluster(i){
     if ([4, 5, 6, 7].indexOf(i) < 0) return false;

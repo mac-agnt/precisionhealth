@@ -3,9 +3,11 @@
 import type {
   AnalyteCode, Booking, ClinicalCapture, ClinicSession, Episode, FollowUp, HoldKind, Id, ImportBatch, ImportRow, Observation, Person, PhState, Programme, ReportVersion, Specimen,
 } from "../types";
-import { ANALYTES, BP_REVIEW_LIMIT, HOLD_CATEGORY, HOLD_LABEL, REPORT_STATE_LABEL } from "../constants";
+import { ANALYTES, BP_REVIEW_LIMIT, HOLD_CATEGORY, HOLD_LABEL, REPORT_STATE_LABEL, bpCategory } from "../constants";
 import type { HoldCategory } from "../constants";
-import { hoursBetween, roundHalfUp } from "../time";
+import { bandCtxFor, bmiFromCapture, calculatedObservations, reviewReasons } from "../interpret";
+import type { FlagReason } from "../interpret";
+import { hoursBetween } from "../time";
 import type { Iso } from "../time";
 import { canViewEpisodeClinical, ix, memo, persona, personName } from "./core";
 
@@ -14,29 +16,41 @@ export const CLINICAL_DETAIL_HIDDEN = "Detail limited to clinical roles assigned
 
 /* ---- calculations ---- */
 export function bmiOf(c: ClinicalCapture | null | undefined): number | null {
-  if (!c) return null;
-  const h = c.measures.heightM, w = c.measures.weightKg;
-  if (h.state !== "recorded" || w.state !== "recorded" || h.value == null || w.value == null) return null;
-  if (h.value < 1.0 || h.value > 2.3 || w.value < 25 || w.value > 300) return null;
-  return roundHalfUp(w.value / (h.value * h.value), 1);
+  return bmiFromCapture(c);
 }
-/** QRISK3 needs an approved integration and Irish input mappings. Nothing is computed or scraped here. */
+/**
+ * QRISK3 outputs come from the licensed calculation engine. Pulse never calculates them. Seeded
+ * episodes carry sample outputs (Episode.qrisk, source "licensed_engine_sample"); episodes created
+ * in a session wait for the engine. The earlier "approved integration required" state is kept as
+ * pendingText for screens that describe the connection.
+ */
+export const QRISK3_SOURCE_NOTE = "QRISK3 values come from the licensed calculation engine; this demo shows sample outputs.";
 export const QRISK3 = {
-  state: "approved_integration_required" as const,
+  state: "licensed_engine_sample" as const,
   title: "QRISK3 cardiovascular risk",
-  text: "Approved integration required. No score or heart age is calculated in this demo. A clinically approved QRISK3 integration and agreed Irish input mappings are needed first.",
-  inputsNeeded: ["Age, sex and ethnicity as agreed", "Smoking status", "Diabetes status", "Blood pressure", "Total and HDL cholesterol", "Height and weight (BMI)", "Family history and medication fields as agreed"],
+  text: QRISK3_SOURCE_NOTE,
+  pendingText: "The licensed QRISK3 engine is not connected in this demo. Seeded episodes show sample outputs; new episodes show none until the engine is connected.",
+  inputsNeeded: ["Age, sex and ethnicity", "Smoking status", "Diabetes status", "Systolic blood pressure", "Total and HDL cholesterol", "Height and weight (BMI)", "Family history and the medication and condition fields on the nurse form"],
 };
 
+/** Blood pressure needs review when it is outside the Ideal band (120/80 or above), under the illustrative rule set. */
 export function bpFlagged(c: ClinicalCapture | null | undefined): boolean {
+  if (!c) return false;
+  const s = c.measures.bpSys, d = c.measures.bpDia;
+  if (s.state !== "recorded" || d.state !== "recorded") return false;
+  const b = bpCategory(s.value, d.value).band;
+  return b === "borderline" || b === "abnormal";
+}
+/** Blood pressure at or above 140/90 (Raised or worse in the report table). Used for employer aggregates. */
+export function bpRaised(c: ClinicalCapture | null | undefined): boolean {
   if (!c) return false;
   const s = c.measures.bpSys, d = c.measures.bpDia;
   return (s.state === "recorded" && s.value != null && s.value >= BP_REVIEW_LIMIT.sys) || (d.state === "recorded" && d.value != null && d.value >= BP_REVIEW_LIMIT.dia);
 }
 
-/** Latest version of each observation code for an episode. */
-export function latestObservations(state: PhState, episodeId: Id): Observation[] {
-  return memo(state, "lo:" + episodeId, () => {
+/** Stored results only: the latest version of each laboratory code. */
+function latestStored(state: PhState, episodeId: Id): Observation[] {
+  return memo(state, "ls:" + episodeId, () => {
     const by = new Map<AnalyteCode, Observation>();
     for (const o of ix(state).obsByEpisode.get(episodeId) || []) {
       const cur = by.get(o.code);
@@ -45,18 +59,24 @@ export function latestObservations(state: PhState, episodeId: Id): Observation[]
     return Array.from(by.values());
   });
 }
+/** Latest version of each observation code for an episode, followed by the calculated non-HDL and total to HDL ratio when both inputs are in. */
+export function latestObservations(state: PhState, episodeId: Id): Observation[] {
+  return memo(state, "lo:" + episodeId, () => {
+    const stored = latestStored(state, episodeId);
+    const ep = ix(state).episodeById.get(episodeId);
+    const person = ep ? ix(state).personById.get(ep.personId) : undefined;
+    return ep && person ? stored.concat(calculatedObservations(episodeId, stored, bandCtxFor(person, ep.collectedAt))) : stored;
+  });
+}
+/** Observation references for freezing into a report version. Calculated values are derived again from the frozen inputs. */
+export const storedRefs = (state: PhState, episodeId: Id) => latestStored(state, episodeId).map((o) => ({ id: o.id, version: o.version }));
 
-export interface FlagReason { kind: "observation" | "blood_pressure"; code?: AnalyteCode; text: string }
+export type { FlagReason };
+/** Every reason this episode needs individual review. See reviewReasons in interpret.ts. */
 export function episodeFlags(state: PhState, ep: Episode): FlagReason[] {
   return memo(state, "ef:" + ep.id, () => {
-    const out: FlagReason[] = [];
-    for (const o of latestObservations(state, ep.id)) {
-      if (o.flag === "review_required") out.push({ kind: "observation", code: o.code, text: `${ANALYTES[o.code].name} ${o.value} ${o.unit}, displayed limit ${o.limitText}` });
-    }
-    if (bpFlagged(ep.capture)) {
-      out.push({ kind: "blood_pressure", text: `Blood pressure ${ep.capture.measures.bpSys.value}/${ep.capture.measures.bpDia.value} mmHg, displayed limit ${BP_REVIEW_LIMIT.text}` });
-    }
-    return out;
+    const person = ix(state).personById.get(ep.personId);
+    return reviewReasons({ capture: ep.capture, observations: latestObservations(state, ep.id), sex: person ? person.sex : "not_recorded", qrisk: ep.qrisk, nurseReferral: ep.nurseReferral });
   });
 }
 
@@ -101,12 +121,20 @@ export const firstReleasedAt = (state: PhState, episodeId: Id): Iso | null => {
   const v = versionsOf(state, episodeId).filter((x) => x.releasedAt).sort((a, b) => (a.releasedAt! < b.releasedAt! ? -1 : 1));
   return v.length ? v[0].releasedAt : null;
 };
+/** The observations frozen into one report version, with the calculated values derived from those frozen inputs. */
+export function versionObservations(state: PhState, v: ReportVersion): Observation[] {
+  return memo(state, "vo:" + v.id, () => {
+    const byId = new Map((ix(state).obsByEpisode.get(v.episodeId) || []).map((o) => [o.id, o]));
+    const frozen = v.observationRefs.map((r) => byId.get(r.id)).filter((o): o is Observation => !!o && o.source.kind !== "calc");
+    const ep = ix(state).episodeById.get(v.episodeId);
+    const person = ep ? ix(state).personById.get(ep.personId) : undefined;
+    return ep && person ? frozen.concat(calculatedObservations(v.episodeId, frozen, bandCtxFor(person, ep.collectedAt))) : frozen;
+  });
+}
 /** The observations frozen into the current released report version. A correction in progress does not change them. */
 export function releasedObservations(state: PhState, episodeId: Id): Observation[] {
   const v = currentReleased(state, episodeId);
-  if (!v) return [];
-  const byId = new Map((ix(state).obsByEpisode.get(episodeId) || []).map((o) => [o.id, o]));
-  return v.observationRefs.map((r) => byId.get(r.id)).filter((o): o is Observation => !!o);
+  return v ? versionObservations(state, v) : [];
 }
 
 /* ---- review queue ---- */
@@ -161,7 +189,7 @@ export function reviewQueueAll(state: PhState): ReviewItem[] {
   });
 }
 /** Flag reasons with the values and analytes removed, for a role that may not see them. */
-const hiddenFlags = (flags: FlagReason[]): FlagReason[] => flags.map((f) => ({ kind: f.kind, text: `Review required. ${CLINICAL_DETAIL_HIDDEN}` }));
+const hiddenFlags = (flags: FlagReason[]): FlagReason[] => flags.map((f) => ({ kind: f.kind, label: "Review required", text: `Review required. ${CLINICAL_DETAIL_HIDDEN}` }));
 /** Expected tests with their result values removed. The received, pending or quarantined status stays. */
 const hiddenTests = (tests: ExpectedTestView[]): ExpectedTestView[] => tests.map((t) => ({ ...t, observation: null }));
 /**
@@ -376,11 +404,14 @@ export function correctionCandidates(state: PhState) {
 export const reportStateLabel = (s: Episode["reportState"]) => REPORT_STATE_LABEL[s];
 
 /* ---- a whole episode in one object ---- */
-/** The capture with every measured value, urine result and note removed. Absence states stay. */
+/** The capture with every measured value, urine result, nurse-form answer and note removed. Absence states stay. */
 function hiddenCapture(c: ClinicalCapture): ClinicalCapture {
   const m = c.measures;
   const blank = (x: ClinicalCapture["measures"]["heightM"]) => ({ ...x, value: null });
-  return { ...c, measures: { heightM: blank(m.heightM), weightKg: blank(m.weightKg), waistCm: blank(m.waistCm), bpSys: blank(m.bpSys), bpDia: blank(m.bpDia), pulse: blank(m.pulse) }, urine: null, notes: "" };
+  return {
+    ...c, measures: { heightM: blank(m.heightM), weightKg: blank(m.weightKg), waistCm: blank(m.waistCm), bpSys: blank(m.bpSys), bpDia: blank(m.bpDia), pulse: blank(m.pulse), peakFlow: blank(m.peakFlow) },
+    urine: null, notes: "", form: {},
+  };
 }
 /** A report version with its advice and correction wording withheld. Status, dates and version numbers stay. */
 const hiddenVersion = (v: ReportVersion): ReportVersion => ({ ...v, advice: "", correctionReason: v.correctionReason ? CLINICAL_DETAIL_HIDDEN : null });
@@ -427,7 +458,7 @@ export function episodeBundle(state: PhState, episodeId: Id): EpisodeBundle | nu
   if (canViewEpisodeClinical(state, episodeId)) return full;
   return {
     ...full,
-    episode: { ...episode, capture: hiddenCapture(episode.capture) },
+    episode: { ...episode, capture: hiddenCapture(episode.capture), qrisk: null, nurseReferral: episode.nurseReferral ? { ...episode.nurseReferral, comment: "" } : null },
     observations: [], tests: hiddenTests(full.tests), flags: hiddenFlags(full.flags), bmi: null,
     versions: full.versions.map(hiddenVersion), draft: full.draft ? hiddenVersion(full.draft) : null, released: full.released ? hiddenVersion(full.released) : null,
     followUps: full.followUps.map((f): FollowUp => ({ ...f, note: "", attempts: f.attempts.map((x) => ({ ...x, note: "" })), outcome: f.outcome ? { ...f.outcome, note: "" } : null })),

@@ -26,6 +26,10 @@ export interface PhNav {
   /** Change or clear params on the current screen without changing tab. */
   setParams: (p: Record<string, string>) => void;
   openPortal: (personId?: string) => void;
+  /** Nurse portal preview: clinic-day capture for the assigned nurse. */
+  openNursePortal?: () => void;
+  /** Client (employer) portal preview: aggregate programme view only. */
+  openClientPortal?: () => void;
   /** Theme, density and accessibility controls owned by the app shell. */
   shell?: PhShell;
 }
