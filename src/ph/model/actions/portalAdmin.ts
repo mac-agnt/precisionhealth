@@ -12,7 +12,7 @@ import { fmtDate, fmtTime, hoursBetween } from "../time";
 import {
   ACCOUNT_STATUS_LABEL, ASSISTED_METHOD_LABEL, DELIVERY_MODE_LABEL, DOC_LABEL, DOC_VERSION_PATTERN, FAILED_SIGNIN_LIMIT, IRISH_MOBILE, SYNTHETIC_EMAIL,
   TEMPLATE_KIND_LABEL, accountRow, checkTemplate, clinicalWords, contentChanges, contentErrors, currentDoc, docAcceptance, docVersions, ensurePortal,
-  inviteExpiry, maskIrishMobile, pendingDoc, personalInviteCode, personalInviteWorks, portalAccessFor, portalCodeProblem, portalContent, templateById,
+  inviteExpiry, maskIrishMobile, pendingDoc, personalInviteCode, personalInviteWorks, portalAccessFor, portalCodeCheck, portalContent, templateById,
   templateFor,
 } from "../portalAdmin";
 import type { ContentFields } from "../portalAdmin";
@@ -353,8 +353,8 @@ const testSendTemplate: Handler<{ templateId: Id }> = (c, a) => {
 /* ---- the participant preview ---- */
 const signIn: Handler<{ personId: Id; code: string }> = (c, a) => {
   const who = participantSelf(c, a.personId, "sign in"); if (who) return who;
-  const problem = portalCodeProblem(c.s, a.personId, a.code || "");
-  if (problem) return c.fail(problem);
+  const problem = portalCodeCheck(c.s, a.personId, a.code || "");
+  if (problem) return c.fail(problem.message);
   const m = membershipOf(c.s, a.personId);
   const r = recordOf(c, a.personId);
   const at = c.stamp();

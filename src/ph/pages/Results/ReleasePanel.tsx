@@ -1,19 +1,24 @@
 /* Right-hand review controls, shared by Review and Corrections: the release checklist and
-   release buttons, individual flag acknowledgement, the advice editor (manual first, with an
-   optional Clinical Drafting preview), the participant preview summary and the released state.
-   Every change goes through dispatch(act.*); the model rejects anything out of order. */
+   release buttons, individual flag acknowledgement, the advice editor (manual first, with the
+   approved advice codes and an optional "Prepare draft" from approved snippets), the participant
+   preview summary and the released state. Every change goes through dispatch(act.*) or the
+   library actions; the model rejects anything out of order. */
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
-import { ADVICE_FLAGGED, ADVICE_ROUTINE, HOLD_LABEL, act, fmtTime, fmtWhen, staffName } from "../../model";
+import { HOLD_LABEL, act, adviceTrace, approvedVersion, findSnippet, fmtWhen, staffName } from "../../model";
+import type { SnippetUse } from "../../model";
 import { dispatch, usePersona, usePhState } from "../../store";
 import { useNav } from "../../nav-context";
-import { Button, Card, DemoTag, Icon, Pill, Select, Textarea } from "../../ui";
+import { Button, Card, DemoTag, Icon, Pill } from "../../ui";
 import { BAND_LOOK } from "../../report/bands";
 import type { Bundle } from "./EpisodePanels";
 import { Banner, SecTitle } from "./shared";
 import { hasUrgentFollowUp } from "./select";
 import { buildViewer } from "./Sheet";
 import type { ViewerModel } from "./Sheet";
+import { AdviceBox, ConfirmReplace, LibrarySelect, SourcePill, SuggestedCodes, TraceList, notInsertableText } from "./AdviceCodes";
+import { libAct } from "./libraryActions";
+import { snippetSuggestions } from "./libraryModel";
 
 /* ---- checklist ---- */
 function CheckRow({ done, label, note, onToggle, disabled, reason }: { done: boolean; label: string; note?: ReactNode; onToggle?: () => void; disabled?: boolean; reason?: string }) {
@@ -210,16 +215,14 @@ export function FlagsCard({ b, canAct }: { b: Bundle; canAct: boolean }) {
 }
 
 /* ---- advice ---- */
-const WORDING = [
-  ...ADVICE_ROUTINE.map((t, i) => ({ id: `r${i}`, label: `Approved routine wording ${i + 1}`, text: t })),
-  ...ADVICE_FLAGGED.map((t, i) => ({ id: `f${i}`, label: `Approved wording for flagged results ${i + 1}`, text: t })),
-];
-
 /**
  * The clinician's advice editor. Saves the draft through act.setAdvice after a short pause and on
  * blur, and reports every keystroke through onTextChange so the report preview shows the text as
- * typed. variant "sheet" is the NEW ADVICE box under the results viewer, with the optional
- * drafting preview behind a secondary button; "card" is the stacked editor used in Corrections.
+ * typed. Approved advice codes expand in place (CHOL-HI then Space or Tab, or "/" to search), the
+ * suggested codes for this episode insert with one click, and "Prepare draft" (when the drafting
+ * path is on in Settings, AI Controls) writes a draft built only from approved snippets. Every
+ * inserted passage traces back to its code and version. variant "sheet" is the NEW ADVICE box
+ * under the results viewer; "card" is the stacked editor used in Corrections.
  */
 export function AdviceEditor({ b, editable, variant = "card", onTextChange, readOnlyNote }: {
   b: Bundle; editable: boolean; variant?: "sheet" | "card"; onTextChange?: (text: string) => void; readOnlyNote?: string;
@@ -229,7 +232,8 @@ export function AdviceEditor({ b, editable, variant = "card", onTextChange, read
   const stored = b.draft ? b.draft.advice : b.released && b.episode.reportState === "released" ? b.released.advice : "";
   const [text, setText] = useState(stored);
   const [status, setStatus] = useState<"idle" | "pending" | "saved">("idle");
-  const [aiOpen, setAiOpen] = useState(false);
+  const [note, setNote] = useState<string | null>(null);
+  const [confirmPrep, setConfirmPrep] = useState(false);
   const sent = useRef(stored);
   const latest = useRef(stored);
   const timer = useRef<number | null>(null);
@@ -245,7 +249,7 @@ export function AdviceEditor({ b, editable, variant = "card", onTextChange, read
     const r = dispatch(act.setAdvice(id, v), { silent: true });
     if (mounted.current) setStatus(r.ok ? "saved" : "idle");
   }, [id]);
-  // Adopt changes that did not come from this editor, such as an accepted drafting preview.
+  // Adopt changes that did not come from this editor, such as a prepared draft.
   useEffect(() => {
     if (stored !== sent.current) { sent.current = stored; latest.current = stored; setText(stored); report.current?.(stored); }
   }, [stored]);
@@ -259,79 +263,99 @@ export function AdviceEditor({ b, editable, variant = "card", onTextChange, read
     if (timer.current !== null) window.clearTimeout(timer.current);
     timer.current = window.setTimeout(flush, 600);
   };
-  const ai = state.aiDrafts[id];
+
+  const lib = state.adviceLibrary;
   const aiOn = state.settings.aiDraftingOn;
-  const usedAi = !!ai && !!b.draft && b.draft.adviceSource === "ai_draft_approved" && b.draft.advice === ai.text;
+  const sugg = editable ? snippetSuggestions(state, id) : null;
+  const prepRec = lib.prepared[id];
+  const prepared = prepRec && b.draft && prepRec.reportVersionId === b.draft.id ? prepRec : null;
+  const trace = adviceTrace(lib, text, prepared ? [prepared.opening] : []);
+  const since = b.draft ? b.draft.createdAt : null;
+  const edited = Array.from(new Map(lib.uses
+    .filter((u) => u.episodeId === id && !!since && u.at >= since && !trace.items.some((t) => t.code === u.code))
+    .map((u) => [u.code, { code: u.code, version: u.version }])).values());
+
+  const record = (code: string, via: SnippetUse["via"]) => {
+    const r = dispatch(libAct.recordUse(id, code, via), { silent: true });
+    setNote(r.ok ? `${r.message} The advice source records the code and version.` : r.message || "Not inserted.");
+  };
+  const append = (code: string, via: SnippetUse["via"]) => {
+    const s = findSnippet(lib, code);
+    const ver = s ? approvedVersion(s) : null;
+    if (!s || !ver) { setNote(s ? notInsertableText(s) : `${code} is not in the advice library.`); return; }
+    const base = text.replace(/\s+$/, "");
+    change(base ? `${base}\n\n${ver.text}` : ver.text);
+    flush();
+    record(s.code, via);
+  };
+  const prepare = () => { flush(); setConfirmPrep(false); setNote(null); dispatch(libAct.prepareDraft(id)); };
+  const askPrepare = () => (text.trim() && !(prepared && trace.source === "approved_snippets") ? setConfirmPrep(true) : prepare());
+
   const statusText = !editable ? (readOnlyNote || "Read only")
     : status === "pending" ? "Saving draft"
     : status === "saved" ? "Draft saved"
-    : b.draft ? `Draft v${b.draft.version}, ${b.draft.adviceSource === "ai_draft_approved" ? "from the drafting preview, edited by you" : "written by you"}`
+    : b.draft ? `Draft v${b.draft.version}, ${prepared ? "prepared from approved snippets" : b.draft.adviceSource === "ai_draft_approved" ? "from the drafting preview, edited by you" : "written by you"}`
     : "No draft yet";
-  const insert = editable ? (
-    <Select value="" aria-label="Insert approved wording" onChange={(e) => { const w = WORDING.find((x) => x.id === e.target.value); if (w) { change(w.text); flush(); } }}>
-      <option value="">Insert approved sample wording</option>
-      {WORDING.map((w) => <option key={w.id} value={w.id}>{w.label}</option>)}
-    </Select>
+  const box = (className: string, rows: number, placeholder: string) => (
+    <AdviceBox className={className} rows={rows} value={text} lib={lib} disabled={!editable} placeholder={placeholder}
+      ariaLabel={variant === "sheet" ? "New advice for the participant" : "Advice for the participant"}
+      onChange={change} onBlur={flush} onInsert={(code, via) => record(code, via)} onNote={setNote} />
+  );
+  const prepBanner = prepared && b.draft ? (
+    b.draft.checklist.advice ? (
+      <Banner tone="ok" icon="check"><b>Prepared from approved snippets and reviewed.</b> Release still needs the rest of the checklist.</Banner>
+    ) : (
+      <Banner tone="warn" icon="spark">
+        <b>Draft prepared from approved snippets, review required.</b> Read and edit it, then tick Advice written or reviewed in the release checklist. Nothing is released automatically.
+      </Banner>
+    )
   ) : null;
-  const aiPreview = ai ? (
-    <div className="phr-gap" style={{ gap: 8 }}>
-      <div className="phr-csv" style={{ whiteSpace: "pre-wrap", fontFamily: "inherit", fontSize: 12 }}>{ai.text}</div>
-      <div className="phr-row" style={{ justifyContent: "space-between" }}>
-        <span className="phr-sub">Prepared {fmtTime(ai.at)}. Demo content for you to edit and approve. It never diagnoses, invents values or decides urgency.</span>
-        <Button size="sm" disabled={usedAi} onClick={() => { flush(); dispatch(act.acceptAiDraft(id)); }}>{usedAi ? "Copied into advice" : "Copy into advice"}</Button>
-      </div>
-    </div>
+  const tools = editable ? (
+    <>
+      <div style={{ minWidth: 0, flex: "0 1 250px" }}><LibrarySelect lib={lib} onPick={(code) => append(code, "library")} /></div>
+      {aiOn ? (
+        <Button size="sm" variant="ghost" icon="spark" onClick={askPrepare}
+          title="Assembles a draft from the approved snippets that match this episode, with a personalised opening line. Review required. Never released automatically.">
+          Prepare draft
+        </Button>
+      ) : null}
+    </>
   ) : null;
+  const statusLine = <span className="phr-sub" aria-live="polite">{note || statusText}</span>;
 
   if (variant === "sheet") {
     return (
       <div className="phr-gap" style={{ gap: 0 }}>
-        <textarea className="phr-vw-advice-input" rows={4} value={text} disabled={!editable} onChange={(e) => change(e.target.value)} onBlur={flush}
-          aria-label="New advice for the participant"
-          placeholder={editable ? "Write the participant's advice in plain language. Only what the results support." : "No advice written."} />
+        {sugg ? <SuggestedCodes matches={sugg.matches} uncovered={sugg.uncovered} text={text} onPick={(code) => append(code, "suggested")} /> : null}
+        {prepBanner ? <div className="phl-banner-row">{prepBanner}</div> : null}
+        {box("phr-vw-advice-input", 5, editable ? "Write the participant's advice in plain language, or type a code such as CHOL-HI then Space. Only what the results support." : "No advice written.")}
         <div className="phr-vw-advice-bar">
-          <span className="phr-sub">{statusText}</span>
+          {statusLine}
+          <SourcePill source={trace.source} />
           <span className="phr-sub ph-num">{text.trim().length} characters</span>
           <span className="ph-grow" />
-          {insert ? <div style={{ minWidth: 0, flex: "0 1 260px" }}>{insert}</div> : null}
-          {editable ? (
-            <Button size="sm" variant="ghost" icon="spark" disabled={!aiOn} aria-expanded={aiOpen}
-              title={aiOn ? "Optional. Prepares a draft from this episode's own flags for you to edit." : "Switched off in Settings, AI Controls. Writing advice manually is unaffected."}
-              onClick={() => { if (!ai) dispatch(act.aiDraft(id)); setAiOpen((o) => !o || !ai); }}>
-              Draft with AI, optional
-            </Button>
-          ) : null}
+          {tools}
         </div>
-        {editable && aiOpen && ai ? <div className="phr-vw-advice-ai">{aiPreview}</div> : null}
+        {confirmPrep ? <ConfirmReplace onConfirm={prepare} onCancel={() => setConfirmPrep(false)} /> : null}
+        {trace.items.length || edited.length ? <div className="phl-trace-row"><TraceList items={trace.items} edited={edited} /></div> : null}
       </div>
     );
   }
 
   return (
     <div className="phr-gap">
-      <Textarea rows={6} value={text} disabled={!editable} onChange={(e) => change(e.target.value)} onBlur={flush}
-        aria-label="Advice for the participant" placeholder="Write advice for the participant in plain language. Do not include anything not supported by the results." />
-      <div className="phr-row" style={{ justifyContent: "space-between" }}>
-        <span className="phr-sub">{statusText}</span>
-        <span className="phr-sub ph-num">{text.trim().length} characters</span>
+      {sugg ? <SuggestedCodes matches={sugg.matches} uncovered={sugg.uncovered} text={text} onPick={(code) => append(code, "suggested")} /> : null}
+      {prepBanner}
+      <div className="phl-card-box">
+        {box("phl-card-input", 6, "Write advice for the participant in plain language, or type a code such as CHOL-HI then Space. Do not include anything not supported by the results.")}
       </div>
-      {insert}
-      {editable ? (
-        <div style={{ borderTop: "1px solid var(--border)", paddingTop: 10 }}>
-          <div className="phr-row" style={{ justifyContent: "space-between", gap: 6 }}>
-            <span style={{ fontSize: 12, fontWeight: 600, color: "var(--ink)" }}>Draft with AI</span>
-            <DemoTag>Optional, no model connected</DemoTag>
-          </div>
-          {!aiOn ? (
-            <div className="phr-sub" style={{ marginTop: 6 }}>Switched off in Settings, AI Controls. Writing advice manually is unaffected.</div>
-          ) : ai ? <div style={{ marginTop: 8 }}>{aiPreview}</div> : (
-            <div className="phr-gap" style={{ marginTop: 6 }}>
-              <div className="phr-sub">Drafts wording from this episode's own flag labels and approved content. It never diagnoses, invents values or decides urgency.</div>
-              <div><Button size="sm" icon="spark" onClick={() => dispatch(act.aiDraft(id))}>Prepare a drafting preview</Button></div>
-            </div>
-          )}
-        </div>
-      ) : null}
+      <div className="phr-row" style={{ justifyContent: "space-between" }}>
+        {statusLine}
+        <span className="phr-row" style={{ gap: 8 }}><SourcePill source={trace.source} /><span className="phr-sub ph-num">{text.trim().length} characters</span></span>
+      </div>
+      {confirmPrep ? <ConfirmReplace onConfirm={prepare} onCancel={() => setConfirmPrep(false)} /> : null}
+      <TraceList items={trace.items} edited={edited} />
+      {tools ? <div className="phr-row">{tools}</div> : null}
     </div>
   );
 }

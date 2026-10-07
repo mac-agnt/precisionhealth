@@ -443,24 +443,25 @@ export function portalAccessFor(state: PhState, personId: Id): PortalAccess {
   return { state: "ok", message: "" };
 }
 
-/** Why an invitation code cannot be used to sign in, or null when it can. */
-export function portalCodeProblem(state: PhState, personId: Id, raw: string): string | null {
+export interface CodeProblem { kind: "empty" | "locked" | "unknown" | "inactive"; message: string }
+/** Why an invitation code cannot be used to sign in, or null when it can. Only "unknown" counts as a failed attempt. */
+export function portalCodeCheck(state: PhState, personId: Id, raw: string): CodeProblem | null {
   const m = membershipOf(state, personId);
   const programmeId = m?.programmeId || PROGRAMME_ORDER[0];
   const c = portalContent(state, programmeId);
   const v = raw.trim().toUpperCase();
-  if (!v) return "Enter the code from your invitation message.";
   const r = accountRecord(state, personId);
-  if (r.lock) return `Your account is locked, contact ${c.supportEmail}`;
+  if (r.lock) return { kind: "locked", message: `Your account is locked, contact ${c.supportEmail}` };
+  if (!v) return { kind: "empty", message: "Enter the code from your invitation message." };
   const personal = r.personalInvite;
-  if (personal && v === personal.code.toUpperCase()) return personalInviteWorks(state, r) ? null : `This personal link expired on ${fmtDate(personal.expiresOn)}. Email ${c.supportEmail} for a new one.`;
+  if (personal && v === personal.code.toUpperCase()) return personalInviteWorks(state, r) ? null : { kind: "inactive", message: `This personal link expired on ${fmtDate(personal.expiresOn)}. Email ${c.supportEmail} for a new one.` };
   const code = m?.inviteCodeId ? state.invitationCodes.find((x) => x.id === m.inviteCodeId) : undefined;
-  if (!code || v !== code.code.toUpperCase()) return "That code is not recognised. Check the code in your invitation message, including the dashes.";
-  if (code.status !== "active" || code.expiresOn < today(state)) return `This invitation code is no longer active. Email ${c.supportEmail} and we will sort it out.`;
+  if (!code || v !== code.code.toUpperCase()) return { kind: "unknown", message: "That code is not recognised. Check the code in your invitation message, including the dashes." };
+  if (code.status !== "active" || code.expiresOn < today(state)) return { kind: "inactive", message: `This invitation code is no longer active. Email ${c.supportEmail} and we will sort it out.` };
   return null;
 }
 
-export interface PortalView {
+export interface PortalSettings {
   content: PortalContent;
   consentVersion: string;
   privacyVersion: string;
@@ -474,7 +475,7 @@ export interface PortalView {
   demoCode: string | null;
 }
 /** Everything the participant portal reads from the portal admin settings, for one participant. */
-export function portalView(state: PhState, personId: Id): PortalView | null {
+export function portalSettings(state: PhState, personId: Id): PortalSettings | null {
   return memo(state, "pa-view:" + personId, () => {
     const person = ix(state).personById.get(personId);
     if (!person) return null;

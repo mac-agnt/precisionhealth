@@ -574,6 +574,82 @@ try {
   check("report says blood tests not done, never normal", nobChol.every((r) => r.status === "not_done" && r.resultText.startsWith("Not done")));
   check("QRISK3 explains the missing blood sample", /no blood sample/.test(nobEp.qrisk.reason || ""));
 
+  /* ---------- participant portal admin ---------- */
+  s = createInitialState();
+  const PA = M.accountStatusCounts(s);
+  eq("portal account statuses sum to the roster", [PA.not_invited + PA.invited + PA.registered + PA.mfa_enrolled + PA.locked, PA.total], [850, 850]);
+  eq("portal account baseline", [PA.not_invited, PA.invited, PA.registered, PA.mfa_enrolled, PA.locked], [0, 477, 3, 369, 1]);
+  check("portal admin leaves baseline counts alone", M.totalCounts(s).invited === 850 && M.totalCounts(s).booked === 365);
+  run(act.setPersona("brenda"));
+  check("lock needs a reason", !run(M.portalAct.lock("PH-P-0801", "")).ok);
+  check("operations can lock", run(M.portalAct.lock("PH-P-0801", "Participant reported a lost phone")).ok && M.accountRow(s, "PH-P-0801").status === "locked");
+  run(act.setPersona("participant")); run(act.setPortalPerson("PH-P-0801"));
+  const lockedSignIn = run(M.portalAct.signIn("PH-P-0801", "DEMO-IBM-26"));
+  check("lock blocks portal sign-in", !lockedSignIn.ok && /locked, contact support@precisionhealth\.ie/.test(lockedSignIn.message));
+  check("locked portal shows no records", M.portalSettings(s, "PH-P-0801").access.state === "locked");
+  run(act.setPersona("brenda"));
+  check("unlock lets the participant sign in", run(M.portalAct.unlock("PH-P-0801", "Identity confirmed by phone")).ok && run(act.setPersona("participant")) && run(M.portalAct.signIn("PH-P-0801", "DEMO-IBM-26")).ok);
+  run(act.setPersona("brenda"));
+  check("MFA reset needs a reason", !run(M.portalAct.resetMfa("PH-P-0001", "")).ok);
+  check("MFA reset done", run(M.portalAct.resetMfa("PH-P-0001", "Lost phone, identity confirmed by code to the verified mobile")).ok);
+  check("reset MFA emits audit", s.activity.some((e) => e.verb === "portaladmin.mfa_reset" && e.personId === "PH-P-0001" && e.actor.id === "brenda") && M.accountRow(s, "PH-P-0001").status === "registered");
+  check("MFA reset is in the access log without values", M.accessLog(s).some((r) => r.kind === "account_action" && r.personId === "PH-P-0001"));
+  check("participant cannot use portal admin", run(act.setPersona("participant")) && !run(M.portalAct.lock("PH-P-0002", "Testing a lock")).ok && M.accountRows(s).length === 0 && M.accessLog(s).length === 0);
+  s = createInitialState();
+  run(act.setPersona("brenda"));
+  check("consent version drafted", run(M.portalAct.draftDocument("PRG-IBM-26", "consent", "BC-4", "Retention period confirmed by the DPO")).ok && M.consentVersionFor(s, "PRG-IBM-26") === "BC-3");
+  check("drafter cannot approve own version", !run(M.portalAct.decideDocument(M.pendingDoc(s, "PRG-IBM-26", "consent").id, true)).ok);
+  run(act.setPersona("neil"));
+  check("consent version approved", run(M.portalAct.decideDocument(M.pendingDoc(s, "PRG-IBM-26", "consent").id, true)).ok && M.consentVersionFor(s, "PRG-IBM-26") === "BC-4");
+  check("consent version publish keeps old acceptances", s.memberships.filter((m) => m.programmeId === "PRG-IBM-26" && m.consent === "complete").every((m) => m.consentVersion === "BC-3") && s.bookings.every((b) => b.consentVersion === "BC-3"));
+  run(act.setPersona("participant")); run(act.setPortalPerson("PH-P-0801"));
+  run(act.portalSaveDraft("PH-P-0801", 5, { famCvd: false }));
+  check("new acceptance records the new version", run(act.portalComplete("PH-P-0801", { service: true, data: true })).ok && s.memberships.find((m) => m.personId === "PH-P-0801").consentVersion === "BC-4");
+  eq("acceptance counts by version", M.docAcceptance(s, "PRG-IBM-26").consent.map((x) => [x.version, x.n]), [["BC-3", 45], ["BC-4", 1]]);
+  run(act.setPersona("brenda"));
+  check("template validation rejects clinical words", !run(M.portalAct.saveTemplate("MT-report_available-email", "Your results", "Your cholesterol is ready at {{portal_link}}")).ok && M.checkTemplate(s, "reminder", "sms", "", "Your LDL {{appointment_date}}").clinical.includes("ldl"));
+  check("template needs its merge fields", !run(M.portalAct.saveTemplate("MT-reminder-sms", "", "Reminder about your visit")).ok);
+  check("clean template saves a new version", run(M.portalAct.saveTemplate("MT-report_available-sms", "", "Precision Health: a document is waiting in your portal. Sign in at {{portal_link}}.")).ok && M.templateById(s, "MT-report_available-sms").version === 2);
+  const ibmContent = M.portalContent(s, "PRG-IBM-26");
+  const { version: _v, savedAt: _a, savedBy: _b, note: _n, ...fields } = ibmContent;
+  check("content change published", run(M.portalAct.saveContent("PRG-IBM-26", { ...fields, prep: ["Bring photo ID.", ...fields.prep], supportEmail: "screening@precisionhealth.ie", cancelCutoffHours: 24 }, "Test")).ok);
+  const ps = M.portalSettings(s, "PH-P-0801");
+  check("settings change shows in portal data", ps.content.version === 2 && ps.content.prep[0] === "Bring photo ID." && ps.content.supportEmail === "screening@precisionhealth.ie" && /24 hours/.test(ps.cutoffText));
+  check("content errors block a publish", !run(M.portalAct.saveContent("PRG-IBM-26", { ...fields, holdMinutes: 0 })).ok);
+  check("withdrawal cancels and keeps records", run(M.portalAct.withdraw("PH-P-0825", "Participant asked by email to withdraw")).ok && s.bookings.filter((b) => b.personId === "PH-P-0825" && b.status === "confirmed").length === 0 && s.memberships.some((m) => m.personId === "PH-P-0825"));
+  check("withdrawn participant cannot book", !run(act.createBooking("PH-P-0825", M.todaySessions(s).find((x) => x.programmeId === "PRG-IBM-26").id, M.freeSlots(s, M.todaySessions(s).find((x) => x.programmeId === "PRG-IBM-26").id)[0].start)).ok);
+
+  /* ---------- BEGIN advice library checks (Results, advice codes) ---------- */
+  {
+    const L = await server.ssrLoadModule("/src/ph/pages/Results/libraryActions.ts");
+    const LM = await server.ssrLoadModule("/src/ph/pages/Results/libraryModel.ts");
+    s = createInitialState();
+    const lib = () => s.adviceLibrary;
+    const need = ["CHOL-HI", "LDL-BORD", "HDL-LOW", "TG-HI", "BP-MILD", "BP-RAISED", "HBA1C-RISK", "BMI-OVER", "WAIST-HI", "UREA-HI", "ECG-NORM", "FIT-NEG", "PSA-NORM", "ALC-HIGH", "SMOKE", "GP-REVIEW", "ROUTINE-ALL-NORMAL"];
+    check("library codes approved by Neil", need.every((c) => { const x = M.findSnippet(lib(), c); const v = x && M.approvedVersion(x); return !!v && v.approvedBy === "neil" && !!v.approvedAt && x.ownerId === "neil"; }));
+    check("library has a draft and a retired snippet", M.snippetStatus(M.findSnippet(lib(), "PEFR-RED")) === "draft" && M.snippetStatus(M.findSnippet(lib(), "TG-FAST")) === "retired");
+    run(act.setPersona("martina"));
+    check("operations cannot edit, approve or prepare", !run(L.libAct.saveDraft("CHOL-HI", "A changed wording for raised cholesterol.")).ok && !run(L.libAct.approve("ALC-HIGH")).ok && !run(L.libAct.prepareDraft("PH-E-0201")).ok);
+    run(act.setPersona("neil"));
+    const sg = LM.snippetSuggestions(s, "PH-E-0201").matches.map((m) => m.snippet.code);
+    check("suggested codes follow the flags", ["LDL-BORD", "BMI-OVER", "BP-MILD", "GP-REVIEW"].every((c) => sg.includes(c)) && !sg.includes("ROUTINE-ALL-NORMAL"));
+    check("routine episode suggests the all normal code", LM.snippetSuggestions(s, "PH-E-0101").matches.some((m) => m.snippet.code === "ROUTINE-ALL-NORMAL"));
+    check("prepare draft writes a draft only", run(L.libAct.prepareDraft("PH-E-0201")).ok && M.draftVersion(s, "PH-E-0201").advice.startsWith("Ronan,") && s.episodes.find((e) => e.id === "PH-E-0201").reportState === "ready_for_review" && !M.draftVersion(s, "PH-E-0201").checklist.advice);
+    check("prepared draft traces to approved snippets", M.adviceTrace(lib(), M.draftVersion(s, "PH-E-0201").advice, [lib().prepared["PH-E-0201"].opening]).source === "approved_snippets");
+    check("prepared draft is never released without review", !run(act.releaseReport("PH-E-0201")).ok);
+    check("code insertion is recorded with its version", run(L.libAct.recordUse("PH-E-0101", "CHOL-HI", "code")).ok && lib().uses.some((u) => u.episodeId === "PH-E-0101" && u.code === "CHOL-HI" && u.version === 2));
+    check("draft and retired codes do not insert", !run(L.libAct.recordUse("PH-E-0101", "PEFR-RED", "code")).ok && !run(L.libAct.recordUse("PH-E-0101", "TG-FAST", "code")).ok);
+    check("exclamation marks rejected", !run(L.libAct.saveDraft("CHOL-HI", "Your cholesterol is high, act now!")).ok);
+    check("draft keeps the approved version in use", run(L.libAct.saveDraft("CHOL-HI", "Your total cholesterol is above 5.0 mmol/L. Less saturated fat and more activity help. Discuss a repeat test with your GP.")).ok && M.approvedVersion(M.findSnippet(lib(), "CHOL-HI")).version === 2);
+    check("approval creates the next version", run(L.libAct.approve("CHOL-HI")).ok && M.approvedVersion(M.findSnippet(lib(), "CHOL-HI")).version === 3 && M.findSnippet(lib(), "CHOL-HI").versions.length === 3);
+    check("reporter assignment keeps the review baseline", run(L.libAct.assignReporter("PH-E-1149", "liz")).ok && LM.reporterWorkload(s).find((r) => r.id === "liz").ready === 4 && JSON.stringify(Object.values(M.reviewStats(s)).slice(0, 4)) === JSON.stringify([21, 14, 7, 6]));
+    run(act.setAiDrafting(false));
+    check("ai off blocks prepare draft, codes still work", !run(L.libAct.prepareDraft("PH-E-0101")).ok && run(L.libAct.recordUse("PH-E-0101", "ECG-NORM", "slash")).ok);
+    run(act.setPersona("liz"));
+    check("liz cannot release or assign", !run(L.libAct.assignReporter("PH-E-1149", "neil")).ok && !run(L.libAct.recordUse("PH-E-0101", "ECG-NORM", "code")).ok);
+  }
+  /* ---------- END advice library checks ---------- */
+
   /* ---------- reset ---------- */
   s = createInitialState();
   eq("reset restores the baseline", [M.totalCounts(s).released, M.totalCounts(s).ready, M.totalCounts(s).booked, M.batchStats(s, "BATCH-20261002-01").imported], [184, 21, 365, 114]);

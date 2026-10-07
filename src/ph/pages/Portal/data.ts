@@ -5,8 +5,8 @@
    Details and consent are kept in the questionnaire draft (portal/saveDraft) under the keys
    below, so save and resume covers them too, and they are carried onto the membership when the
    participant submits. Nothing here interprets a health answer. */
-import { ageOn, dublinToUtc, hoursBetween, ix, memo, parseIrishDate, registerHandlers, today, versionsOf, APPOINTMENT_TYPES, SECTIONS } from "../../model";
-import type { Answers, Booking, ClinicSession, Episode, Handler, Id, InvitationCode, LocalDate, Membership, Message, Person, PhState, Programme, QuestionCtx, ReportVersion } from "../../model";
+import { ageOn, dublinToUtc, hoursBetween, ix, memo, parseIrishDate, portalSettings, registerHandlers, reminderLeadHoursFor, today, versionsOf, APPOINTMENT_TYPES, CONSENT_FORM_KEY, SECTIONS } from "../../model";
+import type { Answers, Booking, ClinicSession, Episode, Handler, Id, InvitationCode, LocalDate, Membership, Message, Person, PhState, PortalSettings, Programme, QuestionCtx, ReportVersion } from "../../model";
 
 export type PortalView = "overview" | "appointments" | "questionnaire" | "results" | "account";
 export const PORTAL_VIEWS: Array<{ id: PortalView; label: string; icon: "home" | "calendar" | "edit" | "file" | "user" }> = [
@@ -17,6 +17,7 @@ export const PORTAL_VIEWS: Array<{ id: PortalView; label: string; icon: "home" |
   { id: "account", label: "Account", icon: "user" },
 ];
 
+/** Fallback only. The portal shows the support email set for the programme in Portal admin (d.settings.content). */
 export const SUPPORT_EMAIL = "support@precisionhealth.ie";
 
 /** How the participant wants the released report delivered. Local to the preview (see the final report). */
@@ -40,6 +41,8 @@ export interface PortalData {
   messages: Message[];
   /** Sessions on the participant's programme still open for booking. */
   sessions: ClinicSession[];
+  /** What Participants, Portal admin set for this programme and person: content, versions, rules, access. */
+  settings: PortalSettings;
 }
 
 export function portalData(state: PhState, personId: Id): PortalData | null {
@@ -53,11 +56,13 @@ export function portalData(state: PhState, personId: Id): PortalData | null {
     const bookings = (I.bookingsByPerson.get(personId) || []).slice().sort((a, b) => (a.createdAt < b.createdAt ? -1 : 1));
     const active = bookings.find((b) => b.status === "confirmed" && b.attendance !== "completed" && b.attendance !== "no_show") || null;
     const attended = bookings.filter((b) => b.status === "confirmed" && b.attendance === "completed");
-    const episodes = (I.episodesByPerson.get(personId) || []).slice().sort((a, b) => (a.collectedAt < b.collectedAt ? 1 : -1));
+    const settings = portalSettings(state, personId)!;
+    // A locked account, or one waiting for its second sign-in step, gets no screening records.
+    const episodes = settings.access.state !== "ok" ? [] : (I.episodesByPerson.get(personId) || []).slice().sort((a, b) => (a.collectedAt < b.collectedAt ? 1 : -1));
     const messages = state.messages.filter((m) => m.personId === personId && m.status === "delivered").sort((a, b) => (a.at < b.at ? 1 : -1));
     const t = today(state);
     const sessions = state.sessions.filter((s) => s.programmeId === person.programmeId && s.status === "scheduled" && s.date >= t).sort((a, b) => (a.date === b.date ? (a.siteName < b.siteName ? -1 : 1) : a.date < b.date ? -1 : 1));
-    return { person, membership, programme, code, bookings, active, attended, episodes, messages, sessions };
+    return { person, membership, programme, code, bookings, active, attended, episodes, messages, sessions, settings };
   });
 }
 
@@ -79,7 +84,8 @@ export const CONSENT_ITEMS = [
   { key: "consentInfection", label: "I understand I may NOT attend the appointment if I have fever or other symptoms suggestive of infection" },
   { key: "consentIsolate", label: "I understand I may NOT attend if I have been advised to self-isolate or restrict my movements" },
 ] as const;
-export const CK = { signature: "consentSignature", screenReader: "consentSignatureScreenReader", date: "consentDate", notice: "privacyNoticeVersion", sms: "consentSms" } as const;
+export const CK = { signature: "consentSignature", screenReader: "consentSignatureScreenReader", date: "consentDate", notice: "privacyNoticeVersion", sms: "consentSms", form: CONSENT_FORM_KEY } as const;
+/** Baseline versions, used only where no version was recorded. Current versions come from d.settings. */
 export const CONSENT_FORM_VERSION = "BC-3";
 export const PRIVACY_NOTICE_VERSION = "v1.0";
 
@@ -107,13 +113,19 @@ export interface Progress {
   /** A booking can be confirmed. */
   ready: boolean;
 }
-export function progressOf(m: Membership | undefined): Progress {
+/**
+ * Where the participant is. With the current consent form version, a saved consent for an older
+ * version no longer counts: the participant reads and confirms the new one before submitting.
+ */
+export function progressOf(m: Membership | undefined, consentVersion?: string): Progress {
   const submitted = m?.questionnaire === "complete";
   const a = savedAnswers(m);
+  const read = a[CK.form];
+  const stale = !submitted && !!consentVersion && typeof read === "string" && !!read && read !== consentVersion;
   const sectionsTotal = SECTIONS.length;
   return {
     details: submitted || a[DK.confirmed] === true,
-    consent: (submitted && m?.consent === "complete") || consentComplete(a),
+    consent: (submitted && m?.consent === "complete") || (!stale && consentComplete(a)),
     sectionsDone: submitted ? sectionsTotal : Math.min(sectionsTotal, m?.draft?.sectionsDone || 0),
     sectionsTotal,
     submitted,
@@ -184,11 +196,12 @@ export function screeningName(p: Programme): string {
 export function appointmentMinutes(p: Programme): number {
   return APPOINTMENT_TYPES.find((x) => x.id === p.appointmentTypeId)?.minutes || 15;
 }
-/** "Comprehensive Health Screening · IBM Dublin · Demo Screening Room". */
+/** "Comprehensive Health Screening · IBM Dublin · Demo Screening Room". Header and venue line come from Portal admin. */
 export function programmeHeading(d: PortalData): string {
   const p = d.programme;
-  const site = p.sites.length === 1 ? p.sites[0] : d.person.site || p.sites.join(" or ");
-  return [screeningName(p), ...site.split(", ")].join(" · ");
+  const c = d.settings.content;
+  const site = c.venueLine.trim() || (p.sites.length === 1 ? p.sites[0] : d.person.site || p.sites.join(" or "));
+  return [c.heading.trim() || screeningName(p), ...site.split(", ")].join(" · ");
 }
 
 /** Released and superseded versions only. Drafts and versions in review are never shown to a participant. */
@@ -200,9 +213,9 @@ export function apptUtc(state: PhState, b: Booking): string {
   const s = ix(state).sessionById.get(b.sessionId)!;
   return dublinToUtc(s.date, b.slotStart);
 }
-/** True when the booking was made inside the reminder lead time, so no reminder is created for it. */
+/** True when the booking was made inside the programme's reminder lead time, so no reminder is created for it. */
 export function bookedShortNotice(state: PhState, b: Booking): boolean {
-  return hoursBetween(b.createdAt, apptUtc(state, b)) < state.settings.reminderLeadHours;
+  return hoursBetween(b.createdAt, apptUtc(state, b)) < reminderLeadHoursFor(state, b.programmeId);
 }
 
 /** Normalise "803", "0803" or "ph-p-0803" to PH-P-0803. */

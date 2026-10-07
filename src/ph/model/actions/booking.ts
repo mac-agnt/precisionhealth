@@ -6,10 +6,12 @@
 import type { AnalyteCode, Booking, ClinicalCapture, EntityRef, Episode, InvitationCode, NurseFormValue, ProgrammeId, Specimen, StaffId } from "../types";
 import { ANALYTES, HEALTH_INFO_PATTERN, PROGRAMME_BY_ID, QUESTIONNAIRE_SECTIONS, expectedPanel } from "../constants";
 import {
-  URINE_DIPSTICK_OPTIONS, URINE_WCC_OPTIONS, captureErrors, captureMissing, fitKitGiven, isNurseReferral, isRealDate, measureError, needsEcgReview, nurseFormPatchError, nurseFormPrefill,
-  parseIrishDate, psaTaken,
+  NURSE_FIELD_BY_KEY, POC_FIELD_BY_KEY, POC_FORM_NAME, POC_REF_LAST_ISSUED, URINE_DIPSTICK_OPTIONS, URINE_WCC_OPTIONS, captureErrors, captureMissing, ecgReviewText, fitKitGiven, isNurseReferral, isRealDate,
+  measureError, needsEcgReview, nurseFormPatchError, nurseFormPrefill, parseIrishDate, pocFormErrors, pocFormMissing, pocFormPrefill, pocRefFor, psaTaken,
 } from "../capture";
 import type { MeasureKey } from "../capture";
+import { sessionUsesPoc } from "../nurseOps";
+import { bandCtxFor, classifyResult } from "../interpret";
 import { screeningRefFor } from "../fixtures/clinical";
 import { ageOn, dublinToUtc, fmtDate, fmtDayMonth, fmtNumericDate, localDateOf } from "../time";
 import { sessionSlots, activeBookings, membershipOf, plural, previewSessionEdit, slotGrid, sessionStats, today } from "../selectors/core";
@@ -237,13 +239,16 @@ function addClinicalTask(c: Ctx, o: { title: string; detail: string; programmeId
 function raiseEcgReview(c: Ctx, b: Booking, cap: ClinicalCapture, linked: EntityRef): void {
   if (cap.ecgReview || !needsEcgReview(cap)) return;
   const name = c.personName(b.personId);
+  const poc = cap.variant === "poc";
   const taskId = addClinicalTask(c, {
     title: "ECG review requested", programmeId: b.programmeId, linked, dueHours: 4,
-    detail: `ECG machine advice "${String(cap.form.ecgAdvice)}" with an irregular manual pulse at the appointment for ${name} (${b.id}). Review the ECG photo shared to the clinical channel.`,
+    detail: poc
+      ? `ECG result "${ecgReviewText(cap)}" on the ${POC_FORM_NAME} form for ${name} (${b.id}). Review the ECG photo shared to the clinical channel.`
+      : `ECG machine advice "${String(cap.form.ecgAdvice)}" with an irregular manual pulse at the appointment for ${name} (${b.id}). Review the ECG photo shared to the clinical channel.`,
   });
   cap.ecgReview = { at: c.stamp(), taskId };
   c.emit({
-    verb: "clinic.ecg_review", summary: `ECG review requested for ${name} (${b.id}): irregular ECG and irregular pulse. ECG photo shared to clinical channel (simulated, replaces Slack). Task ${taskId} for ${PROGRAMME_BY_ID[b.programmeId].clinicalLeadId === "neil" ? "Neil" : "the clinical lead"}.`,
+    verb: "clinic.ecg_review", summary: `ECG review requested for ${name} (${b.id}): ${poc ? "irregular heart rate on the POC ECG" : "irregular ECG and irregular pulse"}. ECG photo shared to clinical channel (simulated, replaces Slack). Task ${taskId} for ${PROGRAMME_BY_ID[b.programmeId].clinicalLeadId === "neil" ? "Neil" : "the clinical lead"}.`,
     entity: { kind: "task", id: taskId }, programmeId: b.programmeId, personId: b.personId, restricted: true, publicSummary: "ECG review requested at a clinic", simulated: true, integrationId: "slack",
   });
 }
@@ -278,9 +283,12 @@ handlers["clinic/checkIn"] = (c, a: { bookingId: string }) => {
   const answers = membershipOf(c.s, b.personId, b.programmeId)?.answers || {};
   const nurse = c.s.staff.find((x) => x.id === s.nurseId);
   cap.form = nurseFormPrefill(answers, { site: person.site, employer: PROGRAMME_BY_ID[b.programmeId].clientName, sex: person.sex, clinician: nurse ? nurse.name : null });
+  // A POC3 or cardiac session uses the POC Screen with QRISK form. The form is fixed here, at check-in.
+  const poc = sessionUsesPoc(s);
+  if (poc) { cap.variant = "poc"; cap.form = pocFormPrefill(cap.form); }
   c.s.captureDrafts[b.id] = cap;
-  c.emit({ verb: "clinic.checkin", summary: `${c.first()} checked in ${c.personName(b.personId)} for ${b.slotStart} (${b.id}).`, entity: { kind: "booking", id: b.id }, programmeId: b.programmeId, personId: b.personId });
-  return c.ok("Checked in. Confirm identity before any specimen is created.", "ok", b.id);
+  c.emit({ verb: "clinic.checkin", summary: `${c.first()} checked in ${c.personName(b.personId)} for ${b.slotStart} (${b.id})${poc ? ` on the ${POC_FORM_NAME} form` : ""}.`, entity: { kind: "booking", id: b.id }, programmeId: b.programmeId, personId: b.personId });
+  return c.ok(poc ? `Checked in on the ${POC_FORM_NAME} form. Choose the screen type and confirm identity first.` : "Checked in. Confirm identity before any specimen is created.", "ok", b.id);
 };
 
 handlers["clinic/confirmIdentity"] = (c, a: { bookingId: string; dob: string; reference: string }) => {
@@ -307,6 +315,22 @@ handlers["clinic/saveCapture"] = (c, a: { bookingId: string; baseRev: number; me
   if (!cap) return c.fail("Check the participant in first.");
   if (a.baseRev !== cap.rev) return { ok: false, conflict: true, tone: "warn", message: `Save conflict: this record changed (revision ${cap.rev}) since you opened it. Your edits were not saved. Reload to merge.` };
   if (a.form) { const fe = nurseFormPatchError(a.form); if (fe) return c.fail(fe); }
+  if (a.form) {
+    // Each record holds the fields of its own form only. Clearing (null) is always allowed.
+    const poc = cap.variant === "poc";
+    const stray = Object.keys(a.form).find((k) => a.form![k] !== null && !(poc ? POC_FIELD_BY_KEY[k] : NURSE_FIELD_BY_KEY[k]));
+    if (stray) return c.fail(`"${stray}" is not on the ${poc ? POC_FORM_NAME : "Comprehensive (LAB)"} form this appointment uses.`);
+    if (poc) {
+      const locked = cap.form.pocScreenType;
+      if (typeof locked === "string" && "pocScreenType" in a.form && a.form.pocScreenType !== locked) return c.fail(`The screen type is ${locked}. It cannot be changed once saved.`);
+      const bk = c.ix().bookingById.get(a.bookingId)!;
+      const person = c.ix().personById.get(bk.personId)!;
+      const next: ClinicalCapture = { ...cap, form: { ...cap.form, ...a.form } };
+      const pe = pocFormErrors(next, { sex: person.sex, age: ageOn(person.dob, c.ix().sessionById.get(bk.sessionId)!.date), variant: "poc" });
+      const hard = ["pocChol", "pocHdl", "pocHba1c", "pocBpLeft"].find((k) => pe[k]);
+      if (hard) return c.fail(pe[hard]);
+    }
+  }
   if (a.urine) {
     for (const k of ["protein", "glucose", "blood", "wcc"] as const) {
       if (!urineOk(k, a.urine[k])) return c.fail(`Urine ${k === "wcc" ? "white cells" : k}: choose ${(k === "wcc" ? URINE_WCC_OPTIONS : URINE_DIPSTICK_OPTIONS).join(", ")}.`);
@@ -343,12 +367,108 @@ handlers["clinic/toggleChecklist"] = (c, a: { bookingId: string; key: "specimens
   return c.ok();
 };
 
+/** Nurse referral: a doctor review task, a visible marker, and no routine release shortcut. Returns the line for the result message. */
+function recordNurseReferral(c: Ctx, b: Booking, ep: Episode, cap: ClinicalCapture, name: string, collectedAt: string): string {
+  if (!isNurseReferral(cap)) return "";
+  const epId = ep.id;
+  const taskId = addClinicalTask(c, {
+    title: "Nurse referral: review before release", programmeId: b.programmeId, linked: { kind: "episode", id: epId }, dueHours: 24,
+    detail: `${c.persona().name} chose "${String(cap.form.approve)}" on the nurse form for ${name} (${epId}). Review the episode individually before any report is released. Nurse comments are in the clinical record.`,
+  });
+  ep.nurseReferral = { at: collectedAt, by: c.persona().isParticipant ? null : (c.persona().id as StaffId), reason: String(cap.form.approve), comment: cap.notes, taskId };
+  c.emit({
+    verb: "clinic.nurse_referral", summary: `${c.first()} referred ${name} to the doctor at screening (${epId}). Doctor review task ${taskId} created for ${c.s.staff.find((x) => x.id === PROGRAMME_BY_ID[b.programmeId].clinicalLeadId)?.name || "the clinical lead"}. The routine release shortcut is blocked for this episode.`,
+    entity: { kind: "episode", id: epId }, programmeId: b.programmeId, personId: b.personId, restricted: true, publicSummary: "Nurse referral raised on a clinical episode",
+  });
+  return " Nurse referral recorded: a doctor review task was created.";
+}
+
+/**
+ * Complete a POC Screen with QRISK appointment. The point-of-care machine's values become the
+ * episode's observations (source: clinic), so nothing waits for a laboratory and the episode goes
+ * straight to the doctor's review. A machine error is kept as a state with its comment, never as a
+ * value. The episode gets a POC-format unique ID; the COMP0 lab sequence is untouched.
+ */
+function completePoc(c: Ctx, b: Booking, cap: ClinicalCapture): ActionResult {
+  const person = c.ix().personById.get(b.personId)!;
+  const session = c.ix().sessionById.get(b.sessionId)!;
+  const ctx = { sex: person.sex, age: ageOn(person.dob, session.date), variant: "poc" as const };
+  const problems: string[] = [];
+  if (cap.identity.some((x) => !x.confirmed)) problems.push("identity not confirmed with two identifiers");
+  if (!cap.form.pocScreenType) problems.push("choose the screen type");
+  const missing = pocFormMissing(cap, ctx);
+  if (missing.length) problems.push(`missing required values: ${missing.slice(0, 6).map((m) => m.label).join(", ")}${missing.length > 6 ? ", and more" : ""} (record a value, or mark not done or declined)`);
+  if (Object.keys(pocFormErrors(cap, ctx)).length) problems.push("a value is outside its allowed range");
+  if (problems.length) return c.fail(`Cannot complete yet: ${problems.join("; ")}.`);
+  const n = c.nextNo("episode");
+  const epId = `PH-E-${pad(n, 4)}`;
+  const refNo = (c.s.counters.pocRef ?? POC_REF_LAST_ISSUED) + 1;
+  c.s.counters.pocRef = refNo;
+  const screeningRef = pocRefFor(refNo);
+  const collectedAt = c.stamp();
+  cap.status = "complete";
+  cap.completedAt = collectedAt;
+  cap.rev++;
+  cap.savedAt = collectedAt;
+  // Point-of-care readings become observations. The sample is a finger-prick at the clinic: no laboratory specimen exists.
+  const bctx = bandCtxFor(person, collectedAt);
+  const readings: Array<[AnalyteCode, string]> = [["TC", "pocChol"], ["HDL", "pocHdl"], ["HBA1C", "pocHba1c"]];
+  const codes: AnalyteCode[] = [];
+  const machineErrors: string[] = [];
+  for (const [code, key] of readings) {
+    const st = cap.form[`${key}State`];
+    if (st === "Machine error") machineErrors.push(ANALYTES[code].name);
+    const v = cap.form[key];
+    if (st !== "Recorded" || typeof v !== "number") continue;
+    const cl = classifyResult(code, v, bctx);
+    c.s.observations.push({
+      id: `OBS-${pad(c.nextNo("observation"), 5)}`, episodeId: epId, specimenId: screeningRef, code, value: v, valueText: null, unit: ANALYTES[code].unit, limitText: cl.limitText, flag: cl.flag, band: cl.band,
+      legacyDisplayedFlag: null, source: { kind: "clinic" }, recordedAt: collectedAt, unitDiscrepancy: null, original: null, version: 1,
+    });
+    codes.push(code);
+  }
+  const screen = String(cap.form.pocScreenType);
+  const cvScreen = screen === "Standard Cardiovascular Risk" || screen === "Other";
+  const lipids = codes.includes("TC") && codes.includes("HDL");
+  const age = ageOn(person.dob, localDateOf(collectedAt));
+  const ep: Episode = {
+    id: epId, personId: b.personId, programmeId: b.programmeId, bookingId: b.id, sessionId: b.sessionId, collectedAt,
+    formSnapshot: { templateId: "tpl-poc-qrisk", version: "1.0", blocks: { "poc-screen-with-qrisk": "1.0" } }, capture: cap,
+    specimenIds: [], expectedTests: codes.map((code) => ({ code, addOn: false })), reportState: "awaiting_results", hold: null, readyAt: null, reviewAssigneeId: null,
+    reportVersionIds: [], followUpIds: [], flagAckBy: null, screeningRef,
+    qrisk: {
+      score10y: null, heartAge: null, relativeRisk: null, source: "licensed_engine_sample", inputsComplete: cvScreen && lipids, eligible: cvScreen && age >= 25,
+      reason: !cvScreen ? `Not part of a ${screen} screen` : age < 25 ? "Not calculated under 25" : !lipids ? "Not calculated: point-of-care cholesterol or HDL not recorded"
+        : "Inputs complete. The licensed QRISK3 engine is not connected in this demo, so no output is shown for an episode created in this session.",
+    },
+    nurseReferral: null,
+  };
+  c.s.episodes.push(ep);
+  delete c.s.captureDrafts[b.id];
+  b.attendance = "completed";
+  b.episodeId = epId;
+  c.inv();
+  const name = `${person.given} ${person.family}`;
+  const errText = machineErrors.length ? ` Machine error recorded for ${machineErrors.join(" and ")} with the nurse's comment; no value stored.` : "";
+  c.emit({
+    verb: "clinic.completed", summary: `${c.first()} completed the ${POC_FORM_NAME} (${screen}) for ${name} (${b.id}). Episode ${epId} (${screeningRef}) holds ${plural(codes.length, "point-of-care result")} recorded at the clinic, so no laboratory import is needed.${errText} No report was released.`,
+    entity: { kind: "episode", id: epId }, programmeId: b.programmeId, personId: b.personId,
+  });
+  if (cap.ecgReview) { const t = c.s.tasks.find((x) => x.id === cap.ecgReview!.taskId); if (t) t.linked = { kind: "episode", id: epId }; }
+  else raiseEcgReview(c, b, cap, { kind: "episode", id: epId });
+  const referral = recordNurseReferral(c, b, ep, cap, name, collectedAt);
+  c.settleEpisode(ep);
+  c.inv();
+  return c.ok(`POC screen completed. ${epId} (${screeningRef}) has ${plural(codes.length, "point-of-care result")} and is ${ep.reportState === "ready_for_review" ? "ready for the doctor's review" : "waiting for review"}. No laboratory import is needed. No report was released.${errText}${referral}`, "ok", epId);
+}
+
 handlers["clinic/complete"] = (c, a: { bookingId: string }) => {
   const blocked = canWork(c, a.bookingId); if (blocked) return c.fail(blocked);
   const b = c.ix().bookingById.get(a.bookingId)!;
   const cap = captureOf(c, a.bookingId);
   if (!cap) return c.fail("Check the participant in first.");
   if (b.attendance === "completed") return c.fail("This appointment is already completed.");
+  if (cap.variant === "poc") return completePoc(c, b, cap);
   const problems: string[] = [];
   if (cap.identity.some((x) => !x.confirmed)) problems.push("identity not confirmed with two identifiers");
   const missing = captureMissing(cap);
@@ -398,20 +518,7 @@ handlers["clinic/complete"] = (c, a: { bookingId: string }) => {
   // An ECG review raised during the appointment now points at the episode; one not yet raised is raised now.
   if (cap.ecgReview) { const t = c.s.tasks.find((x) => x.id === cap.ecgReview!.taskId); if (t) t.linked = { kind: "episode", id: epId }; }
   else raiseEcgReview(c, b, cap, { kind: "episode", id: epId });
-  // Nurse referral: a doctor review task, a visible marker, and no routine release shortcut.
-  let referral = "";
-  if (isNurseReferral(cap)) {
-    const taskId = addClinicalTask(c, {
-      title: "Nurse referral: review before release", programmeId: b.programmeId, linked: { kind: "episode", id: epId }, dueHours: 24,
-      detail: `${c.persona().name} chose "${String(cap.form.approve)}" on the nurse form for ${name} (${epId}). Review the episode individually before any report is released. Nurse comments are in the clinical record.`,
-    });
-    ep.nurseReferral = { at: collectedAt, by: c.persona().isParticipant ? null : (c.persona().id as StaffId), reason: String(cap.form.approve), comment: cap.notes, taskId };
-    c.emit({
-      verb: "clinic.nurse_referral", summary: `${c.first()} referred ${name} to the doctor at screening (${epId}). Doctor review task ${taskId} created for ${c.s.staff.find((x) => x.id === PROGRAMME_BY_ID[b.programmeId].clinicalLeadId)?.name || "the clinical lead"}. The routine release shortcut is blocked for this episode.`,
-      entity: { kind: "episode", id: epId }, programmeId: b.programmeId, personId: b.personId, restricted: true, publicSummary: "Nurse referral raised on a clinical episode",
-    });
-    referral = " Nurse referral recorded: a doctor review task was created.";
-  }
+  const referral = recordNurseReferral(c, b, ep, cap, name, collectedAt);
   // With nothing left to wait for (bloods not taken, no FIT kit) the episode goes straight to review.
   c.settleEpisode(ep);
   c.inv();
