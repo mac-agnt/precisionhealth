@@ -650,11 +650,132 @@ try {
   }
   /* ---------- END advice library checks ---------- */
 
+  /* ---------- BEGIN occupational health checks ---------- */
+  {
+    await server.ssrLoadModule("/src/ph/pages/OccHealth/actions.ts");
+    let o = createInitialState();
+    const oh = (a) => { const r = reduce(o, a); o = r.state; return r.result; };
+    const O = () => o.occHealth;
+    const recs = O().clients.length + O().agreements.length + O().submissions.length + O().diaries.reduce((n, d) => n + d.slots.length, 0);
+    check("oh slice under 300 records", recs < 300, String(recs));
+    eq("oh baseline groups", [M.ohSummary(o).onboarding, M.ohSummary(o).fullyCompleted], [5, 8]);
+    check("oh fully completed means all four steps done", O().clients.every((c) => (M.ohGroupOf(c) === "fully_completed") === M.OH_STEPS.every((st) => c.steps[st.step].status === "done")));
+    check("oh Ian diary 07:30 to 16:30 in 15-minute slots", O().diaries[0].clinicianName === "Ian Murtagh" && O().diaries[0].slots[0].start === "07:30" && O().diaries[0].slots.length === 36);
+    check("oh participant blocked", (oh(act.setPersona("participant")), !oh({ type: "oh/completeStep", clientId: "OHC-13", step: "xero" }).ok));
+    check("oh clinical role view only", (oh(act.setPersona("neil")), !oh({ type: "oh/completeStep", clientId: "OHC-13", step: "xero" }).ok) && M.ohAccess(o) === "view");
+    oh(act.setPersona("brenda"));
+    const form = { ...M.ohSampleForm() };
+    check("oh invalid form rejected", !oh({ type: "oh/submitOnboarding", form: { ...form, contactEmail: "nope" } }).ok);
+    const sub = oh({ type: "oh/submitOnboarding", form });
+    check("oh onboarding submission creates client", sub.ok && O().clients.length === 14 && M.ohGroupOf(O().clients[13]) === "onboarding");
+    check("oh duplicate submission rejected", !oh({ type: "oh/submitOnboarding", form }).ok && O().clients.length === 14);
+    const id = sub.id;
+    check("oh step done on Aidan's behalf", oh({ type: "oh/completeStep", clientId: id, step: "xero" }).ok && O().clients[13].steps.xero.doneBy.includes("on Aidan's behalf"));
+    check("oh step idempotent", !oh({ type: "oh/completeStep", clientId: id, step: "xero" }).ok);
+    check("oh Meddbase needs signed DSA", !oh({ type: "oh/completeStep", clientId: id, step: "meddbase" }).ok);
+    check("oh agreements step not tickable before signing", !oh({ type: "oh/completeStep", clientId: id, step: "agreements" }).ok);
+    check("oh generate both", oh({ type: "oh/generateAgreement", clientId: id, kind: "both" }).ok && M.ohAgreementsStage(o, id) === "generated");
+    const doc = M.ohDocText(M.ohRenderAgreement(M.ohAgreementFor(o, id, "sla")));
+    check("oh merged document carries client details", doc.includes(form.registeredName) && doc.includes(form.croNumber) && doc.includes(form.contactEmail));
+    check("oh regenerate supersedes draft", oh({ type: "oh/generateAgreement", clientId: id, kind: "sla" }).ok && M.ohAgreementFor(o, id, "sla").versions.map((v) => v.status).join() === "superseded,draft");
+    check("oh send both (simulated)", oh({ type: "oh/sendAgreement", clientId: id, kind: "both" }).ok && M.ohAgreementsStage(o, id) === "sent" && !oh({ type: "oh/sendAgreement", clientId: id, kind: "both" }).ok);
+    check("oh sign both completes Fiona's step", oh({ type: "oh/markSigned", clientId: id, kind: "both" }).ok && O().clients[13].steps.agreements.status === "done");
+    check("oh signed kept", !oh({ type: "oh/generateAgreement", clientId: id, kind: "both" }).ok);
+    oh(act.setPersona("stephen"));
+    check("oh recurring invoice raises a simulated invoice", oh({ type: "oh/completeStep", clientId: id, step: "recurring_invoice" }).ok && O().clients[13].lastAnnualInvoice.simulated);
+    check("oh not fully completed until Meddbase", M.ohGroupOf(O().clients[13]) === "onboarding" && !O().clients[13].fullyCompletedAt);
+    check("oh Meddbase step completes client", oh({ type: "oh/completeStep", clientId: id, step: "meddbase" }).ok && M.ohGroupOf(O().clients[13]) === "fully_completed" && !!O().clients[13].fullyCompletedAt);
+    check("oh invite link once", oh({ type: "oh/issueInviteLink", clientId: id }).ok && !oh({ type: "oh/issueInviteLink", clientId: id }).ok);
+    const d1 = O().diaries[0];
+    const miss = M.ohDiarySlots(o, d1).find((v) => v.slot.kind === "booked" && !v.received);
+    const before = M.ohDiaryStats(o, d1).received;
+    check("oh chase once", oh({ type: "oh/chaseQuestionnaire", slotId: miss.slot.id }).ok && !oh({ type: "oh/chaseQuestionnaire", slotId: miss.slot.id }).ok);
+    check("oh simulated receipt", oh({ type: "oh/simulateQuestionnaire", slotId: miss.slot.id }).ok && M.ohDiaryStats(o, O().diaries[0]).received === before + 1);
+    const unsent = O().submissions.filter((x) => x.meddbase.status !== "sent").map((x) => x.id);
+    check("oh send to Meddbase simulated", oh({ type: "oh/sendToMeddbase", submissionIds: unsent.slice(0, 3) }).ok && O().submissions.filter((x) => x.meddbase.status === "sent").length === 3 && !oh({ type: "oh/sendToMeddbase", submissionIds: unsent.slice(0, 3) }).ok);
+    check("oh events say Simulated", o.activity.filter((e) => e.verb.startsWith("oh.") && e.simulated).length >= 8 && o.activity.filter((e) => e.verb.startsWith("oh.")).every((e) => !/[!—]/.test(e.summary)));
+    check("oh deterministic", JSON.stringify(createInitialState().occHealth) === JSON.stringify(createInitialState().occHealth));
+  }
+  /* ---------- END occupational health checks ---------- */
+
+  /* ---------- BEGIN sales checks (src/ph/pages/Sales, src/ph/model/sales.ts) ---------- */
+  {
+    const SA = (await server.ssrLoadModule("/src/ph/pages/Sales/actions.ts")).salesAct;
+    s = createInitialState();
+    check("sales slice stays small", M.salesRecordCount(s.sales) < 300);
+    const sj = JSON.stringify(s.sales);
+    check("sales copy has no exclamation marks or em dashes", !/!/.test(sj) && !/[—–]/.test(sj));
+    check("sales contacts use example.com", s.sales.leads.every((l) => /@example\.com$/.test(l.contact.email)));
+    const occ = s.sales.proposals.find((p) => p.id === "PRP-0001");
+    const ot = M.salesProposalTotals(occ.versions[1].config, s.sales.priceItems, occ.versions[1].prices);
+    eq("O'Callaghan POC3 2 days, flu 40 and 45", [ot.programme, ot.totalLow, ot.totalHigh, M.salesSuggestedDays(45, 25)], [3820, 4420, 4495, 2]);
+    const jj = M.salesRecalls(s).find((r) => r.company === "J&J");
+    eq("J&J recall and planning dates", [jj.recallOn, jj.planFrom], ["2027-02-05", "2027-01-05"]);
+    check("lapsed client listed", M.salesRecalls(s).some((r) => r.company === "Kerry Coast Hotels" && r.lapsed));
+    run(act.setPersona("brenda"));
+    check("brenda cannot move leads", !run(SA.moveLead("LD-0001", "won")).ok);
+    check("brenda cannot change prices", !run(SA.updatePrice("poc3", { price: 2000 }, "Test change")).ok);
+    check("brenda can mark an Irish Life screening", run(SA.ilhMarkScreened("ILH-0108")).ok);
+    run(act.setPersona("neil"));
+    check("clinical role cannot draft invoices", !run(SA.ilhDraftInvoice("ILH-0107")).ok);
+    run(act.setPersona("stephen"));
+    check("send moves lead to Proposal sent", run(SA.sendProposal("PRP-0007")).ok && s.sales.leads.find((l) => l.id === "LD-0003").stage === "proposal_sent");
+    check("sent version never changes", !run(SA.saveProposal("PRP-0007", s.sales.proposals.find((p) => p.id === "PRP-0007").versions[0].config)).ok);
+    check("accepted moves lead to Won", run(SA.decideProposal("PRP-0007", "accepted")).ok && s.sales.leads.find((l) => l.id === "LD-0003").stage === "won");
+    const inv = run(SA.ilhDraftInvoice("ILH-0107"));
+    const b7 = s.sales.ilh.find((b) => b.id === "ILH-0107");
+    check("Xero draft invoice from the price list", inv.ok && b7.invoice.number === "IN26-561" && b7.invoice.amount === 1910 && b7.payment === "in_draft");
+    check("invoice drafted once", !run(SA.ilhDraftInvoice("ILH-0107")).ok);
+    check("Xero draft is marked simulated", s.activity.some((e) => e.verb === "sales.ilh_invoice_drafted" && e.simulated && e.integrationId === "xero"));
+    check("price change versions the list", run(SA.updatePrice("poc3", { price: 1950 }, "Demo price review")).ok && s.sales.priceVersion === 2);
+    const before = s.sales.leads.length;
+    check("Help Scout conversation becomes a lead", run(SA.createLead({ company: "Tralee Bay Hotels", services: ["flu"], contactName: "Séamus Brosnan", contactEmail: "seamus.brosnan@example.com", source: "helpscout", enquiry: "Flu", origin: { kind: "helpscout", id: "HS-58751" } })).ok && s.sales.leads.length === before + 1 && s.sales.inbox.find((x) => x.id === "HS-58751").status === "converted");
+    s = createInitialState();
+  }
+  /* ---------- END sales checks ---------- */
+
   /* ---------- reset ---------- */
   s = createInitialState();
   eq("reset restores the baseline", [M.totalCounts(s).released, M.totalCounts(s).ready, M.totalCounts(s).booked, M.batchStats(s, "BATCH-20261002-01").imported], [184, 21, 365, 114]);
   const s2 = createInitialState();
   eq("deterministic fixtures", JSON.stringify(s.persons.slice(0, 40)) + s.bookings.length, JSON.stringify(s2.persons.slice(0, 40)) + s2.bookings.length);
+
+  /* ---------- BEGIN flu checks (src/ph/pages/Flu, src/ph/model/flu.ts) ---------- */
+  {
+    const FA = (await server.ssrLoadModule("/src/ph/pages/Flu/actions.ts")).fluAct;
+    s = createInitialState();
+    const fj = JSON.stringify(s.flu);
+    check("flu slice stays small", s.flu.clinics.length + s.flu.orders.length + s.flu.batches.length + s.flu.wastage.length + s.flu.followUps.length < 300);
+    check("flu copy has no exclamation marks or em dashes", !/!/.test(fj) && !/[—–]/.test(fj));
+    const g25 = M.fluWeekGroups(s.flu.clinics, 2025);
+    eq("flu 2025 client weeks", g25.slice(0, 5).map((g) => [g.projected, g.actual]), [[944, 834], [975, 708], [100, 93], [950, 736], [1280, 986]]);
+    const st25 = M.fluStock(s.flu, 2025);
+    check("flu 2025 stock ledger balances", st25.received - st25.administered - st25.wastage === st25.onHand && s.flu.batches.every((b) => M.fluBatchUse(s.flu, b.id).remaining >= 0));
+    const st = M.fluStock(s.flu, 2026);
+    eq("flu 2026 baseline stock", [st.onHand, st.allocated, st.onOrder, st.requestedCount], [0, 6130, 6600, 5]);
+    check("flu running total flags one short week", M.fluRunningTotal(s.flu, 2026).filter((r) => r.short > 0).length === 1);
+    check("flu seeded staffing has no clashes", s.flu.clinics.filter((c) => c.status === "scheduled" && c.date).every((c) => !s.sessions.some((x) => x.date === c.date && c.staffIds.some((id) => id === x.nurseId || x.supportIds.includes(id)))));
+    const cc = M.fluColdChainRows(s.flu, s.nurseOps.endOfDay);
+    check("flu cold chain excursions seeded", cc.filter((r) => r.excursions.length).length >= 3 && cc.some((r) => r.excursions.length && !r.followUps.length));
+    run(act.setPersona("fiona"));
+    check("flu nurse cannot manage", !run(FA.intakeIlh()).ok);
+    run(act.setPersona("brenda"));
+    check("flu only Stephen opens Precision bookings", !run(FA.setPrecisionLive(true)).ok);
+    check("flu Precision intake blocked until supply", !run(FA.intakePrecision()).ok);
+    check("flu ILH intake adds a clinic", run(FA.intakeIlh()).ok && s.flu.clinics.length === 123);
+    run(act.setPersona("stephen"));
+    check("flu Stephen opens Precision bookings", run(FA.setPrecisionLive(true)).ok && s.flu.precisionLive && s.activity.some((e) => e.verb === "flu.precision_live" && e.simulated));
+    const req = s.flu.clinics.find((c) => c.status === "requested");
+    check("flu slot a request", run(FA.slotRequest(req.id, "2026-10-21", "10:00")).ok);
+    check("flu delivery recorded", run(FA.recordDelivery("FVO-26-01", "2026-10-05", "6AK21F3", "06/27")).ok && M.fluStock(s.flu, 2026).onHand === 1200);
+    const first = s.flu.clinics.filter((c) => c.season === 2026 && c.status === "scheduled").sort((a, b) => a.date.localeCompare(b.date))[0];
+    check("flu actuals wait for the clinic day", !run(FA.recordActuals(first.id, { actual: 80, batchId: "FB-26-01", preC: 4, intermediateC: 5, postC: 9.4 })).ok);
+    s = { ...s, clock: { nowUtc: "2026-10-12T18:00:00.000Z", preset: "custom" } };
+    check("flu actuals recorded", run(FA.recordActuals(first.id, { actual: 80, batchId: "FB-26-01", preC: 4, intermediateC: 5, postC: 9.4 })).ok && M.fluStock(s.flu, 2026).onHand === 1120);
+    check("flu follow-up logged with wastage", run(FA.logFollowUp(first.id, "discarded", "Cool box checked, unused doses discarded.", 5)).ok && M.fluStock(s.flu, 2026).wastage === 5);
+    s = createInitialState();
+  }
+  /* ---------- END flu checks ---------- */
 } finally {
   await server.close();
 }
