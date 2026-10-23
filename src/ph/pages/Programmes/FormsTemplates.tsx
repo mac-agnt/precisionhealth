@@ -5,6 +5,7 @@
    Editing needs forms.edit; publication needs forms.publish. Published versions never change:
    edits go to a draft, field edits create a draft block version (copy-on-write), episodes keep
    their form snapshot and new bookings use a version only after it is approved. */
+import { createPortal } from "react-dom";
 import { useEffect, useState } from "react";
 import { act } from "../../model";
 import { useNav } from "../../nav-context";
@@ -34,6 +35,7 @@ export default function FormsTemplates() {
   const [blockSel, setBlockSel] = useState<{ tid: string; id: string } | null>(null);
   const [fieldSel, setFieldSel] = useState<{ tid: string; ver: string; blockId: string; key: string } | null>(null);
   const [tab, setTab] = useState<RightTab>("field");
+  const [gform, setGform] = useState(false);
   const [confirm, setConfirm] = useState(false);
 
   const blockId = blockSel && blockSel.tid === t.id && s.forms.blocks.some((b) => b.id === blockSel.id) ? blockSel.id : v.blocks[0]?.blockId || s.forms.blocks[0].id;
@@ -151,6 +153,15 @@ export default function FormsTemplates() {
 
   return (
     <div className="ph-page prg-page">
+      {gform && screening ? createPortal(
+        <div className="gf-overlay" role="dialog" aria-modal="true" aria-label={`${t.name} form preview`}>
+          <div className="gf-top"><span className="ph-grow">Participant view of {t.name} v{v.version}. Try it: answers are not saved.</span><Button size="sm" onClick={() => setGform(false)} icon="x">Close preview</Button></div>
+          <div className="gf-col">
+            <div className="gf-head"><div className="gf-band" /><h1>{t.name}</h1><p>{t.purpose}</p><div className="gf-req">* Indicates required question</div></div>
+            <div className="gf"><FormPreview key={`gf-${t.id}@${v.version}`} version={v} blocks={s.forms.blocks} participant /></div>
+            <div className="gf-foot">Precision Health · Never submit passwords through this form.</div>
+          </div>
+        </div>, document.body) : null}
       <PageHeader
         title="Forms & Templates"
         sub="Build screening, booking and consent forms from reusable, versioned blocks. Edit fields in a draft, check the participant view, then submit the new version for clinical approval."
@@ -174,6 +185,7 @@ export default function FormsTemplates() {
                   <div className="ph-dim" style={{ fontSize: 12, marginTop: 3, lineHeight: 1.45 }}>{t.purpose}</div>
                 </div>
                 <VersionPill status={v.status} />
+                {screening ? <Button variant="primary" icon="eye" onClick={() => setGform(true)}>Preview as a form</Button> : null}
               </div>
               <div style={{ marginTop: 12 }}>
                 <Segmented<string> label="Version" value={v.version} onChange={selectVersion}
