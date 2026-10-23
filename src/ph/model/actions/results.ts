@@ -2,7 +2,7 @@
    follow-up and reminder retry. Every action is idempotent: a repeated click returns a
    failure and changes nothing, so no logical record is created twice. */
 import type { AnalyteCode, Episode, ImportRow, Observation, ReportVersion, StaffId } from "../types";
-import { ANALYTES, FOLLOW_UP_OUTCOMES, HOLD_CATEGORY, rangeFor } from "../constants";
+import { ANALYTES, FOLLOW_UP_OUTCOMES, HOLD_CATEGORY, illustrativeRangeFor } from "../constants";
 import type { BandCtx } from "../constants";
 import { ADVICE_FLAGGED, ADVICE_ROUTINE, aiDraftFor } from "../advice";
 import { bandCtxFor, classifyResult, parseResultText, resultRowText } from "../interpret";
@@ -80,7 +80,7 @@ handlers["import/resolveRow"] = (c, a: { rowId: string; episodeId: string; check
   const n = c.nextNo("observation");
   const cl = classifyResult(code, value, ctxOf(c, held));
   const obs: Observation = {
-    id: `OBS-${pad(n, 5)}`, episodeId: held.id, specimenId: held.specimenIds[0], code, value, valueText, unit: row.unit, limitText: cl.limitText, flag: cl.flag, band: cl.band,
+    id: `OBS-${pad(n, 5)}`, episodeId: held.id, specimenId: held.specimenIds[0], code, value, valueText, unit: row.unit, limitText: cl.limitText, flag: cl.flag, band: cl.band, rangeVersion: cl.rangeVersion,
     legacyDisplayedFlag: null, source: { kind: "batch", batchId: row.batchId, rowId: row.id }, recordedAt: c.stamp(), unitDiscrepancy: null, original: null, version: 1,
   };
   c.s.observations.push(obs);
@@ -121,7 +121,7 @@ handlers["import/confirmUnit"] = (c, a: { episodeId: string; reason: string }) =
   const cl = classifyResult(obs.code, converted, ctxOf(c, ep));
   // The new version carries the confirmation reason. The received value stays on the earlier version and in original.
   const next: Observation = {
-    ...obs, id: `OBS-${pad(c.nextNo("observation"), 5)}`, value: converted, unit: ANALYTES[obs.code].unit, flag: cl.flag, band: cl.band, limitText: cl.limitText, unitDiscrepancy: { ...obs.unitDiscrepancy!, confirmed: true }, original, version: obs.version + 1, recordedAt: at,
+    ...obs, id: `OBS-${pad(c.nextNo("observation"), 5)}`, value: converted, unit: ANALYTES[obs.code].unit, flag: cl.flag, band: cl.band, rangeVersion: cl.rangeVersion, limitText: cl.limitText, unitDiscrepancy: { ...obs.unitDiscrepancy!, confirmed: true }, original, version: obs.version + 1, recordedAt: at,
     correction: { kind: "unit_confirmation", reason, by: c.persona().id as StaffId, at, previous: { id: obs.id, value: obs.value, unit: obs.unit, version: obs.version } },
   };
   c.s.observations.push(next);
@@ -149,7 +149,7 @@ function sampleValue(code: AnalyteCode, r: Rng, ctx: BandCtx): number {
     case "TG": return one(0.8 + r.next() * 0.6);
     case "HBA1C": return Math.round(32 + r.next() * 6);
     default: {
-      const b = rangeFor(code, ctx)!;
+      const b = illustrativeRangeFor(code, ctx)!;
       const lo = b.lo !== undefined ? b.lo : (b.hi ?? 1) * 0.3, hi = b.hi !== undefined ? b.hi : lo * 3;
       return one(lo + (hi - lo) * (0.3 + r.next() * 0.4));
     }
@@ -190,7 +190,7 @@ handlers["import/deliverSampleResults"] = (c, a: { episodeId: string }) => {
     };
     c.s.importRows.push(row);
     c.s.observations.push({
-      id: obsId, episodeId: ep.id, specimenId: ep.specimenIds[0], code: t.code, value, valueText: q ? q.normal : null, unit: ANALYTES[t.code].unit, limitText: cl.limitText, flag: cl.flag, band: cl.band,
+      id: obsId, episodeId: ep.id, specimenId: ep.specimenIds[0], code: t.code, value, valueText: q ? q.normal : null, unit: ANALYTES[t.code].unit, limitText: cl.limitText, flag: cl.flag, band: cl.band, rangeVersion: cl.rangeVersion,
       legacyDisplayedFlag: null, source: { kind: "batch", batchId, rowId }, recordedAt: at, unitDiscrepancy: null, original: null, version: 1,
     });
   });
@@ -407,7 +407,7 @@ handlers["correction/start"] = (c, a: { episodeId: string; reason: string; edits
     const cl = classifyResult(o.code, e.value, ctx);
     const q = ANALYTES[o.code].qualitative;
     c.s.observations.push({
-      ...o, id: `OBS-${pad(c.nextNo("observation"), 5)}`, value: e.value, valueText: q ? (e.value >= 1 ? q.abnormal : q.normal) : null, flag: cl.flag, band: cl.band, limitText: cl.limitText, legacyDisplayedFlag: null, recordedAt: at, version: o.version + 1,
+      ...o, id: `OBS-${pad(c.nextNo("observation"), 5)}`, value: e.value, valueText: q ? (e.value >= 1 ? q.abnormal : q.normal) : null, flag: cl.flag, band: cl.band, rangeVersion: cl.rangeVersion, limitText: cl.limitText, legacyDisplayedFlag: null, recordedAt: at, version: o.version + 1,
       correction: { kind: "result_correction", reason, by: c.persona().id as StaffId, at, previous: { id: o.id, value: o.value, unit: o.unit, version: o.version } },
     });
   }

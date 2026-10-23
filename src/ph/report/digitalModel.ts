@@ -204,16 +204,16 @@ export function analyteScale(code: AnalyteCode, value: number | null, ctx: BandC
 }
 
 export const BMI_CATEGORIES = [
-  { key: "under", label: "Underweight", range: "below 18" },
-  { key: "healthy", label: "Healthy", range: "18 to 25" },
-  { key: "over", label: "Overweight", range: "25 to 30" },
-  { key: "obese", label: "Obese", range: "above 30" },
+  { key: "under", label: "Underweight", range: "below 18.5" },
+  { key: "healthy", label: "Healthy", range: "18.5 to under 25" },
+  { key: "over", label: "Overweight", range: "25 to under 30" },
+  { key: "obese", label: "Obese", range: "30 or more" },
 ];
 export function bmiCategoryKey(bmi: number): string {
-  return bmi < 18 ? "under" : bmi <= 25 ? "healthy" : bmi <= 30 ? "over" : "obese";
+  return bmi < 18.5 ? "under" : bmi < 25 ? "healthy" : bmi < 30 ? "over" : "obese";
 }
 export function bmiScale(value: number | null): ScaleSpec {
-  return buildScale([15, 40], (x) => { const b = bmiCategory(x).band; return { key: b, band: b }; }, value, [{ at: 18, label: "18" }, { at: 25, label: "25" }, { at: 30, label: "30" }]);
+  return buildScale([15, 40], (x) => { const b = bmiCategory(x).band; return { key: b, band: b }; }, value, [{ at: 18.5, label: "18.5" }, { at: 25, label: "25" }, { at: 30, label: "30" }]);
 }
 export function waistScale(value: number | null, sex: SexRecorded): ScaleSpec {
   const limit = waistCategory(80, sex).limit;
@@ -228,8 +228,7 @@ export const HBA1C_CATEGORIES = [
 
 /** Blood pressure: the five significance bands of the client's report, highest of the two numbers wins. */
 const BP_SYS = [120, 140, 160, 180];
-const BP_DIA = [80, 90, 100, 110];
-const level = (x: number, cuts: number[]) => cuts.filter((c) => x >= c).length;
+const BP_DIA = [80, 90, 100, 120];
 export function bpLevel(sys: number, dia: number): number {
   const word = bpCategory(sys, dia).word;
   const i = BP_SIGNIFICANCE.findIndex((b) => b.word === word);
@@ -238,7 +237,8 @@ export function bpLevel(sys: number, dia: number): number {
 export function bpScale(which: "sys" | "dia", value: number | null): ScaleSpec {
   const cuts = which === "sys" ? BP_SYS : BP_DIA;
   const domain: [number, number] = which === "sys" ? [80, 200] : [50, 120];
-  return buildScale(domain, (x) => { const i = level(x, cuts); return { key: "bp" + i, band: BP_SIGNIFICANCE[i].band }; }, value, cuts.map((c) => ({ at: c, label: String(c) })));
+  /* Each point of the scale is judged by the same rule as the reading itself. */
+  return buildScale(domain, (x) => { const i = which === "sys" ? bpLevel(x, 0) : bpLevel(0, x); return { key: "bp" + i, band: BP_SIGNIFICANCE[i].band }; }, value, cuts.map((c) => ({ at: c, label: String(c) })));
 }
 /** Short names for the significance bands, for tight spaces. */
 export const BP_SHORT = ["Ideal", "Mild", "Raised", "Significantly raised", "Immediate treatment"];

@@ -2,7 +2,7 @@
    answers. Every change is a draft first and keeps the previous versions; publishing writes one
    activity event saying what changed and how many demo results it re-bands. A failed check leaves the
    state untouched. Nothing here is done by an agent. */
-import { RR_BAND_ORDER, RR_QUESTIONS, RR_TESTS, fmtDate, registerHandlers } from "../../model";
+import { RR_BAND_ORDER, RR_QUESTIONS, RR_TESTS, bandCtxFor, classifyResult, fmtDate, registerHandlers } from "../../model";
 import type { ActionResult, Ctx, PhState, RrBand, RrBandKey, RrEffectiveBasis, RrRow, RrVersion, StaffId } from "../../model";
 import { draftImpact, rrDiff } from "./select";
 
@@ -84,8 +84,23 @@ registerHandlers({
     const impact = draftImpact(c.s as PhState, v);
     const diff = rrDiff(test, prev, v);
     v.status = "published"; v.publishedBy = me(c); v.publishedAt = c.now; v.decidedNote = String(a.note || "").trim() || null;
+    /* Re-band results not yet released, each on its own sample date. Released results keep the band and version they were released with. */
+    let reBanded = 0;
+    if (test.analyte) {
+      const released = new Set(c.s.episodes.filter((e) => e.reportState === "released").map((e) => e.id));
+      const ix = c.ix();
+      c.s.observations.forEach((o, i) => {
+        if (o.code !== test.analyte || released.has(o.episodeId)) return;
+        const ep = ix.episodeById.get(o.episodeId), person = ep ? ix.personById.get(ep.personId) : undefined;
+        if (!ep || !person) return;
+        const cl = classifyResult(o.code, o.value, { ...bandCtxFor(person, ep.collectedAt), versions: rr.versions });
+        if (cl.band === o.band && cl.rangeVersion === o.rangeVersion && cl.limitText === o.limitText) return;
+        c.s.observations[i] = { ...o, band: cl.band, flag: cl.flag, limitText: cl.limitText, rangeVersion: cl.rangeVersion };
+        reBanded++;
+      });
+    }
     const rel = impact.changed.filter((x) => x.released).length, unrel = impact.changed.length - rel;
-    c.emit({ verb: "ranges.published", summary: `${c.first()} published version ${v.version} of the ${test.name} range, effective ${fmtDate(v.effectiveFrom)}. ${diff.join(" ")} ${test.analyte ? `${impact.changed.length} of ${impact.checked} demo results change band (${unrel} not yet released, ${rel} already released and listed for clinician review).` : ""}`.trim() });
+    c.emit({ verb: "ranges.published", summary: `${c.first()} published version ${v.version} of the ${test.name} range, effective ${fmtDate(v.effectiveFrom)}. ${diff.join(" ")} ${test.analyte ? `${impact.changed.length} of ${impact.checked} demo results change band (${unrel} not yet released, ${rel} already released and listed for clinician review). ${reBanded} unreleased results were re-banded.` : ""}`.trim() });
     return c.ok(`${test.name} version ${v.version} published, effective ${fmtDate(v.effectiveFrom)}. Earlier versions are kept.`);
   },
 

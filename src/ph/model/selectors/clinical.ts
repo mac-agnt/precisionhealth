@@ -33,7 +33,7 @@ export const QRISK3 = {
   inputsNeeded: ["Age, sex and ethnicity", "Smoking status", "Diabetes status", "Systolic blood pressure", "Total and HDL cholesterol", "Height and weight (BMI)", "Family history and the medication and condition fields on the nurse form"],
 };
 
-/** Blood pressure needs review when it is outside the Ideal band (120/80 or above), under the illustrative rule set. */
+/** Blood pressure needs review above 140/90 (Precision Health's table: mildly abnormal starts above 140 systolic or 90 diastolic). */
 export function bpFlagged(c: ClinicalCapture | null | undefined): boolean {
   if (!c) return false;
   const s = c.measures.bpSys, d = c.measures.bpDia;
@@ -41,11 +41,11 @@ export function bpFlagged(c: ClinicalCapture | null | undefined): boolean {
   const b = bpCategory(s.value, d.value).band;
   return b === "borderline" || b === "abnormal";
 }
-/** Blood pressure at or above 140/90 (Raised or worse in the report table). Used for employer aggregates. */
+/** Blood pressure above 140/90 (Raised or worse in the report table). Used for employer aggregates. */
 export function bpRaised(c: ClinicalCapture | null | undefined): boolean {
   if (!c) return false;
   const s = c.measures.bpSys, d = c.measures.bpDia;
-  return (s.state === "recorded" && s.value != null && s.value >= BP_REVIEW_LIMIT.sys) || (d.state === "recorded" && d.value != null && d.value >= BP_REVIEW_LIMIT.dia);
+  return (s.state === "recorded" && s.value != null && s.value > BP_REVIEW_LIMIT.sys) || (d.state === "recorded" && d.value != null && d.value > BP_REVIEW_LIMIT.dia);
 }
 
 /** Stored results only: the latest version of each laboratory code. */
@@ -76,7 +76,7 @@ export type { FlagReason };
 export function episodeFlags(state: PhState, ep: Episode): FlagReason[] {
   return memo(state, "ef:" + ep.id, () => {
     const person = ix(state).personById.get(ep.personId);
-    return reviewReasons({ capture: ep.capture, observations: latestObservations(state, ep.id), sex: person ? person.sex : "not_recorded", qrisk: ep.qrisk, nurseReferral: ep.nurseReferral });
+    return reviewReasons({ capture: ep.capture, observations: latestObservations(state, ep.id), sex: person ? person.sex : "not_recorded", qrisk: ep.qrisk, nurseReferral: ep.nurseReferral, on: ep.collectedAt.slice(0, 10) });
   });
 }
 

@@ -283,7 +283,7 @@ export function answerQuery(state: PhState, q: string): Answer {
       const ldl = ep ? (I.obsByEpisode.get(ep.id) || []).find((o) => o.code === "LDL") : undefined;
       return {
         scenario: sc, supported: true, tool: "pulse_data_quality", effect: "read",
-        text: ldl ? `Data Quality flagged PH-E-0201: LDL ${ldl.value} ${ldl.unit} with displayed limit ${ldl.limitText} appeared as normal in the legacy summary. Pulse shows Review required and a clinician must review it. No replacement threshold is proposed, and the displayed limits are illustrative sample content.` : "No data quality inconsistency is open.",
+        text: ldl ? `Data Quality flagged PH-E-0201: LDL ${ldl.value} ${ldl.unit} with displayed limit ${ldl.limitText} appeared as normal in the legacy summary. Pulse shows Review required and a clinician must review it. No replacement threshold is proposed; the displayed limit comes from Precision Health\'s reference ranges table.` : "No data quality inconsistency is open.",
         actions: [{ label: "Open the review", target: { page: "Results", tab: "review", params: { episode: "PH-E-0201" } }, primary: true }],
       };
     }

@@ -108,7 +108,7 @@ export function TestDrawer({ test, onClose }: { test: RrTest; onClose: () => voi
 
   return (
     <Drawer open onClose={onClose} width={760} title={test.name}
-      sub={<>{test.group} · {test.unit} · {RR_BASIS_LABEL[test.basis]}{test.source ? <> · <a className="ph-link" href={test.source.url} target="_blank" rel="noreferrer">{test.source.label}</a></> : null}</>}
+      sub={<>{test.group} · {test.unit} · {RR_BASIS_LABEL[test.basis]}{test.source ? <> · {test.source.url ? <a className="ph-link" href={test.source.url} target="_blank" rel="noreferrer">{test.source.label}</a> : test.source.label}</> : null}</>}
       footer={su ? <>
         {st.draft ? <Button onClick={() => setEditing({ base: st.draft })} icon="edit">Edit draft v{st.draft.version}</Button> : null}
         <Button variant="primary" icon="plus" disabled={!!st.draft} onClick={() => setEditing({ base: v })} title={st.draft ? "Publish or reject the open draft first" : undefined}>Propose a change</Button>

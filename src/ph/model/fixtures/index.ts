@@ -14,9 +14,12 @@ import { initialFluState } from "../flu";
 import { initialOccHealthState } from "../occHealth";
 import { initialNurseOpsState } from "../nurseOps";
 import { initialAdviceLibraryState } from "../adviceLibrary";
-import { initialReferenceRangesState } from "../referenceRangesData";
+import { initialReferenceRangesState, setActiveRangeVersions } from "../referenceRangesData";
 
 export function createInitialState(): PhState {
+  /* Band every seeded result against the seeded reference ranges (Health Screening). */
+  const ranges = initialReferenceRangesState();
+  setActiveRangeVersions(ranges.versions);
   const plan = buildRoster();
   const clin = buildClinical(plan);
   const ops = buildOps(plan, clin);
@@ -91,7 +94,7 @@ export function createInitialState(): PhState {
     occHealth: initialOccHealthState(),
     nurseOps: initialNurseOpsState(),
     adviceLibrary: initialAdviceLibraryState(),
-    referenceRanges: initialReferenceRangesState(),
+    referenceRanges: ranges,
   };
   state.portal = buildPortalBaseline(state);
   return state;

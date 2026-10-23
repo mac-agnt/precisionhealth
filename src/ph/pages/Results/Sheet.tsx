@@ -12,7 +12,7 @@ import { useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
 import {
   ANALYTES, ANALYTE_GROUPS, MEASURE_RULES, QRISK3_SOURCE_NOTE, RULE_SET_LABEL, ageOn, bandCtxFor, bmiCategory, bpCategory, ecgBand, fmtDate, fmtShortDateTime,
-  isNurseReferral, localDateOf, membershipOf, needsEcgReview, panelResults, rangeFor, relativeRiskBand, riskFactorSummary, staffName, urineBand, waistCategory,
+  isNurseReferral, localDateOf, membershipOf, needsEcgReview, panelResults, rangeFor, riskFactorSummary, staffName, urineBand, waistCategory, qriskScoreBand,
 } from "../../model";
 import type { AnalyteCode, AnalyteGroup, Band, BandCtx, MeasureKey, PanelResult, PhState } from "../../model";
 import { usePhState } from "../../store";
@@ -125,17 +125,19 @@ export function buildViewer(state: PhState, b: Bundle): ViewerModel | null {
     : !q.eligible ? grey(label, "N/A", "N/A", `${label}: ${q.reason || "not calculated for this participant"}. ${qNote}`)
     : grey(label, "Pending", "PENDING", `${label}: awaiting the licensed engine. ${qNote}`);
   const rr = q?.relativeRisk ?? null;
-  const rrBand = relativeRiskBand(rr);
-  const heartBand: Band = q?.heartAge == null ? "not_tested" : q.heartAge < age ? "normal" : rrBand;
-  const heartAge = q && q.eligible && q.heartAge != null ? keyed("qrisk_rr", gauged(q.heartAge, { hi: age }, "years", banded("Qrisk Heart Age", String(q.heartAge), heartBand, q.heartAge < age ? "BELOW AGE" : heartBand === "normal" ? "NORMAL" : heartBand === "borderline" ? "BORDERLINE" : "RAISED", `QRISK3 heart age ${q.heartAge}, real age ${age}. ${qNote}`), [Math.max(18, age - 25), age + 30])) : qMissing("Qrisk Heart Age");
-  const score = q && q.eligible && q.score10y != null ? plain("Qrisk score", `${q.score10y.toFixed(2)}%`, `10-year cardiovascular risk. ${qNote}`) : qMissing("Qrisk score");
-  const relRisk = q && q.eligible && rr != null ? keyed("qrisk_rr", gauged(rr, { hi: 1.0 }, undefined, banded("Qrisk Rel Risk", rr.toFixed(1), rrBand, rrBand === "normal" ? "NORMAL" : rrBand === "borderline" ? "BORDERLINE" : "RAISED", `QRISK3 relative risk ${rr.toFixed(1)}, normal less than 1.0. ${qNote}`), [0, 3])) : qMissing("Qrisk Rel Risk");
+  /* Table: heart age the same as or less than actual age is normal; relative risk has no bands; a 10-year risk of 10% or more is flagged for a risk discussion. */
+  const heartBand: Band = q?.heartAge == null ? "not_tested" : q.heartAge <= age ? "normal" : "borderline";
+  const scoreBand = qriskScoreBand(q?.score10y ?? null);
+  const heartAge = q && q.eligible && q.heartAge != null ? keyed("qrisk_rr", gauged(q.heartAge, { hi: age }, "years", banded("Qrisk Heart Age", String(q.heartAge), heartBand, q.heartAge < age ? "BELOW AGE" : heartBand === "normal" ? "NORMAL" : "ABOVE AGE", `QRISK3 heart age ${q.heartAge}, real age ${age}. Normal: the same as or less than real age. ${qNote}`), [Math.max(18, age - 25), age + 30])) : qMissing("Qrisk Heart Age");
+  const score = q && q.eligible && q.score10y != null ? (scoreBand === "borderline" ? banded("Qrisk score", `${q.score10y.toFixed(2)}%`, "borderline", "DISCUSS RISK", `10-year cardiovascular risk 10% or more: risk discussion. ${qNote}`) : plain("Qrisk score", `${q.score10y.toFixed(2)}%`, `10-year cardiovascular risk, below 10%. ${qNote}`)) : qMissing("Qrisk score");
+  const relRisk = q && q.eligible && rr != null ? plain("Qrisk Rel Risk", rr.toFixed(1), `QRISK3 relative risk ${rr.toFixed(1)}. No bands in the reference ranges table, shown for information. ${qNote}`) : qMissing("Qrisk Rel Risk");
 
   /* measurements */
   const sys = val("bpSys"), dia = val("bpDia");
-  const bpS = sys != null ? bpCategory(sys, 0) : null, bpD = dia != null ? bpCategory(0, dia) : null;
-  const bmi = b.bmi, bmiC = bmiCategory(bmi);
-  const waist = val("waistCm"), wc = waistCategory(waist, sex);
+  const on = localDateOf(ep.collectedAt);
+  const bpS = sys != null ? bpCategory(sys, 0, on) : null, bpD = dia != null ? bpCategory(0, dia, on) : null;
+  const bmi = b.bmi, bmiC = bmiCategory(bmi, typeof ep.capture.form?.ethnicity === "string" ? ep.capture.form.ethnicity : null, on);
+  const waist = val("waistCm"), wc = waistCategory(waist, sex, on);
   const smoker = rf.smoker;
 
   /* history */

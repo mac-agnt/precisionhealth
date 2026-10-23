@@ -59,7 +59,7 @@ export function snippetSuggestions(state: PhState, episodeId: Id): Suggestions {
     if (!ep || !person || !canViewEpisodeClinical(state, episodeId)) return EMPTY;
     const obs = new Map(latestObservations(state, episodeId).map((o) => [o.code, o]));
     const flags = episodeFlags(state, ep);
-    const mbs = new Map<string, MeasurementBand>(measurementBands(ep.capture, person.sex).map((m) => [m.key, m]));
+    const mbs = new Map<string, MeasurementBand>(measurementBands(ep.capture, person.sex, ep.collectedAt.slice(0, 10)).map((m) => [m.key, m]));
     const rf = riskFactorSummary(state, episodeId);
     const pending = pendingTests(state, ep).length;
     const covered = new Set<string>();

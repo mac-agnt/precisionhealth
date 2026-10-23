@@ -25,22 +25,22 @@ export function Impact() {
     { key: "t", header: "Test", cell: (r) => <button type="button" className="ph-link" onClick={() => nav.go({ page: "Screening", tab: "ranges", params: { test: r.test.id } })}>{r.test.name}</button> },
     { key: "n", header: "Demo results", align: "right", cell: (r) => <span className="ph-num">{r.results}</span>, sort: (a, b) => a.results - b.results },
     { key: "same", header: "Same band", align: "right", cell: (r) => <span className="ph-num">{r.same}</span> },
-    { key: "diff", header: "Different band", align: "right", sort: (a, b) => a.differ - b.differ, cell: (r) => r.differ ? <Pill tone="warn">{r.differ}</Pill> : <span className="ph-faint">0</span> },
+    { key: "diff", header: "Changed band", align: "right", sort: (a, b) => a.differ - b.differ, cell: (r) => r.differ ? <Pill tone="warn">{r.differ}</Pill> : <span className="ph-faint">0</span> },
     { key: "moves", header: "What moves", cell: (r) => <span style={{ fontSize: 12 }}>{r.moves.sort((a, b) => b.n - a.n).slice(0, 3).map((m) => `${m.n} ${BAND_WORD[m.from]} → ${BAND_WORD[m.to]}`).join("; ") || "No change"}</span> },
   ];
   return (
     <>
       <PageHeader eyebrow="Health Screening" title="Results impact"
-        sub="The demo's results are still banded by the illustrative rule set (v0.1). This compares every demo result with Precision Health's table, so you can see what switching over would change before anything changes. Counts only; no names." />
+        sub="Every result is now banded by Precision Health's table, against the version in force on its sample date. This shows how each demo result's band changed from the illustrative rules the demo used before. Counts only; no names." />
       <KpiStrip>
         <Kpi label="Demo results compared" value={total.toLocaleString("en-IE")} icon="flask" />
-        <Kpi label="Would change band" value={differ.toLocaleString("en-IE")} tone={differ ? "warn" : "ok"} sub={total ? `${Math.round((differ / total) * 100)}% of results` : ""} />
+        <Kpi label="Changed band" value={differ.toLocaleString("en-IE")} tone={differ ? "warn" : "ok"} sub={total ? `${Math.round((differ / total) * 100)}% of results` : ""} />
         <Kpi label="Tests compared" value={rows.length} sub={`of ${RR_TESTS.filter((t) => t.analyte).length} mapped to demo results`} />
       </KpiStrip>
-      <Callout tone="info"><strong>Nothing has been switched over.</strong> Results, reports and the clinician viewer keep using the illustrative rules until Precision Health signs off the ranges and the open questions. Then each result records the range version it was judged against. Ethnicity is not yet on the demo's participant records, so the all-ethnicities range applies.</Callout>
+      <Callout tone="info"><strong>Switched over.</strong> Results, reports, the clinician viewer and review flags all use Precision Health's table, and every result records the range version it was judged against. Released results keep that version when a range changes later. Points still open are on To confirm; the defaults there are what the bands use until answered. Ethnicity from the nurse form decides the BMI range.</Callout>
       <Card style={{ marginTop: 14 }}>
         <DataTable rows={rows} columns={cols} rowKey={(r) => r.test.id} pageSize={40} initialSort={{ key: "diff", dir: -1 }} caption="Band changes by test"
-          footerNote={<>Most of the change comes from questions still open: adjusted calcium has no range yet, the male normal range for HbA1c and the female one for LDL were not supplied, so those results land outside every band. "No range" also covers participants whose sex is not recorded or who fall outside a range's age cohort.</>} />
+          footerNote={<>The illustrative rules called anything within 10% of a limit borderline and further out abnormal. The table defines its own mild and significant bands, and a value outside normal with no band is borderline and goes to clinician review.</>} />
       </Card>
     </>
   );

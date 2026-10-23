@@ -2,7 +2,7 @@
    would do to the demo's results. Pure functions over PhState. Participant names never leave here:
    impact is counts plus episode ids, and the page decides what each role may open. */
 import {
-  ANALYTES, RR_BAND_ORDER, RR_TEST_BY_ANALYTE, RR_TESTS, ageOn, bandIssues, boundsShort, classify, cohortOverlaps, cohortText, localDateOf,
+  ANALYTES, RR_BAND_ORDER, illustrativeBand, RR_TEST_BY_ANALYTE, RR_TESTS, ageOn, bandIssues, boundsShort, classify, cohortOverlaps, cohortText, localDateOf,
   fmtDate, rrVersionInForce, today,
 } from "../../model";
 import type { Band, PhState, RrPerson, RrResult, RrRow, RrTest, RrVersion, StaffId } from "../../model";
@@ -93,7 +93,7 @@ export function draftImpact(s: PhState, draft: RrVersion): { checked: number; ch
 
 export interface AnalyteComparison { test: RrTest; results: number; same: number; differ: number; moves: Array<{ from: Band; to: Band; n: number }> }
 
-/** The demo's current illustrative bands against Precision Health's table, analyte by analyte. Counts only. */
+/** How each demo result's band changed when results moved from the illustrative rules (v0.1) to Precision Health's table. Counts only. */
 export function compareWithCurrentRules(s: PhState): AnalyteComparison[] {
   const byCode = new Map<string, AnalyteComparison>();
   for (const o of s.observations) {
@@ -104,11 +104,13 @@ export function compareWithCurrentRules(s: PhState): AnalyteComparison[] {
     let c = byCode.get(o.code);
     if (!c) { c = { test, results: 0, same: 0, differ: 0, moves: [] }; byCode.set(o.code, c); }
     c.results++;
-    const to = classify(test, s.referenceRanges.versions, ctx.p, o.value, ctx.on).band;
-    if (to === o.band) { c.same++; continue; }
+    const ep = s.episodes.find((e) => e.id === o.episodeId)!;
+    const person = s.persons.find((x) => x.id === ep.personId)!;
+    const from = illustrativeBand(o.code, o.value, { sex: person.sex, age: ctx.p.age ?? 40 });
+    if (from === o.band) { c.same++; continue; }
     c.differ++;
-    const m = c.moves.find((x) => x.from === o.band && x.to === to);
-    if (m) m.n++; else c.moves.push({ from: o.band, to, n: 1 });
+    const m = c.moves.find((x) => x.from === from && x.to === o.band);
+    if (m) m.n++; else c.moves.push({ from, to: o.band, n: 1 });
   }
   return [...byCode.values()].sort((a, b) => b.differ - a.differ || a.test.name.localeCompare(b.test.name));
 }

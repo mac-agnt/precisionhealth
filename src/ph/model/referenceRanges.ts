@@ -153,7 +153,7 @@ export const RR_BAND_META: Record<RrBandKey | "no_band" | "not_set" | "no_cohort
   low_severe: { name: "Low, significant (GP review)", colour: "Orange", tone: "bad", band: "abnormal" },
   high_severe: { name: "High, significant (GP review)", colour: "Orange", tone: "bad", band: "abnormal" },
   high_critical: { name: "Clinical safety threshold", colour: "Red", tone: "bad", band: "abnormal" },
-  no_band: { name: "Outside every band", colour: "Orange", tone: "bad", band: "abnormal" },
+  no_band: { name: "Outside normal, no band", colour: "Yellow", tone: "warn", band: "borderline" },
   not_set: { name: "Range not set", colour: "Grey", tone: "neutral", band: "not_tested" },
   no_cohort: { name: "No range for this person", colour: "Grey", tone: "neutral", band: "not_tested" },
 };
@@ -254,7 +254,7 @@ export function classify(test: RrTest, versions: RrVersion[], p: RrPerson, value
   const n = typeof value === "number" ? value : Number(value);
   if (!Number.isFinite(n)) return mk("not_set", "No value", row, "No numeric value to compare.", false);
   const hit = RR_BAND_ORDER.map((k) => row.bands.find((b) => b.key === k)).filter((b): b is RrBand => !!b && inBand(b, n));
-  if (!hit.length) return mk("no_band", test.outside === "neutral" ? "" : "OUTSIDE BANDS", row, `${fmtRrNum(n, test.decimals)} is not inside any band for this cohort.`);
+  if (!hit.length) return mk("no_band", test.outside === "neutral" ? "" : "OUTSIDE NORMAL", row, `${fmtRrNum(n, test.decimals)} is outside normal and not inside a defined band for this cohort, so it goes to clinician review.`);
   /* Overlapping bands (shown as a warning on the range page): the more severe band is used, so nothing is under-called. */
   const pick = hit.slice().sort((a, b) => severity(b.key) - severity(a.key))[0];
   return mk(pick.key, pick.label, row, `${fmtRrNum(n, test.decimals)} is ${boundsText(pick, test.decimals)}.${hit.length > 1 ? " It also sits in another band; the more severe band is used." : ""}`);
@@ -361,3 +361,12 @@ export const band = (key: RrBandKey, min: RrBound | null, max: RrBound | null, l
 export const RR_DEFAULT_LABEL: Record<RrBandKey, string> = {
   low_severe: "LOW SEVERE", low_mild: "LOW", normal: "NORMAL", high_mild: "HIGH MILD", high_severe: "HIGH SEVERE", high_critical: "URGENT",
 };
+
+/** Whether a value sits below or above the normal band of a row (null when inside or no normal band). */
+export function rrDirection(row: RrRow | null, v: number): "low" | "high" | null {
+  const nb = row?.bands.find((b) => b.key === "normal");
+  if (!nb) return null;
+  if (nb.min && !inBand({ ...nb, max: null }, v)) return "low";
+  if (nb.max && !inBand({ ...nb, min: null }, v)) return "high";
+  return null;
+}

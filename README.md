@@ -54,7 +54,7 @@ Three portal previews sit outside the staff navigation. Open them from the perso
 - **Participant report**: one renderer (`src/ph/report/ScreeningReport.tsx`) for the portal, the clinician preview and print. It follows their sample report page by page.
 - **Automations**: Work, Automations lists 16 flows, each with how it runs today (Jotform, Esendex, Eurofins FTP, Google Workspace, Excel, Slack, Monday.com) and how Pulse runs it, with live counts and a source label.
 
-Decisions for Precision Health to confirm: the illustrative band rules (`RULE_SET_LABEL`), ranges with no source in their material (ALP, B12, folate), blood pressure below 140/90 shown green with the word MILD (as in their viewer and report), QRISK3 values shown as sample output of a licensed engine, the drafted report text for vitamins and minerals and for breast and cervical screening, the preparation instructions in the booking flow, the 48-hour review escalation, and the small-cell rules (employer export blocked under 10, cells hidden under 5; the spec proposes 10 for both).
+Every result band comes from Precision Health's reference ranges table (Health Screening, `docs/client-source/REFERENCE_RANGES.md`), versioned by sample date; the defaults still to confirm are listed on its To confirm tab. Other decisions for Precision Health to confirm: blood pressure below 140/90 shown green with the word MILD (as in their viewer and report), QRISK3 values shown as sample output of a licensed engine, the drafted report text for vitamins and minerals and for breast and cervical screening, the preparation instructions in the booking flow, the 48-hour review escalation, and the small-cell rules (employer export blocked under 10, cells hidden under 5; the spec proposes 10 for both).
 
 Two layout rules come from `CLAUDE.md` and override the client brief: **Agents sits directly under Home**, and **Records opens on Ontology**.
 
@@ -81,7 +81,7 @@ src/views        original Pulse shell and pages (Home, Agents conversations, Rec
 | Thread | Where to look |
 | --- | --- |
 | Three lab identity exceptions, resolved by a person | Results, Imports |
-| 21 reports ready, 6 over 48 hours, release one at a time | Results, Review |
+| 21 reports ready (7 routine, 14 flagged under the reference ranges table), 6 over 48 hours, release one at a time | Results, Review |
 | Ronan: LDL 3.2 against a displayed limit of 3.0 shows "Review required" | Results, Review, PH-E-0201 |
 | IBM capacity: 15 slots today, five invitees still in progress | Programmes, Invitations |
 | Failed reminders (2), retry moves one from failed to delivered | Participants, Communications |

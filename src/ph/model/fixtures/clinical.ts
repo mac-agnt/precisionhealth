@@ -8,7 +8,7 @@
 import type {
   AnalyteCode, ClinicalCapture, DqIssue, Episode, FollowUp, Hold, Id, ImportBatch, ImportRow, Measure, NurseFormValue, Observation, Person, QriskResult, ReportVersion, Specimen,
 } from "../types";
-import { ANALYTES, CORE_PANEL, EXTENDED_PANEL, FORM_TEMPLATES, PROGRAMME_BY_ID, STAFF_BY_ID, expectedPanel, rangeFor, waistCategory } from "../constants";
+import { ANALYTES, CORE_PANEL, EXTENDED_PANEL, FORM_TEMPLATES, PROGRAMME_BY_ID, STAFF_BY_ID, expectedPanel, illustrativeRangeFor } from "../constants";
 import type { BandCtx } from "../constants";
 import { NURSE_REFERRAL_VALUE, nurseFormPrefill } from "../capture";
 import { bandCtxFor, calculatedObservations, classifyResult, resultRowText, reviewReasons } from "../interpret";
@@ -134,7 +134,7 @@ const roundTo = (code: AnalyteCode, v: number) => { const f = Math.pow(10, ANALY
 function extendedValue(code: AnalyteCode, x: Rng, ctx: BandCtx, mixed: boolean): number {
   if (code === "FIT") return mixed && x.next() < 0.03 ? 1 : 0;
   const g = GEN[code]!;
-  const b = rangeFor(code, ctx)!;
+  const b = illustrativeRangeFor(code, ctx)!;
   const mean = typeof g.mean === "function" ? g.mean(ctx) : g.mean;
   const hi = b.hi !== undefined ? b.hi : mean * 3, lo = b.lo !== undefined ? b.lo : mean * 0.25;
   const off = mixed && x.next() < g.off;
@@ -182,7 +182,7 @@ function completedCapture(r: Rng, person: Person, bookingId: string, collectedAt
   const pulse = Math.round(clamp(r.normal(70, 9), 50, 100));
   if (o.routine) {
     w = r1(clamp(w, 19.6 * h * h, 24.4 * h * h));
-    waist = Math.min(waist, waistCategory(null, person.sex).limit - 4 - Math.round(o.x.next() * 6));
+    waist = Math.min(waist, (person.sex === "male" ? 90 : 80) - 4 - Math.round(o.x.next() * 6));
     sys = Math.min(sys, 112 + Math.round(o.x.next() * 6));
     dia = Math.min(dia, 70 + Math.round(o.x.next() * 7));
   }
@@ -359,7 +359,7 @@ export function buildClinical(plan: RosterPlan): ClinicalBuild {
     const q = ANALYTES[code].qualitative;
     const o: Observation = {
       id: `OBS-${pad(obsNo, 5)}`, episodeId: ep.id, specimenId: ep.specimenIds[0], code, value, valueText: q ? (value >= 1 ? q.abnormal : q.normal) : null, unit,
-      limitText: c.limitText, flag: c.flag, band: c.band, legacyDisplayedFlag: null, source, recordedAt: at,
+      limitText: c.limitText, flag: c.flag, band: c.band, rangeVersion: c.rangeVersion, legacyDisplayedFlag: null, source, recordedAt: at,
       unitDiscrepancy: null, original: null, version: 1, ...extra,
     };
     observations.push(o);
@@ -629,7 +629,7 @@ export function buildClinical(plan: RosterPlan): ClinicalBuild {
     const obs = obsByEp.get(ep.id) || [];
     const person = personById.get(ep.personId)!;
     const all = obs.concat(calculatedObservations(ep.id, obs, bandCtxFor(person, ep.collectedAt)));
-    const flagged = reviewReasons({ capture: ep.capture, observations: all, sex: person.sex, qrisk: ep.qrisk, nurseReferral: ep.nurseReferral }).length > 0;
+    const flagged = reviewReasons({ capture: ep.capture, observations: all, sex: person.sex, qrisk: ep.qrisk, nurseReferral: ep.nurseReferral, on: ep.collectedAt.slice(0, 10) }).length > 0;
     const batchId = BATCH_FOR_SESSION[ep.sessionId];
     const processed = Date.parse(BATCH_TIMES[batchId].processed);
     const early1Oct = batchId === EARLY_BATCH_ID;

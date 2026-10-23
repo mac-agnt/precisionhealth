@@ -6,6 +6,10 @@ import type {
   HoldKind, IntegrationDef, Perm, Programme, ProgrammeId, RangeBound, ReportState, Resource, RoleKey, SexRecorded, Staff, StaffId, Story, Team,
 } from "./types";
 import { hhmmToMinutes, minutesToHhmm } from "./time";
+import type { LocalDate } from "./time";
+import { RR_TEST_BY_ANALYTE, RR_TEST_BY_ID, activeRangeVersions } from "./referenceRangesData";
+import { classify, rowFor, rrDirection, rrVersionInForce } from "./referenceRanges";
+import type { RrBand, RrPerson, RrResult, RrTest, RrVersion } from "./referenceRanges";
 import type { Hhmm } from "./time";
 
 export const BRAND = {
@@ -209,9 +213,11 @@ export const RESOURCES: Resource[] = [
   { id: "pr-4", kind: "printer", name: "Label printer LP-04 (fictional)", location: "Spare, Blanchardstown office", note: "Spare unit." },
 ];
 
-/* ---- laboratory analytes: illustrative rule set, clinician-owned ---- */
+/* ---- laboratory analytes. Each range field below is the old illustrative rule set (v0.1), kept only to
+   generate the synthetic sample values; every band and displayed limit comes from Precision Health's
+   reference ranges table (Health Screening). ---- */
 /** Shown wherever a band, flag word or range is displayed. */
-export const RULE_SET_LABEL = "Illustrative rule set v0.1. Clinician-owned. To be replaced by Precision Health's approved rules.";
+export const RULE_SET_LABEL = "Bands from Precision Health's reference ranges table, judged against the version in force on the sample date. Open points are marked To confirm in Health Screening.";
 
 type Bound = RangeBound;
 const lt = (hi: number, text: string): Bound => ({ hi, hiIncl: false, text: `<${text}` });
@@ -314,13 +320,27 @@ export const ANALYTE_GROUPS: Array<{ key: AnalyteGroup; title: string }> = [
   { key: "cancer", title: "Cancer screening" },
 ];
 export const LIMITS_DISCLAIMER =
-  "Illustrative display limits for demonstration. Sample content, not a validated clinical threshold library. Interpretation is clinician-owned.";
-/** Blood pressure at or above this is Raised in the participant report table. Borderline starts at 120/80. */
-export const BP_REVIEW_LIMIT = { sys: 140, dia: 90, text: "<140/90" };
+  "Limits from Precision Health's reference ranges table (Health Screening), versioned by effective date. Points still to confirm with Precision Health are listed there. Interpretation is clinician-owned.";
+/** Blood pressure needs individual review above this (Precision Health's table: mildly abnormal is systolic above 140 or diastolic above 90). */
+export const BP_REVIEW_LIMIT = { sys: 140, dia: 90, text: "above 140/90" };
 
-/* ---- bands and report flag words ---- */
-/** Sex and age at collection. Sex-specific and age-specific ranges need both. */
-export interface BandCtx { sex: SexRecorded; age: number }
+/* ---- bands and report flag words ----
+   Every band comes from Precision Health's reference ranges table (Health Screening module,
+   referenceRanges*.ts), version-aware: a result is judged against the version in force on its sample
+   date, and the version id is returned so it can be stored with the result. The table's bands map to
+   the report's four colours: normal green, mildly abnormal yellow (borderline), significantly
+   abnormal orange (abnormal), not set grey. A value outside normal with no defined band is yellow and
+   goes to clinician review. */
+/** The person and date a result is judged for. on is the sample date; without it the latest published version applies. */
+export interface BandCtx {
+  sex: SexRecorded;
+  age: number;
+  on?: LocalDate;
+  ethnicity?: string | null;
+  pregnant?: boolean | null;
+  /** Versions to judge against. Defaults to the published versions in the current state. */
+  versions?: RrVersion[];
+}
 export type BandDirection = "high" | "low" | null;
 export type ReportFlagWord =
   | "NORMAL" | "BORDERLINE" | "RAISED" | "LOW" | "HIGHER RISK" | "NEGATIVE" | "POSITIVE" | "NOT TESTED"
@@ -328,12 +348,68 @@ export type ReportFlagWord =
   | "UNDERWEIGHT" | "OVERWEIGHT" | "OBESE" | "ABNORMAL" | "MILD";
 const DEFAULT_CTX: BandCtx = { sex: "not_recorded", age: 40 };
 const EPS = 1e-9;
+const LATEST: LocalDate = "9999-12-31";
+
+const RANK: Record<RrResult["outcome"], number> = { normal: 0, not_set: 0, no_cohort: 1, low_mild: 1, high_mild: 1, no_band: 1, low_severe: 2, high_severe: 2, high_critical: 3 };
+/**
+ * Classify against the table. Sex not recorded where the table has separate male and female ranges:
+ * the value is judged as both and the more severe result is used, so it is never called normal by default.
+ */
+export function rrClassify(test: RrTest, value: number | string, ctx: BandCtx = DEFAULT_CTX): RrResult {
+  const versions = ctx.versions || activeRangeVersions();
+  const person: RrPerson = { sex: ctx.sex, age: ctx.age, ethnicity: ctx.ethnicity ?? null, pregnant: ctx.pregnant ?? null };
+  const on = ctx.on || LATEST;
+  const r = classify(test, versions, person, value, on);
+  if (r.outcome === "no_cohort" && ctx.sex === "not_recorded") {
+    const m = classify(test, versions, { ...person, sex: "male" }, value, on), f = classify(test, versions, { ...person, sex: "female" }, value, on);
+    return RANK[m.outcome] >= RANK[f.outcome] ? m : f;
+  }
+  return r;
+}
+function toBand(r: RrResult, value: number): { band: Band; direction: BandDirection } {
+  switch (r.outcome) {
+    case "normal": return { band: "normal", direction: null };
+    case "low_mild": return { band: "borderline", direction: "low" };
+    case "high_mild": return { band: "borderline", direction: "high" };
+    case "low_severe": return { band: "abnormal", direction: "low" };
+    case "high_severe": case "high_critical": return { band: "abnormal", direction: "high" };
+    case "no_band": return r.tone === "neutral" ? { band: "normal", direction: null } : { band: "borderline", direction: rrDirection(r.row, value) || "high" };
+    case "no_cohort": return { band: "borderline", direction: null };
+    default: return { band: "not_tested", direction: null };
+  }
+}
+const rrTestFor = (code: AnalyteCode): RrTest | null => (ANALYTES[code].qualitative ? null : RR_TEST_BY_ANALYTE[code] || null);
+const numText = (v: number, decimals: number) => v.toFixed(Math.max(decimals, (String(v).split(".")[1] || "").length));
 
 /**
- * The reference interval that applies to this person. When sex is not recorded the stricter
- * overlap of the male and female ranges applies, so a value is never called normal by default.
+ * The normal range that applies to this person, from the table. Sex not recorded with separate male
+ * and female ranges: the overlap of the two (the stricter range), as before.
  */
 export function rangeFor(code: AnalyteCode, ctx: BandCtx = DEFAULT_CTX): RangeBound | null {
+  const test = rrTestFor(code);
+  if (!test) return illustrativeRangeFor(code, ctx);
+  const v = rrVersionInForce(ctx.versions || activeRangeVersions(), test.id, ctx.on || LATEST);
+  if (!v) return null;
+  const person: RrPerson = { sex: ctx.sex, age: ctx.age, ethnicity: ctx.ethnicity ?? null, pregnant: ctx.pregnant ?? null };
+  let normals: RrBand[] = [];
+  const { row } = rowFor(v.rows, person);
+  if (row) normals = row.bands.filter((b) => b.key === "normal");
+  else if (ctx.sex === "not_recorded") {
+    normals = (["male", "female"] as const).map((sex) => rowFor(v.rows, { ...person, sex }).row?.bands.find((b) => b.key === "normal")).filter((b): b is RrBand => !!b);
+  }
+  if (!normals.length) return null;
+  const pickLo = normals.map((b) => b.min).filter((x): x is NonNullable<typeof x> => !!x).sort((a, b) => b.value - a.value || Number(a.inclusive) - Number(b.inclusive))[0];
+  const pickHi = normals.map((b) => b.max).filter((x): x is NonNullable<typeof x> => !!x).sort((a, b) => a.value - b.value || Number(a.inclusive) - Number(b.inclusive))[0];
+  const d = ANALYTES[code].decimals;
+  const text = pickLo && pickHi ? `${numText(pickLo.value, d)}-${numText(pickHi.value, d)}`
+    : pickHi ? `${pickHi.inclusive ? "≤" : "<"}${numText(pickHi.value, d)}` : pickLo ? `${pickLo.inclusive ? "≥" : ">"}${numText(pickLo.value, d)}` : "";
+  return { lo: pickLo?.value, loIncl: pickLo?.inclusive ?? true, hi: pickHi?.value, hiIncl: pickHi?.inclusive ?? true, text };
+}
+/**
+ * The illustrative rule set (v0.1) the demo used before Precision Health's table. Kept only to
+ * generate the synthetic sample values, so the demo data stays the same; never used to band a result.
+ */
+export function illustrativeRangeFor(code: AnalyteCode, ctx: BandCtx = DEFAULT_CTX): RangeBound | null {
   const r = ANALYTES[code].range;
   if (r.byAge) return (r.byAge.find((x) => ctx.age >= x.minAge && (x.maxAge === null || ctx.age < x.maxAge)) || r.byAge[r.byAge.length - 1]).range;
   if (r.all) return r.all;
@@ -345,22 +421,26 @@ export function rangeFor(code: AnalyteCode, ctx: BandCtx = DEFAULT_CTX): RangeBo
   }
   return null;
 }
-/** The range in compact form for this person, for example "<3.0", "13-17" or "<3" for PSA at 55. */
+/** The range in compact form for this person, for example "<3.0", "13.0-17.0" or "<3.00" for PSA at 55. */
 export function limitTextFor(code: AnalyteCode, ctx: BandCtx = DEFAULT_CTX): string {
   const a = ANALYTES[code];
   if (a.qualitative) return a.qualitative.normal;
-  return rangeFor(code, ctx)?.text || a.range.text;
+  return rangeFor(code, ctx)?.text || "Range not set";
 }
-/** The range in the participant report's words for this person: "less than 3.0", "more than 1.0", "13-17 (male)". */
+/** The range in the participant report's words for this person: "less than 3.0", "more than 1.00", "13.0-17.0 (male)". */
 export function rangeTextFor(code: AnalyteCode, ctx: BandCtx = DEFAULT_CTX): string {
   const a = ANALYTES[code];
   if (a.qualitative) return a.qualitative.normal;
-  if (code === "TCHDL") return a.range.text;
   const b = rangeFor(code, ctx);
-  if (!b) return a.range.text;
-  const words = b.text.startsWith("<") ? `less than ${b.text.slice(1)}` : b.text.startsWith(">") ? `more than ${b.text.slice(1)}` : b.text;
-  if (a.range.male && a.range.female) return ctx.sex === "male" ? `${words} (male)` : ctx.sex === "female" ? `${words} (female)` : `${a.range.text}. Sex not recorded: ${words} applied`;
-  if (a.range.byAge) return `${words} (age ${ctx.age})`;
+  if (!b || !b.text) return "Range not set";
+  const t = b.text;
+  const words = t.startsWith("<") ? `less than ${t.slice(1)}` : t.startsWith("≤") ? `${t.slice(1)} or less` : t.startsWith(">") ? `more than ${t.slice(1)}` : t.startsWith("≥") ? `${t.slice(1)} or more` : t;
+  const test = rrTestFor(code);
+  const v = test ? rrVersionInForce(ctx.versions || activeRangeVersions(), test.id, ctx.on || LATEST) : null;
+  const bySex = !!v && v.rows.some((r) => r.cohort.sex !== "any" && r.status === "set");
+  const byAge = !!v && v.rows.some((r) => r.cohort.ageMin !== null || r.cohort.ageMax !== null);
+  if (bySex) return ctx.sex === "male" ? `${words} (male)` : ctx.sex === "female" ? `${words} (female)` : `${words} (sex not recorded: the stricter of the male and female ranges)`;
+  if (byAge) return `${words} (age ${ctx.age})`;
   return words;
 }
 
@@ -368,28 +448,46 @@ function genericBand(b: RangeBound, v: number): { band: Band; direction: BandDir
   const below = b.lo !== undefined && (b.loIncl ? v < b.lo - EPS : v <= b.lo + EPS);
   const above = b.hi !== undefined && (b.hiIncl ? v > b.hi + EPS : v >= b.hi - EPS);
   if (!below && !above) return { band: "normal", direction: null };
-  if (above) return { band: v <= b.hi! * 1.1 + EPS ? "borderline" : "abnormal", direction: "high" };
-  return { band: v >= b.lo! * 0.9 - EPS ? "borderline" : "abnormal", direction: "low" };
+  return { band: "borderline", direction: above ? "high" : "low" };
 }
 
 /**
- * Band and direction for one result under the illustrative rule set: borderline is outside the range
- * by up to 10%, abnormal is further out. Analyte-specific rules: total cholesterol 5.0-6.0 borderline
- * and above 6.0 abnormal; HbA1c 42-47 borderline (higher risk) and 48 or more abnormal; HDL 0.9-1.0
- * borderline and below 0.9 abnormal. FIT: Negative normal, Positive abnormal.
+ * Band and direction for one result, from Precision Health's table, plus the id of the range version
+ * used. FIT (qualitative): Negative normal, Positive abnormal.
  */
-export function bandDetail(code: AnalyteCode, value: number | null | undefined, ctx: BandCtx = DEFAULT_CTX): { band: Band; direction: BandDirection } {
-  if (value === null || value === undefined || !Number.isFinite(value)) return { band: "not_tested", direction: null };
+export function bandDetail(code: AnalyteCode, value: number | null | undefined, ctx: BandCtx = DEFAULT_CTX): { band: Band; direction: BandDirection; rangeVersion: string | null } {
+  if (value === null || value === undefined || !Number.isFinite(value)) return { band: "not_tested", direction: null, rangeVersion: null };
   const a = ANALYTES[code];
-  if (a.qualitative) return value >= 1 ? { band: "abnormal", direction: "high" } : { band: "normal", direction: null };
-  if (code === "TC") return value < 5.0 - EPS ? { band: "normal", direction: null } : { band: value <= 6.0 + EPS ? "borderline" : "abnormal", direction: "high" };
-  if (code === "HBA1C") return value < 42 - EPS ? { band: "normal", direction: null } : { band: value < 48 - EPS ? "borderline" : "abnormal", direction: "high" };
-  if (code === "HDL") return value > 1.0 + EPS ? { band: "normal", direction: null } : { band: value >= 0.9 - EPS ? "borderline" : "abnormal", direction: "low" };
-  const b = rangeFor(code, ctx);
-  return b ? genericBand(b, value) : { band: "not_tested", direction: null };
+  if (a.qualitative) return value >= 1 ? { band: "abnormal", direction: "high", rangeVersion: null } : { band: "normal", direction: null, rangeVersion: null };
+  const test = rrTestFor(code);
+  if (test) {
+    const r = rrClassify(test, value, ctx);
+    return { ...toBand(r, value), rangeVersion: r.version?.id || null };
+  }
+  const b = illustrativeRangeFor(code, ctx);
+  return b ? { ...genericBand(b, value), rangeVersion: null } : { band: "not_tested", direction: null, rangeVersion: null };
 }
 export function bandFor(code: AnalyteCode, value: number | null | undefined, ctx: BandCtx = DEFAULT_CTX): Band {
   return bandDetail(code, value, ctx).band;
+}
+/**
+ * The demo's previous illustrative rule set (v0.1), kept only so Health Screening, Results impact can
+ * show what changed when results moved to Precision Health's table. Never used to band a result.
+ */
+export function illustrativeBand(code: AnalyteCode, value: number, ctx: BandCtx = DEFAULT_CTX): Band {
+  if (!Number.isFinite(value)) return "not_tested";
+  const a = ANALYTES[code];
+  if (a.qualitative) return value >= 1 ? "abnormal" : "normal";
+  if (code === "TC") return value < 5.0 - EPS ? "normal" : value <= 6.0 + EPS ? "borderline" : "abnormal";
+  if (code === "HBA1C") return value < 42 - EPS ? "normal" : value < 48 - EPS ? "borderline" : "abnormal";
+  if (code === "HDL") return value > 1.0 + EPS ? "normal" : value >= 0.9 - EPS ? "borderline" : "abnormal";
+  const b = illustrativeRangeFor(code, ctx);
+  if (!b) return "not_tested";
+  const below = b.lo !== undefined && (b.loIncl ? value < b.lo - EPS : value <= b.lo + EPS);
+  const above = b.hi !== undefined && (b.hiIncl ? value > b.hi + EPS : value >= b.hi - EPS);
+  if (!below && !above) return "normal";
+  if (above) return value <= b.hi! * 1.1 + EPS ? "borderline" : "abnormal";
+  return value >= b.lo! * 0.9 - EPS ? "borderline" : "abnormal";
 }
 /** Review required exactly when the band is borderline or abnormal. */
 export function flagFor(code: AnalyteCode, value: number, ctx: BandCtx = DEFAULT_CTX): "none" | "review_required" {
@@ -402,7 +500,7 @@ export function reportFlagWord(code: AnalyteCode, band: Band, direction: BandDir
   if (ANALYTES[code].qualitative) return band === "normal" ? "NEGATIVE" : "POSITIVE";
   if (code === "HBA1C") return band === "normal" ? "NORMAL" : band === "borderline" ? "HIGHER RISK" : "RAISED";
   if (band === "normal") return "NORMAL";
-  if (band === "borderline") return "BORDERLINE";
+  if (band === "borderline") return direction === "low" ? "LOW" : "BORDERLINE";
   return direction === "low" ? "LOW" : "RAISED";
 }
 /** Result text for display, with the analyte's decimals. Qualitative results show their word. */
@@ -412,43 +510,75 @@ export function formatResult(code: AnalyteCode, value: number, valueText?: strin
   return value.toFixed(a.decimals);
 }
 
-/** The blood pressure significance table from the participant report. */
+/** The blood pressure significance table, with the limits from Precision Health's table. */
 export const BP_SIGNIFICANCE: Array<{ reading: string; significance: string; word: ReportFlagWord; band: Band }> = [
-  { reading: "Less than 120/80", significance: "Ideal", word: "IDEAL", band: "normal" },
-  /* The clinician's viewer shows 128/86 green and the sample report words 139/84 "MILD":
-     below 140/90 does not need individual review, so the band stays normal. */
-  { reading: "120/80 to 140/90", significance: "Borderline", word: "MILD", band: "normal" },
-  { reading: "140/90 to 160/100", significance: "Raised", word: "RAISED", band: "abnormal" },
-  { reading: "160/100 to 180/110", significance: "Significantly raised", word: "SIGNIFICANTLY RAISED", band: "abnormal" },
-  { reading: "More than 180/110", significance: "Immediate treatment", word: "IMMEDIATE TREATMENT", band: "abnormal" },
+  { reading: "Up to 120/80", significance: "Ideal", word: "IDEAL", band: "normal" },
+  /* The table leaves 121-140 systolic and 81-90 diastolic without a band; the sample report and the
+     clinician's viewer show 120/80 to 140/90 green with the word MILD, so it is not flagged. */
+  { reading: "Above 120/80 up to 140/90", significance: "Borderline", word: "MILD", band: "normal" },
+  { reading: "Above 140/90 up to 160/100", significance: "Raised", word: "RAISED", band: "borderline" },
+  { reading: "Above 160/100, below 180/120", significance: "Significantly raised", word: "SIGNIFICANTLY RAISED", band: "abnormal" },
+  { reading: "180/120 or more", significance: "Immediate treatment", word: "IMMEDIATE TREATMENT", band: "abnormal" },
 ];
-/** Blood pressure word and band. The higher of the systolic and diastolic categories applies. */
-export function bpCategory(sys: number | null | undefined, dia: number | null | undefined): { word: ReportFlagWord; band: Band } {
+const bpLevel = (r: RrResult): number | "low" => {
+  switch (r.outcome) {
+    case "normal": return 0;
+    case "no_band": return rrDirection(r.row, Number(r.why.split(" ")[0])) === "low" ? "low" : 1;
+    case "high_mild": return 2;
+    case "high_severe": return 3;
+    case "high_critical": return 4;
+    default: return 0;
+  }
+};
+/**
+ * Blood pressure word and band from the table. The higher of the systolic and diastolic categories
+ * applies. A side passed as 0 or less is ignored, so one side can be judged on its own.
+ */
+export function bpCategory(sys: number | null | undefined, dia: number | null | undefined, on?: LocalDate): { word: ReportFlagWord; band: Band } {
   if (sys == null || dia == null || !Number.isFinite(sys) || !Number.isFinite(dia)) return { word: "NOT TESTED", band: "not_tested" };
-  const level = (s: number, d: number) => (s >= 180 || d >= 110 ? 4 : s >= 160 || d >= 100 ? 3 : s >= 140 || d >= 90 ? 2 : s >= 120 || d >= 80 ? 1 : 0);
-  const row = BP_SIGNIFICANCE[level(sys, dia)];
+  const ctx: BandCtx = { sex: "not_recorded", age: 40, on };
+  const levels: Array<number | "low"> = [];
+  if (sys > 0) levels.push(bpSide("bpsys", sys, ctx));
+  if (dia > 0) levels.push(bpSide("bpdia", dia, ctx));
+  if (!levels.length) return { word: "NOT TESTED", band: "not_tested" };
+  const top = Math.max(0, ...levels.filter((l): l is number => l !== "low"));
+  if (top <= 1 && levels.includes("low")) return { word: "LOW", band: "borderline" };
+  const row = BP_SIGNIFICANCE[top];
   return { word: row.word, band: row.band };
 }
-/** BMI word and band. Words follow the report (below 18 underweight, above 25 overweight, above 30 obese). Band: 10% outside 18-25 is borderline. */
-export function bmiCategory(bmi: number | null | undefined): { word: ReportFlagWord; band: Band } {
+function bpSide(id: "bpsys" | "bpdia", v: number, ctx: BandCtx): number | "low" {
+  const r = rrClassify(RR_TEST_BY_ID[id], v, ctx);
+  if (r.outcome === "no_band") return rrDirection(r.row, v) === "low" ? "low" : 1;
+  return bpLevel(r);
+}
+const MEASURE_WORDS: ReportFlagWord[] = ["UNDERWEIGHT", "NORMAL", "OVERWEIGHT", "OBESE"];
+/** BMI word and band from the table. Ethnicity picks the ethnicity-specific range when it applies; otherwise the general adult range. */
+export function bmiCategory(bmi: number | null | undefined, ethnicity?: string | null, on?: LocalDate): { word: ReportFlagWord; band: Band } {
   if (bmi == null || !Number.isFinite(bmi)) return { word: "NOT TESTED", band: "not_tested" };
-  const word: ReportFlagWord = bmi < 18 ? "UNDERWEIGHT" : bmi <= 25 ? "NORMAL" : bmi <= 30 ? "OVERWEIGHT" : "OBESE";
-  const band: Band = bmi >= 18 && bmi <= 25 ? "normal" : bmi > 25 ? (bmi <= 27.5 ? "borderline" : "abnormal") : bmi >= 16.2 ? "borderline" : "abnormal";
+  const r = rrClassify(RR_TEST_BY_ID.bmi, bmi, { sex: "not_recorded", age: 40, ethnicity: ethnicity ?? null, on });
+  const { band } = toBand(r, bmi);
+  const word = MEASURE_WORDS.includes(r.label as ReportFlagWord) ? (r.label as ReportFlagWord) : band === "normal" ? "NORMAL" : "BORDERLINE";
   return { word, band };
 }
-export const BMI_RANGE_TEXT = "18-25";
-/** Waist: less than 80 cm (female), less than 90 cm (male). Sex not recorded uses the lower limit. Up to 10% over is borderline. */
-export function waistCategory(cm: number | null | undefined, sex: SexRecorded): { word: ReportFlagWord; band: Band; limit: number } {
-  const limit = sex === "male" ? 90 : 80;
+export const BMI_RANGE_TEXT = "18.5 to under 25";
+/** Waist from the table: normal below 80 cm (female) and below 94 cm (male); mild up to 88 / 102; above that significant. Sex not recorded: judged as both, the more severe result is used. */
+export function waistCategory(cm: number | null | undefined, sex: SexRecorded, on?: LocalDate): { word: ReportFlagWord; band: Band; limit: number } {
+  const limit = sex === "male" ? 94 : 80;
   if (cm == null || !Number.isFinite(cm)) return { word: "NOT TESTED", band: "not_tested", limit };
-  if (cm < limit) return { word: "NORMAL", band: "normal", limit };
-  return cm <= limit * 1.1 ? { word: "BORDERLINE", band: "borderline", limit } : { word: "RAISED", band: "abnormal", limit };
+  const r = rrClassify(RR_TEST_BY_ID.waist, cm, { sex, age: 40, on });
+  const { band } = toBand(r, cm);
+  return { word: band === "normal" ? "NORMAL" : band === "borderline" ? "BORDERLINE" : "RAISED", band, limit };
 }
-export const WAIST_RANGE_TEXT = "Less than 80cm (Female) / Less than 90cm (Male)";
-/** QRISK3 relative risk band: below 1.0 normal, 1.0 to 1.5 borderline, above 1.5 abnormal. */
+export const WAIST_RANGE_TEXT = "Less than 80cm (Female) / Less than 94cm (Male)";
+/** QRISK3 relative risk: the table defines no bands, so it is shown without a flag. */
 export function relativeRiskBand(rr: number | null | undefined): Band {
   if (rr == null || !Number.isFinite(rr)) return "not_tested";
-  return rr < 1.0 ? "normal" : rr <= 1.5 ? "borderline" : "abnormal";
+  return "normal";
+}
+/** QRISK3 10-year risk: 10% or more is the table's risk-discussion flag (borderline, clinician review). */
+export function qriskScoreBand(score: number | null | undefined): Band {
+  if (score == null || !Number.isFinite(score)) return "not_tested";
+  return score >= 10 ? "borderline" : "normal";
 }
 
 /* ---- labels ---- */
@@ -688,7 +818,7 @@ export const GOVERNANCE_ITEMS: GovernanceItem[] = [
   { id: "gov-processors", group: "hosting", title: "Processor and sub-processor list", detail: "Laboratory, SMS and hosting suppliers to be listed with their data flows.", status: "to_confirm", owner: null },
   { id: "gov-retention", group: "retention", title: "Retention period for screening records", detail: "Awaiting client approval. The existing booking consent mentions a two-year period. It is flagged for review and not hard-coded into future records.", status: "awaiting_client", owner: null },
   { id: "gov-access", group: "access", title: "Quarterly access review register", detail: "A sample register entry shows who can see what. It is illustrative, not a completed review.", status: "sample_evidence", owner: null },
-  { id: "gov-rules", group: "clinical_rules", title: "Clinical rule owner", detail: "Who approves classification limits and advice content. Illustrative display limits in this demo are not validated.", status: "to_confirm", owner: null },
+  { id: "gov-rules", group: "clinical_rules", title: "Clinical rule owner", detail: "Who approves classification limits and advice content. Limits come from Precision Health\'s reference ranges table; superadmins (Health Screening, Change control) approve every change.", status: "to_confirm", owner: null },
   { id: "gov-forms", group: "forms", title: "Form version history", detail: "Every published and draft template version is listed in Programmes, Forms and Templates.", status: "sample_evidence", owner: "Clinical Review" },
   { id: "gov-dpia", group: "dpia", title: "Data protection impact assessment", detail: "A DPIA is required before production use. None has been completed for this prototype.", status: "required", owner: null },
   { id: "gov-assurance", group: "dpia", title: "Security assurance evidence pack", detail: "Corporate client security review is the first hurdle named by the client. Evidence must cover each supplier and data flow.", status: "required", owner: null },

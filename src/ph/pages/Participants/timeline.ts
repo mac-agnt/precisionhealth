@@ -97,7 +97,7 @@ function addEpisode(state: PhState, e: Episode, canSee: boolean, push: (x: Omit<
   if (canSee) {
     const m = cap.measures;
     const bp = m.bpSys.state === "recorded" && m.bpDia.state === "recorded" ? `blood pressure ${m.bpSys.value}/${m.bpDia.value} mmHg` : "blood pressure not recorded";
-    const bpFlag = (m.bpSys.value ?? 0) >= BP_REVIEW_LIMIT.sys || (m.bpDia.value ?? 0) >= BP_REVIEW_LIMIT.dia;
+    const bpFlag = (m.bpSys.value ?? 0) > BP_REVIEW_LIMIT.sys || (m.bpDia.value ?? 0) > BP_REVIEW_LIMIT.dia;
     push({
       ...base, at: cap.completedAt || e.collectedAt, icon: "heart", tone: bpFlag ? "warn" : "neutral", title: "Nurse measurements recorded",
       detail: [measureText("Height", m.heightM, "m", 2) + (m.heightM.provenance === "self_reported" ? " (self-reported)" : ""), measureText("weight", m.weightKg, "kg", 1), measureText("waist", m.waistCm, "cm", 0), bp + (bpFlag ? ` (displayed limit ${BP_REVIEW_LIMIT.text}, review required)` : ""), measureText("pulse", m.pulse, "bpm", 0)].join(", ") + ".",

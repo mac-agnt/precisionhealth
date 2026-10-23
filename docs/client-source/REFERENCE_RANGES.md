@@ -14,7 +14,11 @@ Source: "Screening Reference Ranges: Developer Table", sent by Neil after the 23
 - `src/ph/model/referenceRangesData.ts` encodes every row of the table. `asSent` keeps each cell exactly as received; `RR_QUESTIONS` lists every default applied where the table was blank, one-sex, missing a unit or had a gap.
 - `src/ph/model/referenceRanges.ts`: cohorts (sex, age, ethnicity, pregnancy), bands with included or excluded limits, versions with effective dates, classification, gap and overlap detection, and the generated plain-language sentence.
 - `src/ph/pages/Screening/`: Reference ranges, Check a result, Change control, Results impact, Calculations, Cohorts, To confirm.
-- Demo results still use the illustrative rule set v0.1. Results impact shows what switching would change; switching waits for Precision Health's sign-off.
+- Every result is banded by the table: laboratory results, calculated values (non-HDL, total:HDL), BMI (ethnicity from the nurse form), waist, blood pressure and QRISK3. Each stored result records the range version it was judged against (`rangeVersion`), on its sample date. Publishing a new version re-bands unreleased results; released results keep their version.
+- Mapping to the report's four colours: normal green; mildly abnormal yellow (borderline); significantly abnormal orange (abnormal); not set grey. Outside normal with no defined band: yellow and clinician review.
+- Defaults applied until Precision Health confirms (also on the To confirm tab): one-sex normal ranges for LDL, non-HDL and HbA1c applied to both sexes; adjusted calcium uses the table's calcium range; total:HDL uses the sample report's less than 4:1; haemoglobin's 15 to 65 and non-pregnant note read as describing the WHO severity bands; blood pressure 121 to 140 / 81 to 90 shown green MILD as in the sample report; relative risk unbanded and QRISK3 10% or more flagged.
+- The workbook formulas for adjusted calcium, globulin and UIBC have not been received; adjusted calcium is the laboratory's value, and globulin and UIBC are not in the demo panel.
+- Rounding: half away from zero at the reported decimal places (1.005 to 2 places is 1.01).
 
 ## Problems found in the table by the automatic check
 

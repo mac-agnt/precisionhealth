@@ -353,6 +353,8 @@ export interface Observation {
   flag: ObservationFlag;
   /** Four-level band under the illustrative rule set, for the participant's sex and age at collection. */
   band: Band;
+  /** The reference range version the band was judged against (Health Screening), e.g. RRV-HB-2. */
+  rangeVersion?: string | null;
   /** What the legacy spreadsheet-style summary displayed, where it differs from the rule. */
   legacyDisplayedFlag: "normal" | "review" | null;
   source: { kind: "batch"; batchId: Id; rowId: Id } | { kind: "clinic" } | { kind: "calc"; from: AnalyteCode[]; method: string };

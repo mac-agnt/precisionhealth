@@ -196,7 +196,16 @@ export function fmtPct(n: number, d = 1): string {
   return n.toFixed(d) + "%";
 }
 /** Round half away from zero to a fixed number of decimals (BMI and similar). */
+/**
+ * Round half away from zero at a decimal place, exactly as written on paper: 1.005 to 2 places is
+ * 1.01, 2.675 is 2.68. Shifting by the decimal exponent avoids the binary error that makes
+ * 1.005 * 100 come out as 100.49999.
+ */
 export function roundHalfUp(x: number, decimals = 1): number {
-  const f = Math.pow(10, decimals);
-  return Math.round((x + Number.EPSILON) * f) / f;
+  if (!Number.isFinite(x)) return x;
+  const sign = x < 0 ? -1 : 1;
+  const abs = Math.abs(x);
+  if (String(abs).includes("e")) return sign * (Math.round(abs * 10 ** decimals) / 10 ** decimals);
+  const shifted = Math.round(Number(`${abs}e${decimals}`));
+  return sign * Number(`${shifted}e-${decimals}`);
 }

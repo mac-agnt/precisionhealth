@@ -43,7 +43,8 @@ try {
   const R = M.reminderStats(s);
   eq("reminders", [R.logical, R.delivered, R.failed, R.attempts], [45, 43, 2, 47]);
   const RS = M.reviewStats(s);
-  eq("review", [RS.ready, RS.routine, RS.flagged, RS.aged], [21, 14, 7, 6]);
+  /* Under Precision Health's reference ranges table more of the 21 ready reports carry a flag than under the old illustrative rules. */
+  eq("review", [RS.ready, RS.routine, RS.flagged, RS.aged], [21, 7, 14, 6]);
   const H = M.holdCounts(s);
   eq("holds", [H.total, H.identity, H.dataQuality, H.clinicalAction], [5, 3, 1, 1]);
   eq("held people", M.holdQueue(s).map((h) => h.person.family).sort(), ["Daly", "Doyle", "Keane", "Quinn", "Ryan"]);
@@ -136,7 +137,7 @@ try {
   run(act.toggleReviewCheck("PH-E-0101", "preview"));
   check("aisling released", run(act.releaseReport("PH-E-0101")).ok);
   eq("totals after release", [M.totalCounts(s).released, M.totalCounts(s).ready], [185, 20]);
-  eq("review stats after release", [M.reviewStats(s).ready, M.reviewStats(s).routine], [20, 13]);
+  eq("review stats after release", [M.reviewStats(s).ready, M.reviewStats(s).routine], [20, 6]);
   check("release is idempotent", !run(act.releaseReport("PH-E-0101")).ok && M.currentReleased(s, "PH-E-0101") && s.reportVersions.filter((v) => v.episodeId === "PH-E-0101").length === 1);
   check("release event", s.activity.some((e) => e.summary === "Neil released report PH-E-0101 v1."));
   check("availability notice has no results", s.messages.filter((m) => m.episodeId === "PH-E-0101").every((m) => !/\d/.test(m.subject)));
@@ -416,24 +417,52 @@ try {
   const male = { sex: "male", age: 55 }, female = { sex: "female", age: 40 };
   eq("panel size", [Object.keys(M.ANALYTES).length, M.COMPREHENSIVE_PANEL.length, M.CALCULATED_ANALYTES.length], [32, 28, 2]);
   check("every analyte in a report group", Object.values(M.ANALYTES).every((a) => M.ANALYTE_GROUPS.some((g) => g.key === a.group)));
-  eq("rule set label", M.RULE_SET_LABEL, "Illustrative rule set v0.1. Clinician-owned. To be replaced by Precision Health's approved rules.");
-  eq("TC bands", [4.9, 5.0, 6.0, 6.1].map((v) => B4("TC", v)), ["normal", "borderline", "borderline", "abnormal"]);
+  check("rule set label names Precision Health's table", M.RULE_SET_LABEL.startsWith("Bands from Precision Health's reference ranges table"));
+  /* Every band below is Precision Health's reference ranges table: mildly abnormal is borderline (yellow), significantly abnormal is abnormal (orange). */
+  eq("TC bands (normal <5.0, mild 5.0-7.5, significant >7.5)", [4.9, 5.0, 7.5, 7.6].map((v) => B4("TC", v)), ["normal", "borderline", "borderline", "abnormal"]);
   eq("HbA1c bands", [41, 42, 47, 48].map((v) => B4("HBA1C", v)), ["normal", "borderline", "borderline", "abnormal"]);
   eq("HbA1c words", ["normal", "borderline", "abnormal"].map((b) => M.reportFlagWord("HBA1C", b)), ["NORMAL", "HIGHER RISK", "RAISED"]);
-  eq("HDL bands", [1.1, 1.0, 0.9, 0.8].map((v) => B4("HDL", v)), ["normal", "borderline", "borderline", "abnormal"]);
-  eq("HDL low word", M.reportFlagWord("HDL", "abnormal", M.bandDetail("HDL", 0.8).direction), "LOW");
-  eq("LDL 10 percent rule", [2.9, 3.0, 3.3, 3.4].map((v) => B4("LDL", v)), ["normal", "borderline", "borderline", "abnormal"]);
-  eq("TG limit is <2.0", [1.9, 2.0].map((v) => B4("TG", v)), ["normal", "borderline"]);
+  eq("HDL bands (normal >1.00, below 1.0 low, no significant band; 1.00 itself is a gap, so review)", [1.1, 1.0, 0.99, 0.8].map((v) => B4("HDL", v)), ["normal", "borderline", "borderline", "borderline"]);
+  eq("HDL low word", M.reportFlagWord("HDL", "borderline", M.bandDetail("HDL", 0.8).direction), "LOW");
+  eq("LDL bands (normal <3.0, mild >3.0-4.9, significant >4.9; 3.0 is a gap, so review)", [2.9, 3.0, 4.9, 5.0].map((v) => B4("LDL", v)), ["normal", "borderline", "borderline", "abnormal"]);
+  eq("LDL applies to both sexes until confirmed", [B4("LDL", 2.9, female), B4("LDL", 3.5, female)], ["normal", "borderline"]);
+  eq("TG bands (normal 0.60-1.70, mild 1.70-<5.0, significant ≥5.0; 1.70 overlaps so the more severe band)", [1.69, 1.7, 4.99, 5.0, 0.5].map((v) => B4("TG", v)), ["normal", "borderline", "borderline", "abnormal", "borderline"]);
   eq("haemoglobin by sex", [B4("HB", 12.5, female), B4("HB", 12.5, male)], ["normal", "borderline"]);
-  eq("ferritin by sex", [B4("FERR", 170, male), B4("FERR", 170, female)], ["normal", "abnormal"]);
-  eq("PSA by age", [B4("PSA", 2.5, { sex: "male", age: 45 }), B4("PSA", 2.5, { sex: "male", age: 55 })], ["abnormal", "normal"]);
+  eq("ferritin by sex", [B4("FERR", 170, male), B4("FERR", 170, female), B4("FERR", 401, female), B4("FERR", 14, male)], ["normal", "borderline", "abnormal", "borderline"]);
+  eq("PSA by age (outside normal, no band defined: review)", [B4("PSA", 2.5, { sex: "male", age: 45 }), B4("PSA", 2.5, { sex: "male", age: 55 })], ["borderline", "normal"]);
+  eq("ALT and GGT by sex (agreed bands)", [B4("ALT", 40, male), B4("ALT", 40, female), B4("ALT", 91, male), B4("GGT", 77, female)], ["normal", "borderline", "abnormal", "abnormal"]);
+  eq("vitamin D low bands", [B4("VITD", 31), B4("VITD", 26), B4("VITD", 24.9)], ["normal", "borderline", "abnormal"]);
+  eq("platelets both directions", [B4("PLT", 100), B4("PLT", 120), B4("PLT", 300), B4("PLT", 430), B4("PLT", 451)], ["abnormal", "borderline", "normal", "borderline", "abnormal"]);
+  eq("TSH gaps go to review, significant both ends", [B4("TSH", 0.09), B4("TSH", 0.2), B4("TSH", 2), B4("TSH", 6), B4("TSH", 10)], ["abnormal", "borderline", "normal", "borderline", "abnormal"]);
+  eq("haemoglobin low bands", [B4("HB", 10.9, female), B4("HB", 11.5, female), B4("HB", 15.1, female)], ["abnormal", "borderline", "borderline"]);
+  eq("adjusted calcium uses the table's calcium range until confirmed", [B4("CA", 2.09), B4("CA", 2.1), B4("CA", 2.6), B4("CA", 2.61)], ["borderline", "normal", "normal", "borderline"]);
+  eq("sex not recorded: judged as both, the more severe wins", [B4("FERR", 170, { sex: "not_recorded", age: 40 }), B4("CREAT", 100, { sex: "not_recorded", age: 40 })], ["borderline", "borderline"]);
+  eq("limit text from the table", [M.limitTextFor("LDL"), M.limitTextFor("HB", female), M.limitTextFor("TSH"), M.limitTextFor("HDL"), M.limitTextFor("PSA", { sex: "male", age: 55 })], ["<3.0", "12.0-15.0", "0.35-4.94", ">1.0", "<3.00"]);
+  check("every result stores the range version it was judged against", s.observations.filter((o) => o.code !== "FIT").every((o) => typeof o.rangeVersion === "string" && o.rangeVersion.startsWith("RRV-")));
   eq("FIT qualitative", [B4("FIT", 0), B4("FIT", 1), M.reportFlagWord("FIT", "abnormal")], ["normal", "abnormal", "POSITIVE"]);
   eq("not tested", [B4("TC", null), M.reportFlagWord("TC", "not_tested")], ["not_tested", "NOT TESTED"]);
   check("flagFor follows the band", [["LDL", 3.2], ["TC", 4.9], ["VITD", 45], ["CA", 2.4]].every(([c, v]) => M.flagFor(c, v) === (["borderline", "abnormal"].includes(B4(c, v)) ? "review_required" : "none")));
   eq("BP words", [[118, 76], [139, 84], [148, 94], [165, 102], [182, 100]].map(([a, b]) => M.bpCategory(a, b).word), ["IDEAL", "MILD", "RAISED", "SIGNIFICANTLY RAISED", "IMMEDIATE TREATMENT"]);
-  eq("BP below 140/90 is not flagged (client viewer shows 128/86 green)", [M.bpCategory(128, 86).band, M.bpCategory(139, 84).band, M.bpCategory(140, 84).band], ["normal", "normal", "abnormal"]);
-  eq("BMI words and bands", [22, 26.3, 28.7, 31, 17].map((v) => M.bmiCategory(v).word + "/" + M.bmiCategory(v).band), ["NORMAL/normal", "OVERWEIGHT/borderline", "OVERWEIGHT/abnormal", "OBESE/abnormal", "UNDERWEIGHT/borderline"]);
-  eq("relative risk bands", [0.9, 1.0, 1.5, 1.6].map((v) => M.relativeRiskBand(v)), ["normal", "borderline", "borderline", "abnormal"]);
+  eq("BP up to 140/90 is not flagged (table mild starts above 140/90; viewer shows 128/86 green)", [M.bpCategory(128, 86).band, M.bpCategory(139, 84).band, M.bpCategory(140, 90).band, M.bpCategory(141, 84).band, M.bpCategory(161, 84).band, M.bpCategory(120, 120).band], ["normal", "normal", "normal", "borderline", "abnormal", "abnormal"]);
+  eq("BP low", [M.bpCategory(85, 70).word, M.bpCategory(110, 55).band, M.bpCategory(150, 50).word], ["LOW", "borderline", "RAISED"]);
+  eq("BP one side only", [M.bpCategory(150, 0).word, M.bpCategory(0, 95).word], ["RAISED", "RAISED"]);
+  eq("BMI words and bands (table: <18.5, 18.5-<25, 25-<30, ≥30)", [22, 18.4, 18.5, 24.9, 25, 29.9, 30, 17].map((v) => M.bmiCategory(v).word + "/" + M.bmiCategory(v).band), ["NORMAL/normal", "UNDERWEIGHT/borderline", "NORMAL/normal", "NORMAL/normal", "OVERWEIGHT/borderline", "OVERWEIGHT/borderline", "OBESE/abnormal", "UNDERWEIGHT/borderline"]);
+  eq("BMI ethnicity-specific range", [M.bmiCategory(24, "Indian").word, M.bmiCategory(24, "White or not stated").word, M.bmiCategory(27.5, "Chinese").word, M.bmiCategory(24, null).word], ["OVERWEIGHT", "NORMAL", "OBESE", "NORMAL"]);
+  eq("waist by sex (male <94, mild 94-102; female <80, mild 80-88)", [M.waistCategory(93, "male").band, M.waistCategory(94, "male").band, M.waistCategory(102, "male").band, M.waistCategory(103, "male").band, M.waistCategory(88, "female").band, M.waistCategory(89, "female").band], ["normal", "borderline", "borderline", "abnormal", "borderline", "abnormal"]);
+  eq("relative risk has no bands in the table", [0.9, 1.0, 1.5, 3].map((v) => M.relativeRiskBand(v)), ["normal", "normal", "normal", "normal"]);
+  eq("QRISK3 10-year risk flag at 10%", [9.9, 10, 25].map((v) => M.qriskScoreBand(v)), ["normal", "borderline", "borderline"]);
+  /* arithmetic */
+  eq("round half up, exactly as on paper", [M.roundHalfUp(1.005, 2), M.roundHalfUp(2.675, 2), M.roundHalfUp(4.25, 1), M.roundHalfUp(4.35, 1), M.roundHalfUp(-1.25, 1), M.roundHalfUp(28.65, 1)], [1.01, 2.68, 4.3, 4.4, -1.3, 28.7]);
+  {
+    const ep = s.episodes.find((e) => M.latestObservations(s, e.id).some((o) => o.code === "NONHDL"));
+    const L = M.latestObservations(s, ep.id), g = (c) => L.find((o) => o.code === c);
+    eq("non-HDL is total minus HDL, to 1 decimal", g("NONHDL").value, M.roundHalfUp(g("TC").value - g("HDL").value, 1));
+    eq("total:HDL is total divided by HDL, to 2 decimals", g("TCHDL").value, M.roundHalfUp(g("TC").value / g("HDL").value, 2));
+    check("calculated values banded by the table", g("TCHDL").rangeVersion === "RRV-TCHDL-1" && g("NONHDL").rangeVersion === "RRV-NONHDL-1");
+    const withBmi = s.episodes.find((e) => M.bmiFromCapture(e.capture) != null);
+    const mh = withBmi.capture.measures;
+    eq("BMI is weight over height squared, to 1 decimal", M.bmiFromCapture(withBmi.capture), M.roundHalfUp(mh.weightKg.value / (mh.heightM.value * mh.heightM.value), 1));
+  }
 
   /* ---------- baseline data: bands, panels, batches, unique IDs, QRISK3 ---------- */
   check("observation flag follows its band", s.observations.every((o) => (o.unitDiscrepancy && !o.unitDiscrepancy.confirmed) ? o.band === "not_tested" && o.flag === "none" : o.flag === (["borderline", "abnormal"].includes(o.band) ? "review_required" : "none")));
@@ -642,7 +671,7 @@ try {
     check("exclamation marks rejected", !run(L.libAct.saveDraft("CHOL-HI", "Your cholesterol is high, act now!")).ok);
     check("draft keeps the approved version in use", run(L.libAct.saveDraft("CHOL-HI", "Your total cholesterol is above 5.0 mmol/L. Less saturated fat and more activity help. Discuss a repeat test with your GP.")).ok && M.approvedVersion(M.findSnippet(lib(), "CHOL-HI")).version === 2);
     check("approval creates the next version", run(L.libAct.approve("CHOL-HI")).ok && M.approvedVersion(M.findSnippet(lib(), "CHOL-HI")).version === 3 && M.findSnippet(lib(), "CHOL-HI").versions.length === 3);
-    check("reporter assignment keeps the review baseline", run(L.libAct.assignReporter("PH-E-1149", "liz")).ok && LM.reporterWorkload(s).find((r) => r.id === "liz").ready === 4 && JSON.stringify(Object.values(M.reviewStats(s)).slice(0, 4)) === JSON.stringify([21, 14, 7, 6]));
+    check("reporter assignment keeps the review baseline", run(L.libAct.assignReporter("PH-E-1149", "liz")).ok && LM.reporterWorkload(s).find((r) => r.id === "liz").ready === 4 && JSON.stringify(Object.values(M.reviewStats(s)).slice(0, 4)) === JSON.stringify([21, 7, 14, 6]));
     run(act.setAiDrafting(false));
     check("ai off blocks prepare draft, codes still work", !run(L.libAct.prepareDraft("PH-E-0101")).ok && run(L.libAct.recordUse("PH-E-0101", "ECG-NORM", "slash")).ok);
     run(act.setPersona("liz"));
@@ -792,8 +821,8 @@ try {
     eq("rr hb 15.5 on 7 Oct is normal on v1", [hb7.outcome, hb7.version.version], ["normal", 1]);
     eq("rr hb 15.5 on 8 Oct is outside v2 and goes to review", [hb8.outcome, hb8.version.version, hb8.review], ["no_band", 2, true]);
     eq("rr hb low mild female", M.classify(T.hb, R().versions, fem, 11.5, "2026-10-08").outcome, "low_mild");
-    eq("rr hb out of age cohort", M.classify(T.hb, R().versions, { ...fem, age: 70 }, 13, "2026-10-08").outcome, "no_cohort");
-    eq("rr hb pregnant has no range", M.classify(T.hb, R().versions, { ...fem, pregnant: true }, 13, "2026-10-08").outcome, "no_cohort");
+    eq("rr hb applies to all adults", M.classify(T.hb, R().versions, { ...fem, age: 70 }, 13, "2026-10-08").outcome, "normal");
+    eq("rr HbA1c pregnant has no range", M.classify(T.hba1c, R().versions, { ...fem, pregnant: true }, 38, "2026-10-08").outcome, "no_cohort");
     /* Edges, gaps and overlaps exactly as sent. */
     eq("rr bp bands", [118, 130, 150, 170, 185].map((x) => M.classify(T.bpsys, R().versions, fem, x, "2026-10-05").outcome), ["normal", "no_band", "high_mild", "high_severe", "high_critical"]);
     eq("rr waist edges", [93, 94, 102, 103].map((x) => M.classify(T.waist, R().versions, { ...fem, sex: "male" }, x, "2026-10-05").outcome), ["normal", "high_mild", "high_mild", "high_severe"]);
@@ -807,7 +836,7 @@ try {
     eq("rr psa female not applicable", M.classify(T.psa, R().versions, fem, 1, "2026-10-05").outcome, "not_set");
     eq("rr urine qualitative", [M.classify(T["urine-prot"], R().versions, fem, "Negative", "2026-10-05").outcome, M.classify(T["urine-prot"], R().versions, fem, "Trace", "2026-10-05").outcome], ["normal", "no_band"]);
     check("rr qrisk below 10 not flagged", !M.classify(T.qrisk, R().versions, fem, 6, "2026-10-05").review && M.classify(T.qrisk, R().versions, fem, 12, "2026-10-05").review);
-    check("rr generated sentence", M.rowSentence(T.hb, M.rrVersionInForce(R().versions, "hb", "2026-10-08").rows[1]).startsWith("Females, aged 15 to 65, all ethnicities, not pregnant (g/dL): below 11.0 LOW SEVERE"));
+    check("rr generated sentence", M.rowSentence(T.hb, M.rrVersionInForce(R().versions, "hb", "2026-10-08").rows[1]).startsWith("Females, all ages, all ethnicities (g/dL): below 11.0 LOW SEVERE"));
     /* Change control. */
     const tshDraft = R().versions.find((v) => v.testId === "tsh" && v.status === "draft");
     check("rr seeded TSH bulletin is a draft", !!tshDraft && M.classify(T.tsh, R().versions, fem, 4.9, "2026-10-15").outcome === "normal");
@@ -820,6 +849,14 @@ try {
     check("rr neil publishes the TSH bulletin", run(RA.publish(tshDraft.id)).ok && R().versions.find((v) => v.id === tshDraft.id).status === "published" && s.activity.length === before + 1 && s.activity.at(-1).verb === "ranges.published");
     eq("rr TSH 4.9 normal before the bulletin date, outside after", [M.classify(T.tsh, R().versions, fem, 4.9, "2026-10-11").outcome, M.classify(T.tsh, R().versions, fem, 4.9, "2026-10-12").outcome], ["normal", "no_band"]);
     check("rr old version kept", R().versions.filter((v) => v.testId === "tsh" && v.status === "published").length === 2);
+    {
+      /* Publishing re-bands unreleased results on their own sample dates and leaves released ones alone. */
+      const relEp = new Set(s.episodes.filter((e) => e.reportState === "released").map((e) => e.id));
+      const tshObs = s.observations.filter((o) => o.code === "TSH");
+      check("rr released TSH results keep version 1", tshObs.filter((o) => relEp.has(o.episodeId)).every((o) => o.rangeVersion === "RRV-TSH-1"));
+      check("rr unreleased TSH results sampled before 12 Oct keep version 1", tshObs.filter((o) => !relEp.has(o.episodeId)).every((o) => o.rangeVersion === "RRV-TSH-1"));
+      check("rr TSH limit text unchanged for results before the bulletin", tshObs.every((o) => o.limitText === "0.35-4.94"));
+    }
     const ferrRows = structuredClone(M.rrVersionInForce(R().versions, "ferr", "2026-10-05").rows);
     ferrRows[1].bands.find((b) => b.key === "normal").max = { value: 160, inclusive: true };
     ferrRows[1].bands.find((b) => b.key === "high_mild").min = { value: 160, inclusive: false };
@@ -836,6 +873,23 @@ try {
     check("rr answer a question", run(RA.answerQuestion("Q-DATE", "Agreed: sample date.")).ok && R().questions["Q-DATE"].status === "answered");
     run(act.setPersona("participant"));
     check("rr participant cannot answer", !run(RA.answerQuestion("Q-AGE", "x")).ok);
+    {
+      /* A backdated change re-bands unreleased results judged on or after its date; released results keep their version. */
+      s = createInitialState();
+      run(act.setPersona("neil"));
+      const rel = new Set(s.episodes.filter((e) => e.reportState === "released").map((e) => e.id));
+      const hdlBefore = new Map(s.observations.filter((o) => o.code === "HDL").map((o) => [o.id, o]));
+      const rows = structuredClone(M.rrVersionInForce(R().versions, "hdl", "2026-10-05").rows);
+      rows[0].bands = [M.band("low_mild", null, M.lt(1.2), "LOW"), M.band("normal", M.ge(1.2), null)];
+      check("rr backdated HDL draft", run(RA.saveDraft("hdl", rows, "2026-02-01", "Test: HDL normal raised to 1.2 or more.", "Test bulletin")).ok);
+      const d = R().versions.find((v) => v.testId === "hdl" && v.status === "draft");
+      check("rr backdated HDL published", run(RA.publish(d.id)).ok);
+      const after = s.observations.filter((o) => o.code === "HDL");
+      const moved = after.filter((o) => !rel.has(o.episodeId) && o.value >= 1.0 && o.value < 1.2);
+      check("rr unreleased HDL below 1.2 re-banded on version 2", moved.length > 0 && moved.every((o) => o.band === "borderline" && o.rangeVersion === "RRV-HDL-2" && o.flag === "review_required"));
+      check("rr released HDL results untouched", after.filter((o) => rel.has(o.episodeId)).every((o) => o === hdlBefore.get(o.id) || (o.band === hdlBefore.get(o.id).band && o.rangeVersion === "RRV-HDL-1")));
+      check("rr publish logged with the re-band count", /unreleased results were re-banded/.test(s.activity.at(-1).summary));
+    }
     s = createInitialState();
   }
   /* ---------- END health screening reference range checks ---------- */

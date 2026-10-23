@@ -5,7 +5,7 @@
 import type { AnalyteCode, AnalyteGroup, Band, ClinicalCapture, Episode, Id, Observation, Person, PhState, ProgrammeId, ReportVersion } from "../types";
 import {
   ANALYTES, BP_SIGNIFICANCE, BMI_RANGE_TEXT, COMPREHENSIVE_PANEL, PROGRAMME_BY_ID, RULE_SET_LABEL, WAIST_RANGE_TEXT, bandDetail, bmiCategory, bpCategory, formatResult,
-  rangeTextFor, relativeRiskBand, reportFlagWord, waistCategory,
+  qriskScoreBand, rangeTextFor, reportFlagWord, waistCategory,
 } from "../constants";
 import type { BandCtx, ReportFlagWord } from "../constants";
 import { NURSE_FORM_SECTIONS, ecgBand, nurseFieldValue, nurseFieldVisible, nurseSectionVisible, urineBand } from "../capture";
@@ -246,10 +246,10 @@ export function reportDocument(state: PhState, episodeId: Id, versionId?: Id): R
     const measured = (k: keyof ClinicalCapture["measures"]) => (m[k].state === "recorded" && m[k].value != null ? (m[k].value as number) : null);
     const measureStatus = (k: keyof ClinicalCapture["measures"]): ReportRowStatus => (m[k].state === "declined" ? "declined" : "not_done");
     const sys = measured("bpSys"), dia = measured("bpDia");
-    const bp = bpCategory(sys, dia);
-    const bpRow = sys != null && dia != null ? row("bp", "Blood Pressure", `${sys}/${dia}`, "mmHg", "less than 120/80", "resulted", bp.band, bp.word) : row("bp", "Blood Pressure", PENDING_TEXT[measureStatus("bpSys")], "mmHg", "less than 120/80", measureStatus("bpSys"));
+    const bp = bpCategory(sys, dia, ctx.on);
+    const bpRow = sys != null && dia != null ? row("bp", "Blood Pressure", `${sys}/${dia}`, "mmHg", "120/80 or less", "resulted", bp.band, bp.word) : row("bp", "Blood Pressure", PENDING_TEXT[measureStatus("bpSys")], "mmHg", "120/80 or less", measureStatus("bpSys"));
     const bmi = bmiFromCapture(c);
-    const bmiC = bmiCategory(bmi);
+    const bmiC = bmiCategory(bmi, typeof c.form?.ethnicity === "string" ? c.form.ethnicity : null, ctx.on);
     const bmiRow = bmi != null ? row("bmi", "BMI", bmi.toFixed(1), "n/a", BMI_RANGE_TEXT, "resulted", bmiC.band, bmiC.word) : row("bmi", "BMI", "Not calculated", "n/a", BMI_RANGE_TEXT, "not_done");
     const sections: ReportSection[] = [];
     const add = (key: ReportSectionKey, rows: ReportRow[], extra: Partial<Pick<ReportSection, "questions" | "table" | "note">> = {}) =>
@@ -264,8 +264,9 @@ export function reportDocument(state: PhState, episodeId: Id, versionId?: Id): R
     const qStatus: ReportRowStatus = !q ? "pending" : !q.eligible ? "not_applicable" : q.score10y == null ? "pending" : "resulted";
     const qText = (val: string) => (qStatus === "resulted" ? val : q?.reason || PENDING_TEXT[qStatus as Exclude<ReportRowStatus, "resulted">]);
     const rr = q?.relativeRisk ?? null;
-    const rrBand = relativeRiskBand(rr);
-    const heartBand: Band = q?.heartAge == null ? "not_tested" : q.heartAge < ctx.age ? "normal" : rrBand;
+    /* Table: heart age the same as or less than actual age is normal; relative risk has no bands; 10-year risk of 10% or more is flagged for a risk discussion. */
+    const heartBand: Band = q?.heartAge == null ? "not_tested" : q.heartAge <= ctx.age ? "normal" : "borderline";
+    const scoreBand = qriskScoreBand(q?.score10y ?? null);
     const tcHdl = lab("TCHDL");
     add("cardiovascular_risk", [
       { ...bpRow, key: "cv_bp" },
@@ -273,14 +274,14 @@ export function reportDocument(state: PhState, episodeId: Id, versionId?: Id): R
       { ...bmiRow, key: "cv_bmi" },
       { ...tcHdl, test: "Total:HDL Cholesterol", key: "cv_tchdl" },
       sum.familyHistoryCvd === null ? row("cv_family", "Family History", "Not recorded", "", "n/a", "not_done") : row("cv_family", "Family History", sum.familyHistoryCvd ? "TRUE" : "FALSE", "", "n/a", "resulted"),
-      row("cv_score", "10-year risk", qText(q?.score10y != null ? `${q.score10y.toFixed(2)}%` : ""), "", "n/a", qStatus),
-      row("cv_heart_age", "Heart Age", qText(q?.heartAge != null ? String(q.heartAge) : ""), "years", "Less than your real age", qStatus, qStatus === "resulted" ? heartBand : "not_tested"),
-      row("cv_rr", "Relative risk", qText(rr != null ? rr.toFixed(1) : ""), "", "less than 1.0", qStatus, qStatus === "resulted" ? rrBand : "not_tested", qStatus === "resulted" ? (rrBand === "normal" ? "NORMAL" : rrBand === "borderline" ? "BORDERLINE" : "RAISED") : ""),
+      row("cv_score", "10-year risk", qText(q?.score10y != null ? `${q.score10y.toFixed(2)}%` : ""), "", "less than 10%", qStatus, qStatus === "resulted" ? scoreBand : "not_tested", qStatus === "resulted" && scoreBand === "borderline" ? "HIGHER RISK" : ""),
+      row("cv_heart_age", "Heart Age", qText(q?.heartAge != null ? String(q.heartAge) : ""), "years", "Same as or less than your real age", qStatus, qStatus === "resulted" ? heartBand : "not_tested"),
+      row("cv_rr", "Relative risk", qText(rr != null ? rr.toFixed(1) : ""), "", "n/a", qStatus),
     ], { note: QRISK3_SOURCE_NOTE });
 
     add("hba1c", [lab("HBA1C")]);
     const waist = measured("waistCm");
-    const wc = waistCategory(waist, person.sex);
+    const wc = waistCategory(waist, person.sex, ctx.on);
     const h = measured("heightM"), w = measured("weightKg");
     add("bmi", [
       bmiRow,

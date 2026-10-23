@@ -422,7 +422,7 @@ function completePoc(c: Ctx, b: Booking, cap: ClinicalCapture): ActionResult {
     if (st !== "Recorded" || typeof v !== "number") continue;
     const cl = classifyResult(code, v, bctx);
     c.s.observations.push({
-      id: `OBS-${pad(c.nextNo("observation"), 5)}`, episodeId: epId, specimenId: screeningRef, code, value: v, valueText: null, unit: ANALYTES[code].unit, limitText: cl.limitText, flag: cl.flag, band: cl.band,
+      id: `OBS-${pad(c.nextNo("observation"), 5)}`, episodeId: epId, specimenId: screeningRef, code, value: v, valueText: null, unit: ANALYTES[code].unit, limitText: cl.limitText, flag: cl.flag, band: cl.band, rangeVersion: cl.rangeVersion,
       legacyDisplayedFlag: null, source: { kind: "clinic" }, recordedAt: collectedAt, unitDiscrepancy: null, original: null, version: 1,
     });
     codes.push(code);

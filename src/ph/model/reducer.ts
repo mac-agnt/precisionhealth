@@ -10,6 +10,7 @@ import { bookingHandlers } from "./actions/booking";
 import { programmeHandlers } from "./actions/programmes";
 import { coreHandlers } from "./actions/core";
 import { invalidate } from "./selectors/core";
+import { setActiveRangeVersions } from "./referenceRangesData";
 import type { MeasureKey } from "./capture";
 
 export type Action = { type: string; [k: string]: unknown };
@@ -48,6 +49,9 @@ export function reduce(prev: PhState, action: Action): { state: PhState; result:
     return { state: prev, result: { ok: false, message: "That action could not be completed.", tone: "bad" } };
   }
   invalidate(draft);
+  /* Results are banded against the reference ranges of whichever state is now current. */
+  const next = result.ok ? draft : prev;
+  if (next.referenceRanges) setActiveRangeVersions(next.referenceRanges.versions);
   if (!result.ok) return { state: prev, result };
   return { state: draft, result };
 }

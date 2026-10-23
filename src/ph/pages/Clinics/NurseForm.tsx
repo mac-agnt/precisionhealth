@@ -848,7 +848,8 @@ function MeasurementsBody({ kit, fields, sec }: { kit: Kit; fields: NurseFormFie
   const state = usePhState();
   const { values, draft, synth, errors, disabled, setMeasure, row } = kit;
   const bmi = formBmi(values, draft);
-  const cat = bmiCategory(bmi.bmi);
+  const ethV = synth.form.ethnicity;
+  const cat = bmiCategory(bmi.bmi, typeof ethV === "string" ? ethV : null);
   const h = numericValue(values, "heightM"), w = numericValue(values, "weightKg");
   const sys = numericValue(values, "bpSys"), dia = numericValue(values, "bpDia");
   const bp = bpCategory(sys, dia);

@@ -1,22 +1,23 @@
 /* Interpretation shared by fixtures, selectors and actions, so a band means the same thing on every
    screen: one classifier per result, the calculated cholesterol values, measurement bands and the
-   list of reasons an episode needs individual clinician review. Illustrative rule set v0.1,
-   clinician-owned (RULE_SET_LABEL). Pure functions: no state, no randomness. */
+   list of reasons an episode needs individual clinician review. Bands come from Precision Health's
+   reference ranges table (Health Screening), judged on the sample date. Pure functions: no randomness. */
 import type { AnalyteCode, Band, ClinicalCapture, Iso, NurseReferral, Observation, ObservationFlag, Person, QriskResult } from "./types";
-import { ANALYTES, bandDetail, bmiCategory, bpCategory, formatResult, limitTextFor, relativeRiskBand, waistCategory } from "./constants";
+import { ANALYTES, bandDetail, bmiCategory, bpCategory, formatResult, limitTextFor, qriskScoreBand, waistCategory } from "./constants";
 import type { BandCtx, BandDirection } from "./constants";
 import { ecgBand, isNurseReferral, urineBand } from "./capture";
 import { ageOn, localDateOf, roundHalfUp } from "./time";
 
 /** Sex and age at collection for one episode. */
 export function bandCtxFor(person: Pick<Person, "sex" | "dob">, collectedAt: Iso): BandCtx {
-  return { sex: person.sex, age: ageOn(person.dob, localDateOf(collectedAt)) };
+  const on = localDateOf(collectedAt);
+  return { sex: person.sex, age: ageOn(person.dob, on), on };
 }
 
 /** Band, flag and the applicable limit text for one result. Use this wherever an observation is created. */
-export function classifyResult(code: AnalyteCode, value: number, ctx: BandCtx): { band: Band; flag: ObservationFlag; limitText: string; direction: BandDirection } {
+export function classifyResult(code: AnalyteCode, value: number, ctx: BandCtx): { band: Band; flag: ObservationFlag; limitText: string; direction: BandDirection; rangeVersion: string | null } {
   const d = bandDetail(code, value, ctx);
-  return { band: d.band, direction: d.direction, flag: d.band === "borderline" || d.band === "abnormal" ? "review_required" : "none", limitText: limitTextFor(code, ctx) };
+  return { band: d.band, direction: d.direction, flag: d.band === "borderline" || d.band === "abnormal" ? "review_required" : "none", limitText: limitTextFor(code, ctx), rangeVersion: d.rangeVersion };
 }
 
 /** A qualitative result word as received (FIT "Negative" or "Positive") to its stored number, or null. */
@@ -50,7 +51,7 @@ export function calculatedObservations(episodeId: string, latest: Observation[],
     const c = classifyResult(code, value, ctx);
     const a = ANALYTES[code];
     return {
-      id: `CALC-${episodeId}-${code}`, episodeId, specimenId: tc.specimenId, code, value, valueText: null, unit: a.unit, limitText: c.limitText, flag: c.flag, band: c.band,
+      id: `CALC-${episodeId}-${code}`, episodeId, specimenId: tc.specimenId, code, value, valueText: null, unit: a.unit, limitText: c.limitText, flag: c.flag, band: c.band, rangeVersion: c.rangeVersion,
       legacyDisplayedFlag: null, source: { kind: "calc", from: ["TC", "HDL"], method: a.calculated!.method }, recordedAt, unitDiscrepancy: null, original: null, version,
     };
   };
@@ -66,14 +67,15 @@ export function bmiFromCapture(c: ClinicalCapture | null | undefined): number | 
   if (h.value < 1.0 || h.value > 2.3 || w.value < 25 || w.value > 300) return null;
   return roundHalfUp(w.value / (h.value * h.value), 1);
 }
-/** Bands for blood pressure, BMI, waist, ECG and each dipstick result, under the illustrative rule set. */
-export function measurementBands(c: ClinicalCapture, sex: Person["sex"]): MeasurementBand[] {
+/** Bands for blood pressure, BMI, waist, ECG and each dipstick result, from Precision Health's reference ranges (on: the screening date). */
+export function measurementBands(c: ClinicalCapture, sex: Person["sex"], on?: string): MeasurementBand[] {
   const m = c.measures;
   const sys = m.bpSys.state === "recorded" ? m.bpSys.value : null, dia = m.bpDia.state === "recorded" ? m.bpDia.value : null;
-  const bp = bpCategory(sys, dia);
+  const bp = bpCategory(sys, dia, on);
   const bmi = bmiFromCapture(c);
-  const b = bmiCategory(bmi);
-  const waist = waistCategory(m.waistCm.state === "recorded" ? m.waistCm.value : null, sex);
+  const eth = typeof c.form?.ethnicity === "string" ? c.form.ethnicity : null;
+  const b = bmiCategory(bmi, eth, on);
+  const waist = waistCategory(m.waistCm.state === "recorded" ? m.waistCm.value : null, sex, on);
   const out: MeasurementBand[] = [
     { key: "bp", label: "Blood pressure", band: bp.band, word: bp.word, text: sys != null && dia != null ? `${sys}/${dia} mmHg` : "Not recorded" },
     { key: "bmi", label: "BMI", band: b.band, word: b.word, text: bmi != null ? bmi.toFixed(1) : "Not calculated" },
@@ -108,7 +110,7 @@ export interface FlagReason {
  * result outside normal, a QRISK3 relative risk of 1.0 or more, or a nurse referral. Any reason means
  * individual review: no routine release shortcut.
  */
-export function reviewReasons(input: { capture: ClinicalCapture; observations: Observation[]; sex: Person["sex"]; qrisk: QriskResult | null; nurseReferral: NurseReferral | null }): FlagReason[] {
+export function reviewReasons(input: { capture: ClinicalCapture; observations: Observation[]; sex: Person["sex"]; qrisk: QriskResult | null; nurseReferral: NurseReferral | null; on?: string }): FlagReason[] {
   const out: FlagReason[] = [];
   for (const o of input.observations) {
     if (o.flag !== "review_required") continue;
@@ -116,14 +118,15 @@ export function reviewReasons(input: { capture: ClinicalCapture; observations: O
     const value = formatResult(o.code, o.value, o.valueText);
     out.push({ kind: "observation", code: o.code, band: o.band, label: a.name, text: `${a.name} ${value}${a.unit && a.unit !== "ratio" ? " " + o.unit : ""}, ${o.band === "abnormal" ? "abnormal" : "borderline"}, displayed limit ${o.limitText}` });
   }
-  for (const mb of measurementBands(input.capture, input.sex)) {
+  for (const mb of measurementBands(input.capture, input.sex, input.on)) {
     if (mb.band !== "borderline" && mb.band !== "abnormal") continue;
     const kind: FlagReason["kind"] = mb.key === "bp" ? "blood_pressure" : mb.key === "ecg" ? "ecg" : mb.key.startsWith("urine_") ? "urinalysis" : "measurement";
     out.push({ kind, key: mb.key, band: mb.band, label: mb.label, text: `${mb.label} ${mb.text}, ${mb.word.toLowerCase()}` });
   }
-  const rr = input.qrisk?.relativeRisk ?? null;
-  const rrBand = relativeRiskBand(rr);
-  if (rrBand === "borderline" || rrBand === "abnormal") out.push({ kind: "qrisk", key: "qrisk_rr", band: rrBand, label: "QRISK3 relative risk", text: `QRISK3 relative risk ${rr!.toFixed(1)} (sample output), ${rrBand}` });
+  /* The table flags the QRISK3 10-year risk at 10% or more for a risk discussion; relative risk has no bands. */
+  const score = input.qrisk?.score10y ?? null;
+  const sBand = qriskScoreBand(score);
+  if (sBand === "borderline" || sBand === "abnormal") out.push({ kind: "qrisk", key: "qrisk_score", band: sBand, label: "QRISK3 10-year risk", text: `QRISK3 10-year risk ${score!.toFixed(1)}% (sample output), 10% or more: risk discussion` });
   if (input.nurseReferral || isNurseReferral(input.capture)) out.push({ kind: "nurse_referral", key: "nurse_referral", band: "abnormal", label: "Nurse referral", text: "Nurse referral at screening: review before release" });
   return out;
 }
