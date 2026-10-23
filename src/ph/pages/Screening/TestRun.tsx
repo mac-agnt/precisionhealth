@@ -6,7 +6,7 @@
 import { useMemo, useState } from "react";
 import {
   ANALYTES, RR_BAND_META, RR_BAND_ORDER, RR_ETHNICITIES, RR_TEST_BY_ANALYTE, RR_TEST_BY_ID, ageOn, bandDetail, bmiCategory, boundsShort, bpCategory,
-  cohortText, fmtDate, inBand, latestObservations, limitTextFor, today, reportFlagWord, roundHalfUp, rowSentence, rrClassify, rrVersionsOf, waistCategory,
+  cohortText, fmtDate, inBand, latestObservations, limitTextFor, rangeFor, today, reportFlagWord, roundHalfUp, rowSentence, rrClassify, rrVersionsOf, waistCategory,
 } from "../../model";
 import type { AnalyteCode, Band, BandCtx, RrResult, RrTest, SexRecorded } from "../../model";
 import { dispatch, usePhState } from "../../store";
@@ -134,7 +134,7 @@ export default function TestRun() {
 
   return (
     <>
-      <style>{`.tr-pick{position:absolute;z-index:5;left:0;right:0;top:calc(100% + 4px);background:var(--surface);border:1px solid var(--border-strong);border-radius:12px;box-shadow:0 12px 30px rgba(0,0,0,.25);overflow:hidden}.tr-pick button{display:flex;flex-direction:column;align-items:flex-start;gap:2px;width:100%;padding:9px 12px;background:none;border:0;border-top:1px solid var(--border);color:inherit;font:inherit;text-align:left;cursor:pointer}.tr-pick button:first-child{border-top:0}.tr-pick button:hover{background:var(--accent-soft)}.tr-pick b{color:var(--ink);font-size:13px}.tr-pick span{color:var(--faint);font-size:11.5px}.tr-chosen{display:flex;align-items:center;gap:8px;padding:9px 12px;border-radius:12px;background:var(--accent-soft);font-size:12.5px;margin-bottom:8px}.tr-chosen b{color:var(--ink)}`}</style>
+      <style>{`.mb{position:relative;display:flex;gap:2px;width:150px;height:8px;border-radius:5px;overflow:visible;margin-bottom:6px}.mb .scr-bar-seg{flex:1;border-radius:3px;height:8px}.mb i{position:absolute;top:50%;width:13px;height:13px;border-radius:50%;background:var(--ink);border:2px solid var(--surface);transform:translate(-50%,-50%);box-shadow:0 1px 4px rgba(0,0,0,.4)}.tr-pick{position:absolute;z-index:5;left:0;right:0;top:calc(100% + 4px);background:var(--surface);border:1px solid var(--border-strong);border-radius:12px;box-shadow:0 12px 30px rgba(0,0,0,.25);overflow:hidden}.tr-pick button{display:flex;flex-direction:column;align-items:flex-start;gap:2px;width:100%;padding:9px 12px;background:none;border:0;border-top:1px solid var(--border);color:inherit;font:inherit;text-align:left;cursor:pointer}.tr-pick button:first-child{border-top:0}.tr-pick button:hover{background:var(--accent-soft)}.tr-pick b{color:var(--ink);font-size:13px}.tr-pick span{color:var(--faint);font-size:11.5px}.tr-chosen{display:flex;align-items:center;gap:8px;padding:9px 12px;border-radius:12px;background:var(--accent-soft);font-size:12.5px;margin-bottom:8px}.tr-chosen b{color:var(--ink)}`}</style>
       <PageHeader eyebrow="Health Screening" title="Test run"
         sub="Choose a participant, enter or adjust their results, and see every step: the calculations, the range used for each result and why, the review decision. Then send it to Results as a report for review." />
       <div className="scr-split">
@@ -162,7 +162,20 @@ export default function TestRun() {
             <div className="scr-grid-2">{MEAS.map((x) => <Field key={x.k} label={`${x.label} (${x.unit})`}><TextInput inputMode="decimal" value={p.meas[x.k]} onChange={(e) => set({ meas: { ...p.meas, [x.k]: e.target.value } })} /></Field>)}</div>
           </Card>
           <Card>
-            <CardHeader title="Laboratory results" />
+            <CardHeader title="Laboratory results" right={<Button size="sm" variant="primary" icon="spark" onClick={() => {
+              /* As if the laboratory has just reported: realistic values around each normal range, about one in four outside it. */
+              const lab: Partial<Record<AnalyteCode, string>> = {};
+              for (const c of LAB) {
+                if (c === "PSA" && p.sex === "female") continue;
+                const b = rangeFor(c, { sex: p.sex, age: age ?? 45, on: p.date });
+                const d = ANALYTES[c].decimals;
+                const lo = b?.lo ?? (b?.hi ?? 1) * 0.4, hi = b?.hi ?? (b?.lo ?? 1) * 2.2;
+                const r = Math.random();
+                const v = r < 0.15 ? hi * (1.04 + Math.random() * 0.35) : r < 0.25 && b?.lo !== undefined ? lo * (0.75 + Math.random() * 0.2) : lo + (hi - lo) * (0.2 + Math.random() * 0.6);
+                lab[c] = v.toFixed(d);
+              }
+              set({ lab });
+            }}>Simulate lab results</Button>} />
             <div className="scr-grid-2">{LAB.map((c) => <Field key={c} label={`${ANALYTES[c].name} (${ANALYTES[c].unit})`}><TextInput inputMode="decimal" value={p.lab[c] || ""} disabled={c === "PSA" && p.sex === "female"} onChange={(e) => set({ lab: { ...p.lab, [c]: e.target.value } })} placeholder={c === "PSA" && p.sex === "female" ? "Males only" : "Not tested"} /></Field>)}</div>
           </Card>
         </div>
@@ -193,7 +206,7 @@ export default function TestRun() {
                     <td><div style={{ color: "var(--ink)", fontWeight: 500 }}>{l.name}</div>{l.calc ? <div className="ph-faint" style={{ fontSize: 11 }}>Calculated</div> : null}</td>
                     <td className="ph-num" style={{ textAlign: "right" }}>{l.value} <span className="ph-faint">{l.unit}</span></td>
                     <td style={{ fontSize: 12 }}>{l.r.version ? `${l.test.name} v${l.r.version.version}` : "None"}<div className="ph-faint">{l.r.row ? cohortText(l.r.row.cohort) : "No cohort"}</div></td>
-                    <td><Pill tone={BAND_TONE[l.band]}>{l.word || l.band}</Pill></td>
+                    <td><MarkerBar l={l} /><Pill tone={BAND_TONE[l.band]}>{l.word || l.band}</Pill></td>
                     <td><Icon name={open === l.key ? "chevronDown" : "chevronRight"} size={14} /></td>
                   </tr>,
                   open === l.key ? <tr key={l.key + "-detail"}><td colSpan={5} style={{ padding: 0, background: "var(--surface-2)" }}><Backend l={l} date={p.date} ctx={run.ctx} /></td></tr> : null,
@@ -227,8 +240,8 @@ export default function TestRun() {
                   const measures: Partial<Record<Meas, number>> = {};
                   for (const x of MEAS) { const v = num(p.meas[x.k]); if (v != null && Number.isFinite(v)) measures[x.k] = v; }
                   const r = dispatch({ type: "rr/createTestReport", personId: p.personId, date: p.date, measures, lab });
-                  if (r.ok && r.id) setSent(r.id);
-                }}>Send to Results</Button>)}
+                  if (r.ok && r.id) { setSent(r.id); nav.go({ page: "Results", tab: "review", params: { episode: r.id } }); }
+                }}>Send to Results and open the report</Button>)}
             </Card>
 
             <Card>
@@ -270,6 +283,33 @@ function Backend({ l, date, ctx }: { l: Line; date: string; ctx: BandCtx }) {
         </ol>
         {row ? <p className="scr-sentence" style={{ margin: 0 }}><span className="ph-faint">The range in words: </span>{rowSentence(l.test, row)}</p> : null}
       </div>
+    </div>
+  );
+}
+
+/** The person's value as a dot on the coloured range bar, so where it sits is obvious at a glance. */
+function MarkerBar({ l }: { l: Line }) {
+  const row = l.r.row;
+  if (!row || row.status !== "set" || !row.bands.length) return null;
+  const bands = RR_BAND_ORDER.map((k) => row.bands.find((b) => b.key === k)).filter((b): b is NonNullable<typeof b> => !!b);
+  let idx = bands.findIndex((b) => inBand(b, l.value));
+  let frac = 0.5;
+  if (idx < 0) {
+    const firstMin = bands[0].min?.value, lastMax = bands[bands.length - 1].max?.value;
+    if (firstMin !== undefined && l.value < firstMin) { idx = 0; frac = 0.02; }
+    else if (lastMax !== undefined && l.value > lastMax) { idx = bands.length - 1; frac = 0.98; }
+    else { idx = bands.findIndex((b) => b.min && l.value < b.min.value); if (idx < 0) idx = bands.length - 1; frac = 0.04; }
+  } else {
+    const b = bands[idx];
+    if (b.min && b.max) frac = (l.value - b.min.value) / Math.max(1e-9, b.max.value - b.min.value);
+    else if (b.max) frac = 0.75;
+    else if (b.min) frac = 0.25;
+  }
+  const pos = ((idx + Math.min(0.96, Math.max(0.04, frac))) / bands.length) * 100;
+  return (
+    <div className="mb" aria-hidden="true">
+      {bands.map((b) => <span key={b.key} className="scr-bar-seg" data-k={b.key} />)}
+      <i style={{ left: `${pos}%` }} />
     </div>
   );
 }
