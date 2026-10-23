@@ -871,6 +871,13 @@ try {
     check("rr second superadmin publishes", run(RA.publish(fd.id)).ok && M.classify(T.ferr, R().versions, fem, 155, "2026-10-25").outcome === "normal" && M.classify(T.ferr, R().versions, fem, 155, "2026-10-19").outcome === "high_mild");
     check("rr cannot remove the last superadmin", run(RA.setSuperadmin("neil", false)).ok && !run(RA.setSuperadmin("liz", false)).ok && !R().settings.secondApprover);
     check("rr answer a question", run(RA.answerQuestion("Q-DATE", "Agreed: sample date.")).ok && R().questions["Q-DATE"].status === "answered");
+    run(act.setPersona("brenda"));
+    {
+      const n = s.activity.length, persons = s.persons.length, obs = s.observations.length;
+      check("rr test run logged by any staff, nothing saved to a patient", run({ type: "rr/logTestRun", name: "Test Patient B", results: 16, flagged: 9, date: "2026-10-05", versions: ["RRV-TC-1"] }).ok
+        && s.activity.length === n + 1 && s.activity.at(-1).verb === "ranges.test_run" && s.activity.at(-1).simulated && s.persons.length === persons && s.observations.length === obs);
+      check("rr test run needs a result", !run({ type: "rr/logTestRun", name: "x", results: 0, flagged: 0, date: "2026-10-05", versions: [] }).ok);
+    }
     run(act.setPersona("participant"));
     check("rr participant cannot answer", !run(RA.answerQuestion("Q-AGE", "x")).ok);
     {

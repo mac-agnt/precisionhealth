@@ -7,7 +7,7 @@ import "./actions";
 import { usePersona } from "../../store";
 import { PageHeader, RestrictedNotice } from "../../ui";
 import Ranges from "./Ranges";
-import Check from "./Check";
+import TestRun from "./TestRun";
 import Changes from "./Changes";
 import { Calculations, Cohorts, Impact, Questions } from "./Reference";
 
@@ -18,7 +18,7 @@ export default function Screening({ tab }: { tab: string }) {
   }
   return (
     <div className="ph-page scr">
-      {tab === "check" ? <Check /> : tab === "changes" ? <Changes /> : tab === "impact" ? <Impact /> : tab === "calculations" ? <Calculations />
+      {tab === "check" ? <TestRun /> : tab === "changes" ? <Changes /> : tab === "impact" ? <Impact /> : tab === "calculations" ? <Calculations />
         : tab === "cohorts" ? <Cohorts /> : tab === "questions" ? <Questions /> : <Ranges />}
     </div>
   );

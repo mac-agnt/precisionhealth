@@ -157,6 +157,16 @@ registerHandlers({
     return c.ok("Date rule changed. It applies to results judged from now on.");
   },
 
+  /* Test run: logs that a test patient was run through the ranges. Nothing is saved to any patient. */
+  "rr/logTestRun": (c, a: { name: string; results: number; flagged: number; date: string; versions: string[] }) => {
+    const deny = c.staffOnly("log a test run");
+    if (deny) return deny;
+    if (!isDate(a.date) || !Number.isInteger(a.results) || a.results < 1) return c.fail("Enter at least one result to log a test run.");
+    const name = String(a.name || "Test patient").trim().slice(0, 60);
+    c.emit({ verb: "ranges.test_run", simulated: true, summary: `${c.first()} ran a test patient (${name}) through the reference ranges for a sample date of ${fmtDate(a.date)}: ${a.results} results, ${a.flagged} outside normal${a.flagged ? ", so individual review" : ", routine release eligible"}. Range versions used: ${(a.versions || []).join(", ") || "none"}. Test only: nothing saved to any patient.` });
+    return c.ok("Test run logged in Activity. Nothing was saved to any patient.");
+  },
+
   "rr/answerQuestion": (c, a: { id: string; answer: string; reopen?: boolean }) => {
     const deny = superadmin(c, "record an answer");
     if (deny) return deny;

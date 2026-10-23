@@ -1,0 +1,223 @@
+/* Test run: put a test patient through the whole results process and see what happens behind the
+   screen at each step. Patient and sample date, the calculations with their working, the range
+   version and cohort row each result is judged against with the exact limit checks, the review
+   decision, and the record the system would store. Nothing is saved to any patient; logging a
+   test run writes one activity event so the audit trail can be shown too. */
+import { useMemo, useState } from "react";
+import {
+  ANALYTES, RR_BAND_META, RR_BAND_ORDER, RR_ETHNICITIES, RR_TEST_BY_ANALYTE, RR_TEST_BY_ID, ageOn, bandDetail, bmiCategory, boundsShort, bpCategory,
+  cohortText, fmtDate, inBand, limitTextFor, reportFlagWord, roundHalfUp, rowSentence, rrClassify, rrVersionsOf, waistCategory,
+} from "../../model";
+import type { AnalyteCode, Band, BandCtx, RrResult, RrTest, SexRecorded } from "../../model";
+import { dispatch, usePhState } from "../../store";
+import { Button, Card, CardHeader, Field, Icon, PageHeader, Pill, Select, TextInput } from "../../ui";
+import type { Tone } from "../../ui";
+import { Callout, Swatch } from "./shared";
+
+const LAB: AnalyteCode[] = ["TC", "HDL", "LDL", "TG", "HBA1C", "HB", "FERR", "TSH", "ALT", "VITD", "CREAT", "PSA"];
+type Meas = "heightM" | "weightKg" | "waistCm" | "bpSys" | "bpDia";
+const MEAS: Array<{ k: Meas; label: string; unit: string }> = [
+  { k: "heightM", label: "Height", unit: "m" }, { k: "weightKg", label: "Weight", unit: "kg" }, { k: "waistCm", label: "Waist", unit: "cm" },
+  { k: "bpSys", label: "BP systolic", unit: "mmHg" }, { k: "bpDia", label: "BP diastolic", unit: "mmHg" },
+];
+interface Patient { name: string; sex: SexRecorded; dob: string; eth: string; preg: boolean; date: string; meas: Record<Meas, string>; lab: Partial<Record<AnalyteCode, string>> }
+const P = (name: string, sex: SexRecorded, dob: string, eth: string, date: string, m: [string, string, string, string, string], lab: Partial<Record<AnalyteCode, string>>): Patient =>
+  ({ name, sex, dob, eth, preg: false, date, meas: { heightM: m[0], weightKg: m[1], waistCm: m[2], bpSys: m[3], bpDia: m[4] }, lab });
+const PRESETS: Array<{ label: string; p: Patient }> = [
+  { label: "All normal", p: P("Test Patient A", "female", "1986-03-14", "White or not stated", "2026-10-05", ["1.65", "60", "72", "116", "76"],
+    { TC: "4.6", HDL: "1.50", LDL: "2.6", TG: "1.10", HBA1C: "36", HB: "13.5", FERR: "60", TSH: "1.8", ALT: "20", VITD: "55", CREAT: "70" }) },
+  { label: "Some borderline", p: P("Test Patient B", "male", "1976-09-21", "White or not stated", "2026-10-05", ["1.78", "85", "96", "132", "84"],
+    { TC: "5.6", HDL: "1.10", LDL: "3.2", TG: "1.90", HBA1C: "43", HB: "14.5", FERR: "210", TSH: "2.1", ALT: "48", VITD: "27", CREAT: "98", PSA: "2.4" }) },
+  { label: "Several significant", p: P("Test Patient C", "male", "1968-02-02", "Indian", "2026-10-05", ["1.72", "92", "108", "168", "104"],
+    { TC: "7.8", HDL: "0.85", LDL: "5.2", TG: "5.40", HBA1C: "52", HB: "12.0", FERR: "450", TSH: "11", ALT: "95", VITD: "22", CREAT: "120", PSA: "4.5" }) },
+  { label: "Neil's haemoglobin example", p: P("Test Patient D", "female", "1986-03-14", "", "2026-10-07", ["", "", "", "", ""], { HB: "15.5" }) },
+];
+
+const num = (s: string | undefined) => (s === undefined || s.trim() === "" ? null : Number(s));
+const BAND_TONE: Record<Band, Tone> = { normal: "ok", borderline: "warn", abnormal: "bad", not_tested: "neutral" };
+const BAND_COLOUR: Record<Band, string> = { normal: "green", borderline: "yellow", abnormal: "orange", not_tested: "grey" };
+
+interface Line { key: string; name: string; value: number; unit: string; test: RrTest; r: RrResult; band: Band; word: string; limit: string; calc?: string }
+
+export default function TestRun() {
+  const s = usePhState();
+  const [p, setP] = useState<Patient>(structuredClone(PRESETS[1].p));
+  const [open, setOpen] = useState<string | null>(null);
+  const [logged, setLogged] = useState(false);
+  const set = (x: Partial<Patient>) => { setP((o) => ({ ...o, ...x })); setLogged(false); };
+  const dateOk = /^\d{4}-\d{2}-\d{2}$/.test(p.date) && /^\d{4}-\d{2}-\d{2}$/.test(p.dob) && p.dob <= p.date;
+  const age = dateOk ? ageOn(p.dob, p.date) : null;
+
+  const run = useMemo(() => {
+    if (!dateOk || age === null) return null;
+    const ctx: BandCtx = { sex: p.sex, age, on: p.date, ethnicity: p.eth || null, pregnant: p.sex === "female" ? p.preg : null };
+    const m = Object.fromEntries(MEAS.map((x) => [x.k, num(p.meas[x.k])])) as Record<Meas, number | null>;
+    const lab = Object.fromEntries(LAB.map((c) => [c, num(p.lab[c])])) as Record<AnalyteCode, number | null>;
+    const calcs: Array<{ name: string; working: string; value: number | null; unit: string }> = [];
+    const lines: Line[] = [];
+    const addLab = (code: AnalyteCode, value: number, calc?: string) => {
+      const test = RR_TEST_BY_ANALYTE[code]!;
+      const d = bandDetail(code, value, ctx);
+      lines.push({ key: code, name: ANALYTES[code].name, value, unit: ANALYTES[code].unit, test, r: rrClassify(test, value, ctx), band: d.band,
+        word: reportFlagWord(code, d.band, d.direction), limit: limitTextFor(code, ctx), calc });
+    };
+    /* step 2: calculations */
+    let bmi: number | null = null;
+    if (m.heightM && m.weightKg) {
+      const raw = m.weightKg / (m.heightM * m.heightM);
+      bmi = roundHalfUp(raw, 1);
+      calcs.push({ name: "BMI", working: `${m.weightKg} ÷ ${m.heightM}² = ${m.weightKg} ÷ ${roundHalfUp(m.heightM * m.heightM, 4)} = ${roundHalfUp(raw, 4)} → ${bmi.toFixed(1)} (1 decimal place)`, value: bmi, unit: "kg/m²" });
+    } else calcs.push({ name: "BMI", working: "Needs height and weight", value: null, unit: "kg/m²" });
+    if (m.waistCm && m.heightM) {
+      const raw = m.waistCm / (m.heightM * 100);
+      calcs.push({ name: "Waist-to-height ratio", working: `${m.waistCm} ÷ (${m.heightM} × 100) = ${roundHalfUp(raw, 4)} → ${roundHalfUp(raw, 2).toFixed(2)}`, value: roundHalfUp(raw, 2), unit: "ratio" });
+    }
+    if (lab.TC != null && lab.HDL != null && lab.HDL > 0) {
+      const nh = roundHalfUp(lab.TC - lab.HDL, 1), ratio = roundHalfUp(lab.TC / lab.HDL, 2);
+      calcs.push({ name: "Non-HDL cholesterol", working: `${lab.TC} − ${lab.HDL} = ${roundHalfUp(lab.TC - lab.HDL, 4)} → ${nh.toFixed(1)}`, value: nh, unit: "mmol/L" });
+      calcs.push({ name: "Total / HDL ratio", working: `${lab.TC} ÷ ${lab.HDL} = ${roundHalfUp(lab.TC / lab.HDL, 4)} → ${ratio.toFixed(2)}`, value: ratio, unit: "ratio" });
+    }
+    /* step 3: ranges, measurements first as on the viewer */
+    const meas: Line[] = [];
+    const addMeas = (key: string, name: string, test: RrTest, value: number, band: Band, word: string, unit: string, calc?: string) =>
+      meas.push({ key, name, value, unit, test, r: rrClassify(test, value, ctx), band, word, limit: "", calc });
+    if (bmi != null) { const c = bmiCategory(bmi, ctx.ethnicity, p.date); addMeas("BMI", "BMI", RR_TEST_BY_ID.bmi, bmi, c.band, c.word, "kg/m²", "Calculated in step 2"); }
+    if (m.waistCm != null) { const c = waistCategory(m.waistCm, p.sex, p.date); addMeas("WAIST", "Waist", RR_TEST_BY_ID.waist, m.waistCm, c.band, c.word, "cm"); }
+    const bp = m.bpSys != null && m.bpDia != null ? bpCategory(m.bpSys, m.bpDia, p.date) : null;
+    if (bp && m.bpSys != null && m.bpDia != null) {
+      addMeas("BPSYS", "BP systolic", RR_TEST_BY_ID.bpsys, m.bpSys, bpCategory(m.bpSys, 0, p.date).band, bpCategory(m.bpSys, 0, p.date).word, "mmHg");
+      addMeas("BPDIA", "BP diastolic", RR_TEST_BY_ID.bpdia, m.bpDia, bpCategory(0, m.bpDia, p.date).band, bpCategory(0, m.bpDia, p.date).word, "mmHg");
+    }
+    for (const c of LAB) { const v = lab[c]; if (v != null && Number.isFinite(v) && !(c === "PSA" && p.sex === "female")) addLab(c, v); }
+    const nh = calcs.find((c) => c.name === "Non-HDL cholesterol")?.value, ra = calcs.find((c) => c.name === "Total / HDL ratio")?.value;
+    if (nh != null) addLab("NONHDL", nh, "Calculated in step 2");
+    if (ra != null) addLab("TCHDL", ra, "Calculated in step 2");
+    const all = meas.concat(lines);
+    return { ctx, calcs, all, flagged: all.filter((l) => l.band === "borderline" || l.band === "abnormal") };
+  }, [p, dateOk, age, s]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const record = run ? {
+    testRun: true, patient: { name: p.name, sex: p.sex, dob: p.dob, ageOnSampleDate: age, ethnicity: p.eth || null, pregnant: p.sex === "female" ? p.preg : null }, sampleDate: p.date,
+    results: run.all.map((l) => ({ code: l.key, value: l.value, unit: l.unit, band: l.band, flag: l.band === "borderline" || l.band === "abnormal" ? "review_required" : "none",
+      word: l.word, displayedLimit: l.limit || null, rangeVersion: l.r.version?.id || null, cohort: l.r.row ? cohortText(l.r.row.cohort) : null, source: l.calc ? "calculated" : "entered" })),
+    review: run.flagged.length ? { route: "individual_review", reasons: run.flagged.map((l) => `${l.name} ${l.value} ${l.word}`) } : { route: "routine_release_eligible", reasons: [] },
+  } : null;
+
+  return (
+    <>
+      <PageHeader eyebrow="Health Screening" title="Test run"
+        sub="Put a test patient through the results process and see each step the system takes: the calculations, the range used for every result and why, the review decision, and the record it would store. Nothing is saved to any patient." />
+      <div className="scr-split">
+        <div className="ph-stack" style={{ gap: 14 }}>
+          <Card>
+            <CardHeader title="1. Test patient" sub="Start from a preset or type your own values. Leave a box empty for not tested." />
+            <div className="scr-chips" style={{ marginBottom: 12 }}>{PRESETS.map((x) => <Button key={x.label} size="sm" onClick={() => { setP(structuredClone(x.p)); setOpen(null); setLogged(false); }}>{x.label}</Button>)}</div>
+            <div className="scr-grid-2">
+              <Field label="Name"><TextInput value={p.name} onChange={(e) => set({ name: e.target.value })} /></Field>
+              <Field label="Sample date" help="Decides which range version applies."><TextInput type="date" value={p.date} onChange={(e) => set({ date: e.target.value })} /></Field>
+              <Field label="Sex"><Select value={p.sex} onChange={(e) => set({ sex: e.target.value as SexRecorded })}><option value="female">Female</option><option value="male">Male</option><option value="not_recorded">Not recorded</option></Select></Field>
+              <Field label="Date of birth"><TextInput type="date" value={p.dob} onChange={(e) => set({ dob: e.target.value })} /></Field>
+              <Field label="Ethnicity (nurse form)"><Select value={p.eth} onChange={(e) => set({ eth: e.target.value })}><option value="">Not recorded</option>{RR_ETHNICITIES.map((x) => <option key={x}>{x}</option>)}</Select></Field>
+              <Field label="Pregnant"><Select value={p.preg ? "yes" : "no"} disabled={p.sex !== "female"} onChange={(e) => set({ preg: e.target.value === "yes" })}><option value="no">No</option><option value="yes">Yes</option></Select></Field>
+            </div>
+          </Card>
+          <Card>
+            <CardHeader title="Nurse measurements" />
+            <div className="scr-grid-2">{MEAS.map((x) => <Field key={x.k} label={`${x.label} (${x.unit})`}><TextInput inputMode="decimal" value={p.meas[x.k]} onChange={(e) => set({ meas: { ...p.meas, [x.k]: e.target.value } })} /></Field>)}</div>
+          </Card>
+          <Card>
+            <CardHeader title="Laboratory results" />
+            <div className="scr-grid-2">{LAB.map((c) => <Field key={c} label={`${ANALYTES[c].name} (${ANALYTES[c].unit})`}><TextInput inputMode="decimal" value={p.lab[c] || ""} disabled={c === "PSA" && p.sex === "female"} onChange={(e) => set({ lab: { ...p.lab, [c]: e.target.value } })} placeholder={c === "PSA" && p.sex === "female" ? "Males only" : "Not tested"} /></Field>)}</div>
+          </Card>
+        </div>
+
+        <div className="ph-stack" style={{ gap: 14 }}>
+          {!run ? <Callout tone="bad">Enter a valid date of birth and sample date (the birth date must be before the sample date).</Callout> : <>
+            <Card>
+              <CardHeader title="Step 1: who the ranges are chosen for" />
+              <div className="scr-kv">
+                <div><p className="scr-k">Sex</p><p className="scr-v">{p.sex === "not_recorded" ? "Not recorded (judged as both, the more severe wins)" : p.sex === "male" ? "Male" : "Female"}</p></div>
+                <div><p className="scr-k">Age on sample date</p><p className="scr-v">{age} <span className="ph-faint">(born {fmtDate(p.dob)}, sampled {fmtDate(p.date)})</span></p></div>
+                <div><p className="scr-k">Ethnicity</p><p className="scr-v">{p.eth || "Not recorded: all-ethnicities ranges apply"}</p></div>
+                <div><p className="scr-k">Range versions used</p><p className="scr-v">Those in force on {fmtDate(p.date)}</p></div>
+              </div>
+            </Card>
+
+            <Card>
+              <CardHeader title="Step 2: calculations" sub="Rounded half up at the reported decimal places, as on paper." />
+              <ul className="scr-list">{run.calcs.map((c) => <li key={c.name}><strong style={{ color: "var(--ink)" }}>{c.name}</strong><div className="ph-mono" style={{ fontSize: 12.5 }}>{c.working}{c.value != null ? ` ${c.unit}` : ""}</div></li>)}</ul>
+            </Card>
+
+            <Card pad={false}>
+              <div style={{ padding: "16px 18px 6px" }}><CardHeader title="Step 3: each result against its range" sub="Click a result to see the backend checks." /></div>
+              <div className="ph-tablewrap"><table className="ph-table">
+                <thead><tr><th>Result</th><th style={{ textAlign: "right" }}>Value</th><th>Range used</th><th>Outcome</th><th /></tr></thead>
+                <tbody>{run.all.map((l) => [
+                  <tr key={l.key} onClick={() => setOpen(open === l.key ? null : l.key)} style={{ cursor: "pointer" }} aria-expanded={open === l.key}>
+                    <td><div style={{ color: "var(--ink)", fontWeight: 500 }}>{l.name}</div>{l.calc ? <div className="ph-faint" style={{ fontSize: 11 }}>Calculated</div> : null}</td>
+                    <td className="ph-num" style={{ textAlign: "right" }}>{l.value} <span className="ph-faint">{l.unit}</span></td>
+                    <td style={{ fontSize: 12 }}>{l.r.version ? `${l.test.name} v${l.r.version.version}` : "None"}<div className="ph-faint">{l.r.row ? cohortText(l.r.row.cohort) : "No cohort"}</div></td>
+                    <td><Pill tone={BAND_TONE[l.band]}>{l.word || l.band}</Pill></td>
+                    <td><Icon name={open === l.key ? "chevronDown" : "chevronRight"} size={14} /></td>
+                  </tr>,
+                  open === l.key ? <tr key={l.key + "-detail"}><td colSpan={5} style={{ padding: 0, background: "var(--surface-2)" }}><Backend l={l} date={p.date} ctx={run.ctx} /></td></tr> : null,
+                ])}</tbody>
+              </table></div>
+            </Card>
+
+            <Card>
+              <CardHeader title="Step 4: review decision" />
+              {run.flagged.length ? (
+                <Callout tone="warn"><strong>Individual clinician review.</strong> {run.flagged.length} {run.flagged.length === 1 ? "result is" : "results are"} outside normal, so this report cannot use the routine release shortcut:
+                  <ul style={{ margin: "6px 0 0", paddingLeft: 16 }}>{run.flagged.map((l) => <li key={l.key}>{l.name} {l.value} {l.unit}: {l.word} ({BAND_COLOUR[l.band]})</li>)}</ul></Callout>
+              ) : <Callout tone="ok"><strong>Routine release eligible.</strong> Every result is normal. A clinician still releases it, one report at a time.</Callout>}
+            </Card>
+
+            <Card>
+              <CardHeader title="Step 5: what the system stores" sub="The record behind the screen. Each result keeps the range version it was judged against, so it can be traced later even if the range changes."
+                right={<Button size="sm" icon="file" onClick={() => { try { void navigator.clipboard.writeText(JSON.stringify(record, null, 2)); } catch { /* clipboard unavailable */ } }}>Copy</Button>} />
+              <pre className="ph-mono" style={{ fontSize: 11.5, lineHeight: 1.5, maxHeight: 320, overflow: "auto", margin: 0, padding: 12, borderRadius: 10, background: "var(--surface-2)", border: "1px solid var(--border)", whiteSpace: "pre" }}>{JSON.stringify(record, null, 2)}</pre>
+            </Card>
+
+            <Card>
+              <CardHeader title="Step 6: audit trail" sub="In live use every result and release is logged. Log this test run to see it in Activity; nothing is added to any patient." />
+              <div className="ph-row-flex" style={{ gap: 10 }}>
+                <Button variant="primary" icon="check" disabled={logged} onClick={() => { if (dispatch({ type: "rr/logTestRun", name: p.name, results: run.all.length, flagged: run.flagged.length, date: p.date, versions: [...new Set(run.all.map((l) => l.r.version?.id).filter(Boolean))] }).ok) setLogged(true); }}>{logged ? "Logged" : "Log this test run"}</Button>
+                {logged ? <span className="ph-faint" style={{ fontSize: 12 }}>Written to Activity, Everything.</span> : null}
+              </div>
+            </Card>
+          </>}
+        </div>
+      </div>
+    </>
+  );
+}
+
+/** The backend checks for one result: version chosen, cohort matched, every band's limits tested. */
+function Backend({ l, date, ctx }: { l: Line; date: string; ctx: BandCtx }) {
+  const s = usePhState();
+  const row = l.r.row;
+  const versions = rrVersionsOf(s.referenceRanges.versions, l.test.id).filter((v) => v.status === "published");
+  return (
+    <div style={{ padding: "4px 18px 18px" }}>
+      <div className="ph-stack" style={{ gap: 10, marginTop: 12 }}>
+        <div style={{ fontSize: 12.5 }}><strong style={{ color: "var(--ink)" }}>{l.name} {l.value} {l.unit}</strong></div>
+        <ol style={{ margin: 0, paddingLeft: 18, fontSize: 12.5, lineHeight: 1.7 }}>
+          <li>Versions published for {l.test.name}: {versions.map((v) => `v${v.version} from ${fmtDate(v.effectiveFrom)}`).join(", ")}. Sample date {fmtDate(date)}, so <strong>{l.r.version ? `v${l.r.version.version}` : "none"}</strong> applies.</li>
+          <li>Cohort matched: <strong>{row ? cohortText(row.cohort) : "none"}</strong>{ctx.sex === "not_recorded" ? " (sex not recorded: judged as male and female, the more severe used)" : ""}.</li>
+          <li>Band checks:
+            {row && row.status === "set" && l.test.kind !== "qualitative" ? (
+              <table className="scr-bands" style={{ marginTop: 6 }}><tbody>
+                {RR_BAND_ORDER.map((k) => row.bands.find((b) => b.key === k)).filter((b): b is NonNullable<typeof b> => !!b).map((b) => {
+                  const hit = inBand(b, l.value);
+                  return <tr key={b.key}><td><span className="ph-row-flex" style={{ gap: 6 }}><Swatch k={b.key} />{RR_BAND_META[b.key].name}</span></td><td className="num">{l.value} {boundsShort(b, l.test.decimals)}?</td><td>{hit ? <strong style={{ color: "var(--ink)" }}>Yes</strong> : <span className="ph-faint">No</span>}</td></tr>;
+                })}</tbody></table>) : <span className="ph-faint"> no numeric bands for this cohort.</span>}
+          </li>
+          <li>Outcome: <strong>{l.r.label || "no flag"}</strong>. {l.r.why}</li>
+          <li>Shown on the report as <strong>{l.word}</strong> ({BAND_COLOUR[l.band]}){l.limit ? `, normal range ${l.limit}` : ""}. {l.band === "borderline" || l.band === "abnormal" ? "Marked Review required." : "No flag."}</li>
+        </ol>
+        {row ? <p className="scr-sentence" style={{ margin: 0 }}><span className="ph-faint">The range in words: </span>{rowSentence(l.test, row)}</p> : null}
+      </div>
+    </div>
+  );
+}

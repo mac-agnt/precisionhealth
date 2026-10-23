@@ -31,7 +31,7 @@ export const PAGES: PageDef[] = [
   { id: "Results", label: "Results", icon: "navResults", hint: "Imports and review", tabs: [
     { id: "inbox", label: "Inbox" }, { id: "imports", label: "Imports" }, { id: "review", label: "Review" }, { id: "follow-up", label: "Follow-up" }, { id: "corrections", label: "Corrections" }] },
   { id: "Screening", label: "Health Screening", icon: "navScreening", hint: "Reference ranges and change control", tabs: [
-    { id: "ranges", label: "Reference ranges" }, { id: "check", label: "Check a result" }, { id: "changes", label: "Change control" },
+    { id: "ranges", label: "Reference ranges" }, { id: "check", label: "Test run" }, { id: "changes", label: "Change control" },
     { id: "impact", label: "Results impact" }, { id: "calculations", label: "Calculations" }, { id: "cohorts", label: "Cohorts" }, { id: "questions", label: "To confirm" }] },
   { id: "Reporting", label: "Reporting", icon: "navReporting", hint: "Employer reports", tabs: [
     { id: "overview", label: "Overview" }, { id: "report-builder", label: "Report Builder" }, { id: "exports", label: "Exports" }] },
