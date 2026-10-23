@@ -15,7 +15,7 @@ import type { Column } from "../../ui";
 import { salesAct } from "./actions";
 import { CRM_ACTIVITY_LABEL, crmAct } from "./crmActions";
 import type { CrmActivityKind } from "./crmActions";
-import { LostReasonModal, NewLeadModal } from "./LeadForms";
+import { LostReasonModal, NewLeadModal, createProgrammeTask } from "./LeadForms";
 import type { LeadPrefill } from "./LeadForms";
 import { STAGE_LOOK, StagePill, useSalesRights } from "./shared";
 
@@ -55,6 +55,7 @@ export default function Crm() {
   const onDrop = (e: DragEvent, to: SalesStage) => { e.preventDefault(); setDragOver(null); const id = e.dataTransfer.getData("text/plain"); if (id) move(id, to); };
   const lostLead = lost ? s.sales.leads.find((l) => l.id === lost) : null;
   const lead = open ? views.find((v) => v.lead.id === open) || null : null;
+  const inbox = s.sales.inbox.filter((x) => x.status === "unassigned");
 
   const cols: Column<SalesLeadView>[] = [
     { key: "co", header: "Company", sort: (a, b) => a.lead.company.localeCompare(b.lead.company),
@@ -69,7 +70,7 @@ export default function Crm() {
   return (
     <div className="ph-page">
       <style>{CSS}</style>
-      <PageHeader title="Sales CRM" sub="Every lead and client, from first enquiry to won. Stages match the Monday New Business Leads board. Drag a card to move it; click it to work the lead."
+      <PageHeader title="Pipeline" sub="Every enquiry, lead and client in one place, from first contact to won. Drag a card to move it along; click it to see and do everything for that company."
         actions={rights.manage ? <Button variant="primary" icon="plus" onClick={() => setAdding({ source: "website" })}>Add lead</Button> : null} />
       {!rights.manage ? (
         <div className="crm-banner"><Icon name="info" size={15} /><span className="ph-grow">You are viewing as {p.name}. Stephen Kelly owns sales, so leads are view only.</span>
@@ -81,6 +82,15 @@ export default function Crm() {
         <Kpi label="Overdue next actions" value={views.filter((v) => v.overdue).length} tone={views.some((v) => v.overdue) ? "bad" : "ok"} onClick={() => setOverdue(true)} sub={`As of ${fmtDate(t)}`} />
       </KpiStrip>
 
+      {inbox.length ? (
+        <Card style={{ marginBottom: 14 }}>
+          <div className="crm-inbox-head"><span className="crm-col-title"><Icon name="mail" size={14} />New enquiries in Help Scout</span><Pill tone="info">{inbox.length} waiting</Pill><span className="ph-faint ph-grow" style={{ fontSize: 11.5 }}>Simulated sample: Help Scout is not connected.</span></div>
+          <div className="crm-inbox">{inbox.map((x) => (
+            <div key={x.id} className="crm-inbox-item">
+              <div className="ph-grow" style={{ minWidth: 0 }}><div style={{ color: "var(--ink)", fontWeight: 600, fontSize: 13 }}>{x.company}</div><div className="ph-dim" style={{ fontSize: 12, lineHeight: 1.45 }}>{x.subject}. {x.contactName}</div></div>
+              {rights.manage ? <Button size="sm" variant="primary" icon="plus" onClick={() => setAdding({ company: x.company, fictionalCompany: x.fictionalCompany, services: x.services, contactName: x.contactName, contactRole: x.contactRole, contactEmail: x.contactEmail, contactPhone: x.phone, source: "helpscout", sourceRef: x.id, enquiry: x.body, headcount: x.headcount, origin: { kind: "helpscout", id: x.id }, title: `Create lead from ${x.company}`, simulatedNote: "Prefilled from a sample Help Scout conversation. Nothing was read from a live inbox." })}>Make it a lead</Button> : null}
+            </div>))}</div>
+        </Card>) : null}
       <Card>
         <div className="crm-filters">
           <Segmented value={mode} onChange={setMode} label="View" options={[{ id: "board", label: "Pipeline board" }, { id: "list", label: "List" }]} />
@@ -186,6 +196,8 @@ function LeadWorkspace({ v, onClose, onMove }: { v: SalesLeadView; onClose: () =
           {rights.manage && !L.research ? <Button size="sm" icon="spark" onClick={() => dispatch(salesAct.research(L.id))}>Research with agent</Button> : null}
           {rights.manage && !v.proposal && L.stage !== "won" && L.stage !== "lost" ? <Button size="sm" icon="file" onClick={() => { if (dispatch(salesAct.createProposal(L.id)).ok) nav.go({ page: "Sales", tab: "proposals" }); }}>Start proposal</Button> : null}
           {v.proposal ? <Button size="sm" icon="file" onClick={() => nav.go({ page: "Sales", tab: "proposals" })}>Open proposal</Button> : null}
+          {rights.manage && L.stage === "won" && !L.handoverTaskId ? <Button size="sm" variant="primary" icon="arrow" onClick={() => createProgrammeTask(L.id)}>Create programme</Button> : null}
+          {L.handoverTaskId ? <Button size="sm" icon="check" onClick={() => nav.go({ page: "Work", tab: "tasks", params: { task: L.handoverTaskId! } })}>Programme task {L.handoverTaskId}</Button> : null}
           <Button size="sm" icon="mail" onClick={() => { try { window.location.href = `mailto:${L.contact.email}`; } catch { /* ignore */ } }}>Email contact</Button>
         </div>
 
@@ -215,6 +227,9 @@ function LeadWorkspace({ v, onClose, onMove }: { v: SalesLeadView; onClose: () =
 }
 
 const CSS = `
+.crm-inbox-head { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; }
+.crm-inbox { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 8px; }
+.crm-inbox-item { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface-2); }
 .crm-filters { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 14px; }
 .crm-banner { display: flex; align-items: center; gap: 10px; padding: 10px 14px; margin-bottom: 14px; border-radius: var(--r-md, 14px); background: var(--accent-soft); color: var(--body); font-size: 12.5px; }
 .crm-board { display: grid; grid-template-columns: repeat(4, minmax(220px, 1fr)); gap: 12px; overflow-x: auto; padding-bottom: 4px; }

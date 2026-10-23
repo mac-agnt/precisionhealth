@@ -21,7 +21,7 @@ export const PAGES: PageDef[] = [
   { id: "Dashboard", label: "Dashboard", icon: "navDash", hint: "Executive, clinics, delivery", tabs: [
     { id: "executive", label: "Executive" }, { id: "clinic-operations", label: "Clinic Operations" }, { id: "clinical-delivery", label: "Clinical Delivery" }] },
   { id: "Sales", label: "Sales", icon: "navSales", hint: "Leads, proposals, recall", tabs: [
-    { id: "crm", label: "CRM" }, { id: "pipeline", label: "Pipeline" }, { id: "proposals", label: "Proposals" }, { id: "price-list", label: "Price list" },
+    { id: "pipeline", label: "Pipeline" }, { id: "proposals", label: "Proposals" }, { id: "price-list", label: "Price list" },
     { id: "recall", label: "Recall & repeat" }, { id: "partners", label: "Irish Life Health" }] },
   { id: "Programmes", label: "Programmes", icon: "navProgrammes", hint: "Screening programmes", tabs: [
     { id: "overview", label: "Overview" }, { id: "programmes", label: "Programmes" }, { id: "forms-templates", label: "Forms & Templates" }, { id: "invitations", label: "Invitations" }] },

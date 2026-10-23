@@ -12,7 +12,7 @@ interface Item { title: string; what: string; icon: GlyphName; to?: NavTarget; p
 const PLATFORM: Item[] = [
   { title: "Home", what: "Ask Pulse anything. Answers link to the records behind them.", icon: "home", to: { page: "Home" } },
   { title: "Health Screening", what: "Neil's reference ranges, versioned, with a live test run of the results process.", icon: "flask", to: { page: "Screening", tab: "check" }, isNew: true },
-  { title: "Sales CRM", what: "Every lead and client in one filterable list, plus pipeline, proposals, price list, recall and Irish Life Health.", icon: "chart", to: { page: "Sales", tab: "crm" }, isNew: true },
+  { title: "Sales Pipeline", what: "Every enquiry and client on one board: drag deals through the stages, log calls, start proposals. Plus price list, recall and Irish Life Health.", icon: "chart", to: { page: "Sales", tab: "pipeline" }, isNew: true },
   { title: "Doctor Review: Advice Codes", what: "The clinician viewer and NEW ADVICE box. Type a code like CHOL-HI to insert approved wording.", icon: "edit", to: { page: "Results", tab: "review", params: { episode: "PH-E-0201" } } },
   { title: "Lab Import", what: "The Eurofins batch: 114 imported, 3 duplicates skipped, 3 identity exceptions for a person to resolve.", icon: "layers", to: { page: "Results", tab: "imports", params: { batch: "BATCH-20261002-01" } } },
   { title: "Flu", what: "Weekly bookings, vaccine stock against allocations, and the cold chain.", icon: "shield", to: { page: "Flu", tab: "overview" } },
@@ -28,7 +28,7 @@ const PORTALS: Item[] = [
   { title: "Nurse Portal", what: "Clinic day: check in, the nurse form section by section, sign-off and courier manifest.", icon: "heart", portal: "nurse" },
   { title: "Client / Employer Portal", what: "HR sees programme figures and approved reports only. No names, no individual results.", icon: "users", portal: "client" },
 ];
-const ORDER = ["Home", "Health Screening (Test run)", "Doctor Review", "Participant Portal: My Results", "Booking Journey", "Nurse Portal", "Employer Portal", "Sales CRM"];
+const ORDER = ["Home", "Health Screening (Test run)", "Doctor Review", "Participant Portal: My Results", "Booking Journey", "Nurse Portal", "Employer Portal", "Sales Pipeline"];
 
 export default function Demo() {
   const nav = useNav();

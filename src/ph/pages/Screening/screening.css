@@ -66,3 +66,19 @@
 .scr-timeline { list-style: none; margin: 0; padding: 0; }
 .scr-timeline li { display: grid; grid-template-columns: 110px 1fr auto; gap: 10px; align-items: center; padding: 8px 0; border-top: 1px solid var(--border); font-size: 12.5px; }
 .scr-timeline li:first-child { border-top: 0; }
+
+/* range bar */
+.scr-bar { margin: 4px 0 2px; }
+.scr-bar-segs { display: flex; height: 30px; border-radius: 9px; overflow: hidden; gap: 2px; }
+.scr-bar-seg { flex: 1; display: flex; align-items: center; justify-content: center; font-size: 10.5px; font-weight: 700; letter-spacing: .03em; color: #1b1f22; background: var(--b-na); min-width: 0; }
+.scr-bar-seg span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 6px; }
+.scr-bar-seg[data-k="normal"] { background: var(--b-normal); }
+.scr-bar-seg[data-k="low_mild"], .scr-bar-seg[data-k="high_mild"] { background: var(--b-mild); }
+.scr-bar-seg[data-k="low_severe"], .scr-bar-seg[data-k="high_severe"] { background: var(--b-sig); }
+.scr-bar-seg[data-k="high_critical"] { background: var(--b-crit); color: #fff; }
+.scr-bar-ticks { display: flex; gap: 2px; margin-top: 5px; }
+.scr-bar-tick { flex: 1; position: relative; height: 16px; font-size: 11.5px; color: var(--dim); font-variant-numeric: tabular-nums; }
+.scr-bar-tick .hi { position: absolute; right: -2px; transform: translateX(50%); white-space: nowrap; color: var(--ink); font-weight: 600; }
+.scr-bar-tick:last-child .hi { transform: none; right: 0; color: var(--faint); font-weight: 400; }
+.scr-bar-tick .lo { position: absolute; left: 0; white-space: nowrap; color: var(--faint); }
+.scr-quick { border: 1px solid var(--accent); border-radius: var(--r-md, 14px); padding: 14px; background: var(--accent-soft); }

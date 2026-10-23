@@ -31,8 +31,7 @@ export default function Sales({ tab }: { tab: string }) {
     case "price-list": return <PriceList />;
     case "recall": return <Recall />;
     case "partners": return <IrishLife />;
-    case "crm": return <Crm />;
-    default: return <Pipeline />;
+    default: return <Crm />;
   }
 }
 

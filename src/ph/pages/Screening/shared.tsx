@@ -47,3 +47,21 @@ export function BandsTable({ test, row }: { test: RrTest; row: RrRow }) {
 }
 
 export function ToneDot({ tone, children }: { tone: Tone; children: ReactNode }) { return <Pill tone={tone}>{children}</Pill>; }
+
+/** The range as one coloured bar: each band a segment with its printed word, the limits between them. Easy to read at a glance. */
+export function RangeBar({ test, row }: { test: RrTest; row: RrRow }) {
+  if (row.status !== "set" || test.kind === "qualitative") return null;
+  const bands = RR_BAND_ORDER.map((k) => row.bands.find((b) => b.key === k)).filter((b): b is NonNullable<typeof b> => !!b);
+  if (!bands.length) return null;
+  const f = (v: number) => String(Number(v.toFixed(Math.max(test.decimals, 0))));
+  return (
+    <div className="scr-bar" role="img" aria-label={bands.map((b) => `${b.label} ${boundsShort(b, test.decimals)}`).join(", ")}>
+      <div className="scr-bar-segs">{bands.map((b) => <div key={b.key} className="scr-bar-seg" data-k={b.key}><span>{b.label}</span></div>)}</div>
+      <div className="scr-bar-ticks">{bands.map((b, i) => (
+        <div key={b.key} className="scr-bar-tick">
+          {i === 0 ? <span className="lo">{b.min ? `${b.min.inclusive ? "from " : "above "}${f(b.min.value)}` : "below"}</span> : null}
+          {b.max ? <span className="hi">{f(b.max.value)}</span> : <span className="hi">and above</span>}
+        </div>))}</div>
+    </div>
+  );
+}

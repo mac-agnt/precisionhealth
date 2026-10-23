@@ -6,13 +6,13 @@ import {
   RR_BASIS_LABEL, RR_GROUPS, RR_QUESTIONS, RR_SOURCE_DOC, RR_TESTS, RR_TEST_BY_ID, cohortText, fmtDate, rowSentence, rrVersionsOf, today,
 } from "../../model";
 import type { RrGroup, RrTest, RrVersion } from "../../model";
-import { dispatch, usePersona, usePhState } from "../../store";
-import { Button, Card, Chip, DataTable, Drawer, Kpi, KpiStrip, PageHeader, Pill, SearchBox, Section, Segmented, Textarea } from "../../ui";
+import { dispatch, getState as usePhStateSnapshot, usePersona, usePhState } from "../../store";
+import { Button, Card, Chip, DataTable, Drawer, Field, Kpi, KpiStrip, PageHeader, Pill, SearchBox, Section, Segmented, TextInput, Textarea } from "../../ui";
 import type { Column } from "../../ui";
 import { useNav } from "../../nav-context";
 import { rrAct } from "./actions";
 import { draftImpact, isSuperadmin, rowBandsShort, rrDiff, testStatus, versionIssues } from "./select";
-import { BandsTable, Callout, VersionPill, staffNameOf, whoWhen } from "./shared";
+import { BandsTable, Callout, RangeBar, VersionPill, staffNameOf, whoWhen } from "./shared";
 import { RangeEditor } from "./Editor";
 
 type Filter = "all" | "issues" | "confirm" | "notset" | "drafts";
@@ -102,6 +102,7 @@ export function TestDrawer({ test, onClose }: { test: RrTest; onClose: () => voi
   const st = testStatus(s, test);
   const t0 = today(s);
   const [editing, setEditing] = useState<null | { base: RrVersion | null }>(null);
+  const [quick, setQuick] = useState(false);
   const history = rrVersionsOf(s.referenceRanges.versions, test.id);
   const v = st.v;
   const questions = RR_QUESTIONS.filter((x) => test.questions.includes(x.id));
@@ -111,9 +112,11 @@ export function TestDrawer({ test, onClose }: { test: RrTest; onClose: () => voi
       sub={<>{test.group} · {test.unit} · {RR_BASIS_LABEL[test.basis]}{test.source ? <> · {test.source.url ? <a className="ph-link" href={test.source.url} target="_blank" rel="noreferrer">{test.source.label}</a> : test.source.label}</> : null}</>}
       footer={su ? <>
         {st.draft ? <Button onClick={() => setEditing({ base: st.draft })} icon="edit">Edit draft v{st.draft.version}</Button> : null}
-        <Button variant="primary" icon="plus" disabled={!!st.draft} onClick={() => setEditing({ base: v })} title={st.draft ? "Publish or reject the open draft first" : undefined}>Propose a change</Button>
+        <Button disabled={!!st.draft} onClick={() => setEditing({ base: v })} title={st.draft ? "Publish or reject the open draft first" : undefined}>Advanced edit</Button>
+        {v && test.kind === "numeric" ? <Button variant="primary" icon="edit" disabled={!!st.draft} onClick={() => setQuick(true)} title={st.draft ? "Publish or reject the open draft first" : undefined}>Change a number</Button> : null}
       </> : <span className="ph-faint" style={{ fontSize: 12 }}>Read only. Only superadmins ({s.referenceRanges.settings.superadmins.map((id) => staffNameOf(s, id)).join(", ")}) change ranges.</span>}>
       <div className="ph-stack" style={{ gap: 16 }}>
+        {quick && v ? <QuickChange test={test} base={v} onDone={() => setQuick(false)} /> : null}
         {st.draft ? <DraftPanel draft={st.draft} test={test} /> : null}
         {st.scheduled.map((x) => <Callout key={x.id} tone="info" icon="calendar"><strong>Version {x.version} takes effect on {fmtDate(x.effectiveFrom)}.</strong> Results with a sample date from then use it; earlier results keep version {v ? v.version : "1"}. {x.reason}</Callout>)}
 
@@ -122,8 +125,9 @@ export function TestDrawer({ test, onClose }: { test: RrTest; onClose: () => voi
           {v ? v.rows.map((row) => (
             <div className="scr-cohort" key={row.id}>
               <div className="scr-cohort-title">{cohortText(row.cohort)}</div>
+              <RangeBar test={test} row={row} />
               <p className="scr-sentence">{rowSentence(test, row)}</p>
-              <BandsTable test={test} row={row} />
+              <details><summary className="ph-faint" style={{ fontSize: 12, cursor: "pointer" }}>Exact limits</summary><div style={{ marginTop: 8 }}><BandsTable test={test} row={row} /></div></details>
               {row.note ? <div className="ph-faint" style={{ fontSize: 11.5 }}>{row.note}</div> : null}
             </div>
           )) : <div className="ph-faint">Not set.</div>}
@@ -212,5 +216,63 @@ function DraftPanel({ draft, test }: { draft: RrVersion; test: RrTest }) {
         ) : null}
       </div>
     </Card>
+  );
+}
+
+/**
+ * The everyday change, in plain words: pick the number to change, type the new one, say why, save.
+ * Moving a limit moves the band on both sides of it, so there are never gaps. Publishes straight
+ * away (both steps are logged) unless second approval is on, when it waits as a draft.
+ */
+function QuickChange({ test, base, onDone }: { test: RrTest; base: RrVersion; onDone: () => void }) {
+  const s = usePhState();
+  const rows = base.rows.filter((r) => r.status === "set" && r.bands.length);
+  const [ri, setRi] = useState(0);
+  const row = rows[ri];
+  const limits = row ? [...new Set(row.bands.flatMap((b) => [b.min?.value, b.max?.value]).filter((x): x is number => x !== undefined))].sort((a, b) => a - b) : [];
+  const nameOf = (val: number) => {
+    const below = row.bands.find((b) => b.max?.value === val), above = row.bands.find((b) => b.min?.value === val);
+    return below && above ? `${val}: between ${below.label} and ${above.label}` : below ? `${val}: top of ${below.label}` : above ? `${val}: start of ${above.label}` : String(val);
+  };
+  const [which, setWhich] = useState<number | null>(limits[0] ?? null);
+  const [to, setTo] = useState("");
+  const [why, setWhy] = useState("");
+  const [from, setFrom] = useState(today(s));
+  const n = Number(to);
+  const valid = which !== null && to.trim() !== "" && Number.isFinite(n) && n !== which && why.trim().length >= 10;
+  const preview = useMemo(() => {
+    if (!row || which === null || !Number.isFinite(n) || to.trim() === "") return null;
+    const next = structuredClone(rows);
+    for (const b of next[ri].bands) { if (b.min && b.min.value === which) b.min.value = n; if (b.max && b.max.value === which) b.max.value = n; }
+    return next;
+  }, [rows, ri, row, which, n, to]);
+  const save = () => {
+    if (!preview) return;
+    const all = base.rows.map((r) => preview.find((p) => p.id === r.id) || r);
+    const r = dispatch(rrAct.saveDraft(test.id, all, from, why, "Changed in Health Screening by a superadmin"));
+    if (!r.ok) return;
+    const draft = usePhStateSnapshot().referenceRanges.versions.find((v) => v.testId === test.id && v.status === "draft");
+    if (draft && !s.referenceRanges.settings.secondApprover) dispatch(rrAct.publish(draft.id, "Quick change"));
+    onDone();
+  };
+  if (!row) return null;
+  return (
+    <div className="scr-quick">
+      <div className="ph-row-flex" style={{ marginBottom: 10 }}><strong style={{ color: "var(--ink)", fontSize: 14 }} className="ph-grow">Change a number</strong><Button size="sm" variant="ghost" onClick={onDone}>Cancel</Button></div>
+      <div className="ph-stack" style={{ gap: 12 }}>
+        {rows.length > 1 ? <Field label="1. Who is it for?" htmlFor="qc-who"><select id="qc-who" className="ph-input" value={ri} onChange={(e) => { setRi(Number(e.target.value)); setWhich(null); }}>{rows.map((r, i) => <option key={r.id} value={i}>{cohortText(r.cohort)}</option>)}</select></Field> : null}
+        <Field label={`${rows.length > 1 ? "2" : "1"}. Which number is changing?`} htmlFor="qc-which"><select id="qc-which" className="ph-input" value={which ?? ""} onChange={(e) => setWhich(Number(e.target.value))}><option value="" disabled>Choose</option>{limits.map((l) => <option key={l} value={l}>{nameOf(l)}</option>)}</select></Field>
+        <div className="scr-grid-2">
+          <Field label={`${rows.length > 1 ? "3" : "2"}. New number${test.unit ? ` (${test.unit})` : ""}`} htmlFor="qc-to"><TextInput id="qc-to" inputMode="decimal" value={to} onChange={(e) => setTo(e.target.value.replace(/[^\d.]/g, ""))} placeholder={which !== null ? `Now ${which}` : ""} /></Field>
+          <Field label="From which date?" help="Results sampled from this date use the new number." htmlFor="qc-from"><TextInput id="qc-from" type="date" value={from} onChange={(e) => setFrom(e.target.value)} /></Field>
+        </div>
+        <Field label={`${rows.length > 1 ? "4" : "3"}. Why?`} help="Kept in the history with your name." htmlFor="qc-why"><TextInput id="qc-why" value={why} onChange={(e) => setWhy(e.target.value)} placeholder="For example: Eurofins bulletin, TSH upper limit now 4.84" /></Field>
+        {preview ? <div><div className="ph-faint" style={{ fontSize: 12, marginBottom: 4 }}>How it will look:</div><RangeBar test={test} row={preview[ri]} /><p className="scr-sentence" style={{ marginTop: 6 }}>{rowSentence(test, preview[ri])}</p></div> : null}
+        <div className="ph-row-flex" style={{ justifyContent: "flex-end", gap: 8 }}>
+          <span className="ph-faint ph-grow" style={{ fontSize: 12 }}>{s.referenceRanges.settings.secondApprover ? "Second approval is on: this waits for another superadmin." : "Saved and published straight away. The old number is kept in the history; earlier results keep it."}</span>
+          <Button variant="primary" icon="check" disabled={!valid} onClick={save}>Save</Button>
+        </div>
+      </div>
+    </div>
   );
 }
