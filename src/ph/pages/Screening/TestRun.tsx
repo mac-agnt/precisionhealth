@@ -6,11 +6,12 @@
 import { useMemo, useState } from "react";
 import {
   ANALYTES, RR_BAND_META, RR_BAND_ORDER, RR_ETHNICITIES, RR_TEST_BY_ANALYTE, RR_TEST_BY_ID, ageOn, bandDetail, bmiCategory, boundsShort, bpCategory,
-  cohortText, fmtDate, inBand, limitTextFor, reportFlagWord, roundHalfUp, rowSentence, rrClassify, rrVersionsOf, waistCategory,
+  cohortText, fmtDate, inBand, latestObservations, limitTextFor, today, reportFlagWord, roundHalfUp, rowSentence, rrClassify, rrVersionsOf, waistCategory,
 } from "../../model";
 import type { AnalyteCode, Band, BandCtx, RrResult, RrTest, SexRecorded } from "../../model";
 import { dispatch, usePhState } from "../../store";
-import { Button, Card, CardHeader, Field, Icon, PageHeader, Pill, Select, TextInput } from "../../ui";
+import { Button, Card, CardHeader, Field, Icon, PageHeader, Pill, SearchBox, Select, TextInput } from "../../ui";
+import { useNav } from "../../nav-context";
 import type { Tone } from "../../ui";
 import { Callout, Swatch } from "./shared";
 
@@ -20,7 +21,7 @@ const MEAS: Array<{ k: Meas; label: string; unit: string }> = [
   { k: "heightM", label: "Height", unit: "m" }, { k: "weightKg", label: "Weight", unit: "kg" }, { k: "waistCm", label: "Waist", unit: "cm" },
   { k: "bpSys", label: "BP systolic", unit: "mmHg" }, { k: "bpDia", label: "BP diastolic", unit: "mmHg" },
 ];
-interface Patient { name: string; sex: SexRecorded; dob: string; eth: string; preg: boolean; date: string; meas: Record<Meas, string>; lab: Partial<Record<AnalyteCode, string>> }
+interface Patient { personId?: string; name: string; sex: SexRecorded; dob: string; eth: string; preg: boolean; date: string; meas: Record<Meas, string>; lab: Partial<Record<AnalyteCode, string>> }
 const P = (name: string, sex: SexRecorded, dob: string, eth: string, date: string, m: [string, string, string, string, string], lab: Partial<Record<AnalyteCode, string>>): Patient =>
   ({ name, sex, dob, eth, preg: false, date, meas: { heightM: m[0], weightKg: m[1], waistCm: m[2], bpSys: m[3], bpDia: m[4] }, lab });
 const PRESETS: Array<{ label: string; p: Patient }> = [
@@ -41,10 +42,38 @@ interface Line { key: string; name: string; value: number; unit: string; test: R
 
 export default function TestRun() {
   const s = usePhState();
+  const nav = useNav();
   const [p, setP] = useState<Patient>(structuredClone(PRESETS[1].p));
+  const [find, setFind] = useState("");
+  const [sent, setSent] = useState<string | null>(null);
+  /* Participants who have attended a screening: picking one fills in their details and latest results. */
+  const people = useMemo(() => {
+    const seen = new Map<string, { id: string; name: string; company: string; ep: string; at: string }>();
+    for (const e of s.episodes) {
+      const cur = seen.get(e.personId);
+      if (cur && cur.at >= e.collectedAt) continue;
+      const pr = s.persons.find((x) => x.id === e.personId);
+      if (!pr) continue;
+      seen.set(e.personId, { id: pr.id, name: `${pr.given} ${pr.family}`, company: s.programmes.find((g) => g.id === e.programmeId)?.name || "", ep: e.id, at: e.collectedAt });
+    }
+    return [...seen.values()].sort((a, b) => a.name.localeCompare(b.name));
+  }, [s]);
+  const matches = find.trim().length >= 2 ? people.filter((x) => `${x.name} ${x.id} ${x.company}`.toLowerCase().includes(find.toLowerCase())).slice(0, 8) : [];
+  const pick = (id: string) => {
+    const pr = s.persons.find((x) => x.id === id), row = people.find((x) => x.id === id);
+    const ep = row ? s.episodes.find((e) => e.id === row.ep) : undefined;
+    if (!pr || !ep) return;
+    const m = ep.capture.measures;
+    const mv = (k: Meas) => (m[k].state === "recorded" && m[k].value != null ? String(m[k].value) : "");
+    const lab: Partial<Record<AnalyteCode, string>> = {};
+    for (const o of latestObservations(s, ep.id)) if (LAB.includes(o.code)) lab[o.code] = String(o.value);
+    const eth = typeof ep.capture.form?.ethnicity === "string" ? ep.capture.form.ethnicity : "";
+    setP({ personId: pr.id, name: `${pr.given} ${pr.family}`, sex: pr.sex, dob: pr.dob, eth, preg: false, date: today(s), meas: { heightM: mv("heightM"), weightKg: mv("weightKg"), waistCm: mv("waistCm"), bpSys: mv("bpSys"), bpDia: mv("bpDia") }, lab });
+    setFind(""); setOpen(null); setLogged(false); setSent(null);
+  };
   const [open, setOpen] = useState<string | null>(null);
   const [logged, setLogged] = useState(false);
-  const set = (x: Partial<Patient>) => { setP((o) => ({ ...o, ...x })); setLogged(false); };
+  const set = (x: Partial<Patient>) => { setP((o) => ({ ...o, ...x })); setLogged(false); setSent(null); };
   const dateOk = /^\d{4}-\d{2}-\d{2}$/.test(p.date) && /^\d{4}-\d{2}-\d{2}$/.test(p.dob) && p.dob <= p.date;
   const age = dateOk ? ageOn(p.dob, p.date) : null;
 
@@ -105,13 +134,20 @@ export default function TestRun() {
 
   return (
     <>
+      <style>{`.tr-pick{position:absolute;z-index:5;left:0;right:0;top:calc(100% + 4px);background:var(--surface);border:1px solid var(--border-strong);border-radius:12px;box-shadow:0 12px 30px rgba(0,0,0,.25);overflow:hidden}.tr-pick button{display:flex;flex-direction:column;align-items:flex-start;gap:2px;width:100%;padding:9px 12px;background:none;border:0;border-top:1px solid var(--border);color:inherit;font:inherit;text-align:left;cursor:pointer}.tr-pick button:first-child{border-top:0}.tr-pick button:hover{background:var(--accent-soft)}.tr-pick b{color:var(--ink);font-size:13px}.tr-pick span{color:var(--faint);font-size:11.5px}.tr-chosen{display:flex;align-items:center;gap:8px;padding:9px 12px;border-radius:12px;background:var(--accent-soft);font-size:12.5px;margin-bottom:8px}.tr-chosen b{color:var(--ink)}`}</style>
       <PageHeader eyebrow="Health Screening" title="Test run"
-        sub="Put a test patient through the results process and see each step the system takes: the calculations, the range used for every result and why, the review decision, and the record it would store. Nothing is saved to any patient." />
+        sub="Choose a participant, enter or adjust their results, and see every step: the calculations, the range used for each result and why, the review decision. Then send it to Results as a report for review." />
       <div className="scr-split">
         <div className="ph-stack" style={{ gap: 14 }}>
           <Card>
-            <CardHeader title="1. Test patient" sub="Start from a preset or type your own values. Leave a box empty for not tested." />
-            <div className="scr-chips" style={{ marginBottom: 12 }}>{PRESETS.map((x) => <Button key={x.label} size="sm" onClick={() => { setP(structuredClone(x.p)); setOpen(null); setLogged(false); }}>{x.label}</Button>)}</div>
+            <CardHeader title="1. Choose a participant" sub="Search by name, Precision ID or programme. Their details and latest results fill in; change any number to try it." />
+            <div style={{ position: "relative", marginBottom: 12 }}>
+              <SearchBox value={find} onChange={setFind} placeholder="Search participants, e.g. Ronan or PH-P-0501" width="100%" />
+              {matches.length ? <div className="tr-pick">{matches.map((x) => <button key={x.id} type="button" onClick={() => pick(x.id)}><b>{x.name}</b><span>{x.id} · {x.company}</span></button>)}</div> : null}
+            </div>
+            {p.personId ? <div className="tr-chosen"><Icon name="user" size={14} /><span className="ph-grow"><b>{p.name}</b> · {p.personId}</span><Button size="sm" variant="ghost" onClick={() => set({ personId: undefined })}>Clear</Button></div> : null}
+            <div className="ph-faint" style={{ fontSize: 11.5, margin: "4px 0 6px" }}>Or try an example:</div>
+            <div className="scr-chips" style={{ marginBottom: 12 }}>{PRESETS.map((x) => <Button key={x.label} size="sm" onClick={() => { setP(structuredClone(x.p)); setOpen(null); setLogged(false); setSent(null); }}>{x.label}</Button>)}</div>
             <div className="scr-grid-2">
               <Field label="Name"><TextInput value={p.name} onChange={(e) => set({ name: e.target.value })} /></Field>
               <Field label="Sample date" help="Decides which range version applies."><TextInput type="date" value={p.date} onChange={(e) => set({ date: e.target.value })} /></Field>
@@ -180,7 +216,23 @@ export default function TestRun() {
             </Card>
 
             <Card>
-              <CardHeader title="Step 6: audit trail" sub="In live use every result and release is logged. Log this test run to see it in Activity; nothing is added to any patient." />
+              <CardHeader title="Step 6: send to Results" sub={p.personId ? `Creates a report for ${p.name} with these results, banded by the ranges, in Dr Reddy's review queue.` : "Choose a participant in step 1 to send these results to Results as a report."} />
+              {sent ? (
+                <div className="ph-row-flex ph-wrap" style={{ gap: 10 }}><Pill tone="ok" icon="check">Report {sent} is in Results</Pill>
+                  <Button variant="primary" icon="arrow" onClick={() => nav.go({ page: "Results", tab: "review", params: { episode: sent } })}>Open in Results</Button></div>
+              ) : (
+                <Button variant="primary" icon="send" disabled={!p.personId} onClick={() => {
+                  const lab: Partial<Record<AnalyteCode, number>> = {};
+                  for (const c of LAB) { const v = num(p.lab[c]); if (v != null && Number.isFinite(v)) lab[c] = v; }
+                  const measures: Partial<Record<Meas, number>> = {};
+                  for (const x of MEAS) { const v = num(p.meas[x.k]); if (v != null && Number.isFinite(v)) measures[x.k] = v; }
+                  const r = dispatch({ type: "rr/createTestReport", personId: p.personId, date: p.date, measures, lab });
+                  if (r.ok && r.id) setSent(r.id);
+                }}>Send to Results</Button>)}
+            </Card>
+
+            <Card>
+              <CardHeader title="Step 7: audit trail" sub="In live use every result and release is logged. Log this test run to see it in Activity; nothing is added to any patient." />
               <div className="ph-row-flex" style={{ gap: 10 }}>
                 <Button variant="primary" icon="check" disabled={logged} onClick={() => { if (dispatch({ type: "rr/logTestRun", name: p.name, results: run.all.length, flagged: run.flagged.length, date: p.date, versions: [...new Set(run.all.map((l) => l.r.version?.id).filter(Boolean))] }).ok) setLogged(true); }}>{logged ? "Logged" : "Log this test run"}</Button>
                 {logged ? <span className="ph-faint" style={{ fontSize: 12 }}>Written to Activity, Everything.</span> : null}

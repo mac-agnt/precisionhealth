@@ -2,8 +2,8 @@
    answers. Every change is a draft first and keeps the previous versions; publishing writes one
    activity event saying what changed and how many demo results it re-bands. A failed check leaves the
    state untouched. Nothing here is done by an agent. */
-import { RR_BAND_ORDER, RR_QUESTIONS, RR_TESTS, bandCtxFor, classifyResult, fmtDate, registerHandlers } from "../../model";
-import type { ActionResult, Ctx, PhState, RrBand, RrBandKey, RrEffectiveBasis, RrRow, RrVersion, StaffId } from "../../model";
+import { ANALYTES, RR_BAND_ORDER, RR_QUESTIONS, RR_TESTS, bandCtxFor, classifyResult, fmtDate, registerHandlers } from "../../model";
+import type { ActionResult, AnalyteCode, Ctx, PhState, RrBand, RrBandKey, RrEffectiveBasis, RrRow, RrVersion, StaffId } from "../../model";
 import { draftImpact, rrDiff } from "./select";
 
 const isDate = (v: unknown): v is string => typeof v === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v) && !Number.isNaN(Date.parse(v + "T12:00:00Z"));
@@ -155,6 +155,46 @@ registerHandlers({
     st.effectiveBasis = a.basis;
     c.emit({ verb: "ranges.date_rule", summary: `${c.first()} set the range date rule to: ${a.basis === "sample" ? "sample collection date" : a.basis === "reported" ? "laboratory report date" : "clinician review date"}.` });
     return c.ok("Date rule changed. It applies to results judged from now on.");
+  },
+
+  /* Test run to Results: a new report for a real participant, built from the values entered in Test run,
+     banded by the reference ranges and placed in the clinician's review queue. Attached to the
+     participant's most recent visit for its programme and session; marked as a test in the activity log. */
+  "rr/createTestReport": (c, a: { personId: string; date: string; measures: Partial<Record<"heightM" | "weightKg" | "waistCm" | "bpSys" | "bpDia", number>>; lab: Partial<Record<AnalyteCode, number>> }) => {
+    const deny = c.staffOnly("create a test report");
+    if (deny) return deny;
+    const person = c.s.persons.find((x) => x.id === a.personId);
+    if (!person) return c.fail("Choose a participant first.");
+    if (!isDate(a.date)) return c.fail("Choose a valid sample date.");
+    const template = c.s.episodes.filter((e) => e.personId === person.id).sort((x, y) => y.collectedAt.localeCompare(x.collectedAt))[0];
+    if (!template) return c.fail("This participant has no visit to attach a report to. Choose someone who has attended a screening.");
+    const codes = (Object.keys(a.lab || {}) as AnalyteCode[]).filter((k) => ANALYTES[k] && Number.isFinite(a.lab[k] as number));
+    if (!codes.length && !Object.keys(a.measures || {}).length) return c.fail("Enter at least one result.");
+    const n = c.nextNo("testReport");
+    const id = `PH-E-9${String(n).padStart(3, "0")}`;
+    const collectedAt = `${a.date}T09:00:00.000Z`;
+    const capture = structuredClone(template.capture);
+    for (const [k, v] of Object.entries(a.measures || {})) {
+      if (!Number.isFinite(v)) continue;
+      (capture.measures as Record<string, { value: number | null; state: string }>)[k] = { ...(capture.measures as Record<string, { value: number | null; state: string }>)[k], value: v as number, state: "recorded" };
+    }
+    capture.status = "complete";
+    const specimenId = `${id}-S1`;
+    c.s.specimens.push({ id: specimenId, episodeId: id, type: "serum", collectedAt, status: "resulted", labelPrinted: true });
+    const ctx = bandCtxFor(person, collectedAt);
+    codes.forEach((code, i) => {
+      const value = a.lab[code] as number;
+      const cl = classifyResult(code, value, ctx);
+      c.s.observations.push({ id: `OBS-T${String(n).padStart(3, "0")}-${String(i + 1).padStart(2, "0")}`, episodeId: id, specimenId, code, value, valueText: null, unit: ANALYTES[code].unit,
+        limitText: cl.limitText, flag: cl.flag, band: cl.band, rangeVersion: cl.rangeVersion, legacyDisplayedFlag: null, source: { kind: "clinic" }, recordedAt: c.now, unitDiscrepancy: null, original: null, version: 1 });
+    });
+    c.s.episodes.push({ ...structuredClone(template), id, collectedAt, capture, specimenIds: [specimenId], expectedTests: codes.map((code) => ({ code, addOn: false })),
+      reportState: "ready_for_review", hold: null, readyAt: c.now, reviewAssigneeId: "neil", reportVersionIds: [], followUpIds: [], flagAckBy: null,
+      screeningRef: `TEST0${String(n).padStart(4, "0")}`, nurseReferral: null });
+    c.inv();
+    c.emit({ verb: "ranges.test_report", simulated: true, entity: { kind: "episode", id }, personId: person.id, programmeId: template.programmeId,
+      summary: `${c.first()} created a test report ${id} for ${person.given} ${person.family} from Test run: ${codes.length} laboratory results and ${Object.keys(a.measures || {}).length} measurements, banded by the reference ranges and sent to the review queue. Test data.` });
+    return c.ok(`Report ${id} for ${person.given} ${person.family} is in Results, ready for review.`, "ok", id);
   },
 
   /* Test run: logs that a test patient was run through the ranges. Nothing is saved to any patient. */

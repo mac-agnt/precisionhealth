@@ -893,6 +893,17 @@ try {
         && s.activity.length === n + 1 && s.activity.at(-1).verb === "ranges.test_run" && s.activity.at(-1).simulated && s.persons.length === persons && s.observations.length === obs);
       check("rr test run needs a result", !run({ type: "rr/logTestRun", name: "x", results: 0, flagged: 0, date: "2026-10-05", versions: [] }).ok);
     }
+    {
+      run(act.setPersona("neil"));
+      const ready = M.reviewStats(s).ready, eps = s.episodes.length;
+      const r = run({ type: "rr/createTestReport", personId: "PH-P-0501", date: "2026-10-05", measures: { heightM: 1.78, weightKg: 85, bpSys: 150, bpDia: 84 }, lab: { TC: 5.6, HDL: 1.1, LDL: 3.2 } });
+      const ep = s.episodes.find((e) => e.id === r.id);
+      check("rr test report lands in the review queue", r.ok && s.episodes.length === eps + 1 && ep && ep.reportState === "ready_for_review" && M.reviewStats(s).ready === ready + 1);
+      const obs = s.observations.filter((o) => o.episodeId === r.id);
+      eq("rr test report results banded by the ranges", obs.map((o) => [o.code, o.band, o.rangeVersion]), [["TC", "borderline", "RRV-TC-1"], ["HDL", "normal", "RRV-HDL-1"], ["LDL", "borderline", "RRV-LDL-1"]]);
+      check("rr test report needs a participant with a visit", !run({ type: "rr/createTestReport", personId: "nobody", date: "2026-10-05", measures: {}, lab: { TC: 5 } }).ok);
+      s = createInitialState();
+    }
     run(act.setPersona("participant"));
     check("rr participant cannot answer", !run(RA.answerQuestion("Q-AGE", "x")).ok);
     {
