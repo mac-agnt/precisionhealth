@@ -14,6 +14,8 @@ import { LostReasonModal, NewLeadModal, createProgrammeTask } from "./LeadForms"
 import type { LeadPrefill } from "./LeadForms";
 import { PaymentPill, ProposalStatusPill, RecallPill, ServiceTags, SourceTag, StagePill, ViewOnly, useSalesRights } from "./shared";
 
+import Crm from "./Crm";
+
 export default function Sales({ tab }: { tab: string }) {
   const p = usePersona();
   if (p.isParticipant) {
@@ -29,6 +31,7 @@ export default function Sales({ tab }: { tab: string }) {
     case "price-list": return <PriceList />;
     case "recall": return <Recall />;
     case "partners": return <IrishLife />;
+    case "crm": return <Crm />;
     default: return <Pipeline />;
   }
 }
