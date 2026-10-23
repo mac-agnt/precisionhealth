@@ -16,6 +16,7 @@ import { PaymentPill, ProposalStatusPill, RecallPill, ServiceTags, SourceTag, St
 
 import Crm from "./Crm";
 import ProposalDoc from "./ProposalDoc";
+import PriceCatalog from "./PriceCatalog";
 
 export default function Sales({ tab }: { tab: string }) {
   const p = usePersona();
@@ -29,7 +30,7 @@ export default function Sales({ tab }: { tab: string }) {
   }
   switch (tab) {
     case "proposals": return <ProposalDoc />;
-    case "price-list": return <PriceList />;
+    case "price-list": return <PriceCatalog />;
     case "recall": return <Recall />;
     case "partners": return <IrishLife />;
     default: return <Crm />;
