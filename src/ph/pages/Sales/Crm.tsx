@@ -195,7 +195,7 @@ function LeadWorkspace({ v, onClose, onMove }: { v: SalesLeadView; onClose: () =
         <div className="ph-row-flex ph-wrap" style={{ gap: 8 }}>
           {rights.manage && !L.research ? <Button size="sm" icon="spark" onClick={() => dispatch(salesAct.research(L.id))}>Research with agent</Button> : null}
           {rights.manage && !v.proposal && L.stage !== "won" && L.stage !== "lost" ? <Button size="sm" icon="file" onClick={() => { if (dispatch(salesAct.createProposal(L.id)).ok) nav.go({ page: "Sales", tab: "proposals" }); }}>Start proposal</Button> : null}
-          {v.proposal ? <Button size="sm" icon="file" onClick={() => nav.go({ page: "Sales", tab: "proposals" })}>Open proposal</Button> : null}
+          {v.proposal ? <Button size="sm" icon="file" onClick={() => nav.go({ page: "Sales", tab: "proposals", params: { proposal: v.proposal!.id } })}>Open proposal</Button> : null}
           {rights.manage && L.stage === "won" && !L.handoverTaskId ? <Button size="sm" variant="primary" icon="arrow" onClick={() => createProgrammeTask(L.id)}>Create programme</Button> : null}
           {L.handoverTaskId ? <Button size="sm" icon="check" onClick={() => nav.go({ page: "Work", tab: "tasks", params: { task: L.handoverTaskId! } })}>Programme task {L.handoverTaskId}</Button> : null}
           <Button size="sm" icon="mail" onClick={() => { try { window.location.href = `mailto:${L.contact.email}`; } catch { /* ignore */ } }}>Email contact</Button>

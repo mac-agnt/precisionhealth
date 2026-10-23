@@ -15,6 +15,7 @@ import type { LeadPrefill } from "./LeadForms";
 import { PaymentPill, ProposalStatusPill, RecallPill, ServiceTags, SourceTag, StagePill, ViewOnly, useSalesRights } from "./shared";
 
 import Crm from "./Crm";
+import ProposalDoc from "./ProposalDoc";
 
 export default function Sales({ tab }: { tab: string }) {
   const p = usePersona();
@@ -27,7 +28,7 @@ export default function Sales({ tab }: { tab: string }) {
     );
   }
   switch (tab) {
-    case "proposals": return <Proposals />;
+    case "proposals": return <ProposalDoc />;
     case "price-list": return <PriceList />;
     case "recall": return <Recall />;
     case "partners": return <IrishLife />;
