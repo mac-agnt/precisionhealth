@@ -806,6 +806,21 @@ try {
   }
   /* ---------- END flu checks ---------- */
 
+  /* ---------- CRM activity log (src/ph/pages/Sales/crmActions.ts) ---------- */
+  {
+    const CA = (await server.ssrLoadModule("/src/ph/pages/Sales/crmActions.ts")).crmAct;
+    s = createInitialState();
+    const lead = s.sales.leads[0];
+    run(act.setPersona("neil"));
+    check("crm: only sales can log activity", !run(CA.logActivity(lead.id, "call", "Spoke to them")).ok);
+    run(act.setPersona("stephen"));
+    const h = s.sales.leads[0].history.length;
+    check("crm: Stephen logs a call with a next action", run(CA.logActivity(lead.id, "call", "Spoke to them about dates", "Send revised proposal", "2026-10-09")).ok
+      && s.sales.leads[0].history.length === h + 1 && s.sales.leads[0].nextAction === "Send revised proposal" && s.sales.leads[0].nextActionOn === "2026-10-09" && s.activity.at(-1).verb === "sales.activity");
+    check("crm: empty activity refused", !run(CA.logActivity(lead.id, "note", " ")).ok);
+    s = createInitialState();
+  }
+
   /* ---------- BEGIN health screening reference range checks (src/ph/pages/Screening, src/ph/model/referenceRanges*.ts) ---------- */
   {
     const RA = (await server.ssrLoadModule("/src/ph/pages/Screening/actions.ts")).rrAct;
