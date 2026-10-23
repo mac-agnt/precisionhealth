@@ -12,6 +12,7 @@ import type { AnalyteCode, Band, BandCtx, RrResult, RrTest, SexRecorded } from "
 import { dispatch, usePhState } from "../../store";
 import { Button, Card, CardHeader, Field, Icon, PageHeader, Pill, SearchBox, Select, TextInput } from "../../ui";
 import { useNav } from "../../nav-context";
+import { PreviewModal } from "../Results/ReportPreview";
 import type { Tone } from "../../ui";
 import { Callout, Swatch } from "./shared";
 
@@ -46,6 +47,7 @@ export default function TestRun() {
   const [p, setP] = useState<Patient>(structuredClone(PRESETS[1].p));
   const [find, setFind] = useState("");
   const [sent, setSent] = useState<string | null>(null);
+  const [preview, setPreview] = useState<string | null>(null);
   /* Participants who have attended a screening: picking one fills in their details and latest results. */
   const people = useMemo(() => {
     const seen = new Map<string, { id: string; name: string; company: string; ep: string; at: string }>();
@@ -229,9 +231,10 @@ export default function TestRun() {
             </Card>
 
             <Card>
-              <CardHeader title="Step 6: send to Results" sub={p.personId ? `Creates a report for ${p.name} with these results, banded by the ranges, in Dr Reddy's review queue.` : "Choose a participant in step 1 to send these results to Results as a report."} />
+              <CardHeader title="Step 6: create the report" sub={p.personId ? `Creates ${p.name}'s report from these results, banded by the ranges: download it as a PDF, and it waits in Dr Reddy's review queue in Results.` : "Choose a participant in step 1 to create their report."} />
               {sent ? (
-                <div className="ph-row-flex ph-wrap" style={{ gap: 10 }}><Pill tone="ok" icon="check">Report {sent} is in Results</Pill>
+                <div className="ph-row-flex ph-wrap" style={{ gap: 10 }}><Pill tone="ok" icon="check">{p.name}'s report {sent} is in Results</Pill>
+                  <Button icon="print" onClick={() => setPreview(sent)}>View and download report</Button>
                   <Button variant="primary" icon="arrow" onClick={() => nav.go({ page: "Results", tab: "review", params: { episode: sent } })}>Open in Results</Button></div>
               ) : (
                 <Button variant="primary" icon="send" disabled={!p.personId} onClick={() => {
@@ -240,8 +243,8 @@ export default function TestRun() {
                   const measures: Partial<Record<Meas, number>> = {};
                   for (const x of MEAS) { const v = num(p.meas[x.k]); if (v != null && Number.isFinite(v)) measures[x.k] = v; }
                   const r = dispatch({ type: "rr/createTestReport", personId: p.personId, date: p.date, measures, lab });
-                  if (r.ok && r.id) { setSent(r.id); nav.go({ page: "Results", tab: "review", params: { episode: r.id } }); }
-                }}>Send to Results and open the report</Button>)}
+                  if (r.ok && r.id) { setSent(r.id); setPreview(r.id); }
+                }}>Create the report</Button>)}
             </Card>
 
             <Card>
@@ -254,6 +257,8 @@ export default function TestRun() {
           </>}
         </div>
       </div>
+      {preview ? <PreviewModal open onClose={() => setPreview(null)} episodeId={preview} versionLabel={`${p.name} · ${preview} · test report, not yet reviewed`}
+        footer={<Button variant="primary" icon="arrow" onClick={() => { const id = preview; setPreview(null); nav.go({ page: "Results", tab: "review", params: { episode: id } }); }}>Open in Results</Button>} /> : null}
     </>
   );
 }
