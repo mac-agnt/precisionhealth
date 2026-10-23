@@ -776,6 +776,69 @@ try {
     s = createInitialState();
   }
   /* ---------- END flu checks ---------- */
+
+  /* ---------- BEGIN health screening reference range checks (src/ph/pages/Screening, src/ph/model/referenceRanges*.ts) ---------- */
+  {
+    const RA = (await server.ssrLoadModule("/src/ph/pages/Screening/actions.ts")).rrAct;
+    s = createInitialState();
+    const R = () => s.referenceRanges;
+    const T = M.RR_TEST_BY_ID;
+    const fem = { sex: "female", age: 40, ethnicity: null, pregnant: false };
+    eq("rr tests loaded from the client table", M.RR_TESTS.length, 70);
+    check("rr every test has a published version", M.RR_TESTS.every((t) => M.rrVersionInForce(R().versions, t.id, "2026-10-05")));
+    check("rr every test keeps the cells as sent", M.RR_TESTS.every((t) => t.asSent && typeof t.asSent.male === "string"));
+    /* Neil's example: the same haemoglobin result is judged by the range in force on its date. */
+    const hb7 = M.classify(T.hb, R().versions, fem, 15.5, "2026-10-07"), hb8 = M.classify(T.hb, R().versions, fem, 15.5, "2026-10-08");
+    eq("rr hb 15.5 on 7 Oct is normal on v1", [hb7.outcome, hb7.version.version], ["normal", 1]);
+    eq("rr hb 15.5 on 8 Oct is outside v2 and goes to review", [hb8.outcome, hb8.version.version, hb8.review], ["no_band", 2, true]);
+    eq("rr hb low mild female", M.classify(T.hb, R().versions, fem, 11.5, "2026-10-08").outcome, "low_mild");
+    eq("rr hb out of age cohort", M.classify(T.hb, R().versions, { ...fem, age: 70 }, 13, "2026-10-08").outcome, "no_cohort");
+    eq("rr hb pregnant has no range", M.classify(T.hb, R().versions, { ...fem, pregnant: true }, 13, "2026-10-08").outcome, "no_cohort");
+    /* Edges, gaps and overlaps exactly as sent. */
+    eq("rr bp bands", [118, 130, 150, 170, 185].map((x) => M.classify(T.bpsys, R().versions, fem, x, "2026-10-05").outcome), ["normal", "no_band", "high_mild", "high_severe", "high_critical"]);
+    eq("rr waist edges", [93, 94, 102, 103].map((x) => M.classify(T.waist, R().versions, { ...fem, sex: "male" }, x, "2026-10-05").outcome), ["normal", "high_mild", "high_mild", "high_severe"]);
+    eq("rr tg overlap uses the more severe band", M.classify(T.tg, R().versions, fem, 1.7, "2026-10-05").outcome, "high_mild");
+    const gaps = M.RR_TESTS.flatMap((t) => M.rrVersionInForce(R().versions, t.id, "2026-10-05").rows.flatMap((r) => M.bandIssues(r, t.decimals).map((i) => `${t.id}:${i.kind}`)));
+    eq("rr gaps and overlaps found in the table", gaps.sort(), ["bpdia:gap", "bpsys:gap", "hdl:gap", "ldl:gap", "nonhdl:gap", "tg:overlap", "tsh:gap", "tsh:gap"]);
+    /* Cohorts. */
+    eq("rr bmi ethnicity specific", M.classify(T.bmi, R().versions, { sex: "male", age: 40, ethnicity: "Indian", pregnant: null }, 24, "2026-10-05").label, "OVERWEIGHT");
+    eq("rr bmi no ethnicity falls back to general", M.classify(T.bmi, R().versions, { sex: "male", age: 40, ethnicity: null, pregnant: null }, 24, "2026-10-05").label, "NORMAL");
+    eq("rr psa age bands", [49, 50, 59, 60, 70].map((a) => M.classify(T.psa, R().versions, { sex: "male", age: a, ethnicity: null, pregnant: null }, 2.5, "2026-10-05").outcome), ["no_band", "normal", "normal", "normal", "normal"]);
+    eq("rr psa female not applicable", M.classify(T.psa, R().versions, fem, 1, "2026-10-05").outcome, "not_set");
+    eq("rr urine qualitative", [M.classify(T["urine-prot"], R().versions, fem, "Negative", "2026-10-05").outcome, M.classify(T["urine-prot"], R().versions, fem, "Trace", "2026-10-05").outcome], ["normal", "no_band"]);
+    check("rr qrisk below 10 not flagged", !M.classify(T.qrisk, R().versions, fem, 6, "2026-10-05").review && M.classify(T.qrisk, R().versions, fem, 12, "2026-10-05").review);
+    check("rr generated sentence", M.rowSentence(T.hb, M.rrVersionInForce(R().versions, "hb", "2026-10-08").rows[1]).startsWith("Females, aged 15 to 65, all ethnicities, not pregnant (g/dL): below 11.0 LOW SEVERE"));
+    /* Change control. */
+    const tshDraft = R().versions.find((v) => v.testId === "tsh" && v.status === "draft");
+    check("rr seeded TSH bulletin is a draft", !!tshDraft && M.classify(T.tsh, R().versions, fem, 4.9, "2026-10-15").outcome === "normal");
+    run(act.setPersona("brenda"));
+    check("rr non-superadmin cannot publish", !run(RA.publish(tshDraft.id)).ok);
+    check("rr non-superadmin cannot draft", !run(RA.saveDraft("tsh", tshDraft.rows, "2026-10-20", "Trying to change it", "Nowhere")).ok);
+    run(act.setPersona("neil"));
+    check("rr reason required", !run(RA.saveDraft("ferr", M.rrVersionInForce(R().versions, "ferr", "2026-10-05").rows, "2026-10-20", "short", "Lab")).ok);
+    const before = s.activity.length;
+    check("rr neil publishes the TSH bulletin", run(RA.publish(tshDraft.id)).ok && R().versions.find((v) => v.id === tshDraft.id).status === "published" && s.activity.length === before + 1 && s.activity.at(-1).verb === "ranges.published");
+    eq("rr TSH 4.9 normal before the bulletin date, outside after", [M.classify(T.tsh, R().versions, fem, 4.9, "2026-10-11").outcome, M.classify(T.tsh, R().versions, fem, 4.9, "2026-10-12").outcome], ["normal", "no_band"]);
+    check("rr old version kept", R().versions.filter((v) => v.testId === "tsh" && v.status === "published").length === 2);
+    const ferrRows = structuredClone(M.rrVersionInForce(R().versions, "ferr", "2026-10-05").rows);
+    ferrRows[1].bands.find((b) => b.key === "normal").max = { value: 160, inclusive: true };
+    ferrRows[1].bands.find((b) => b.key === "high_mild").min = { value: 160, inclusive: false };
+    check("rr draft saved", run(RA.saveDraft("ferr", ferrRows, "2026-10-20", "Laboratory raised the female upper limit.", "Lab bulletin (test)")).ok);
+    const fd = R().versions.find((v) => v.testId === "ferr" && v.status === "draft");
+    eq("rr draft is version 2 and not in use", [fd.version, M.classify(T.ferr, R().versions, fem, 155, "2026-10-25").outcome], [2, "high_mild"]);
+    check("rr one draft per test: second save updates it", run(RA.saveDraft("ferr", ferrRows, "2026-10-21", "Laboratory raised the female upper limit again.", "Lab bulletin (test)")).ok && R().versions.filter((v) => v.testId === "ferr" && v.status === "draft").length === 1);
+    check("rr second approval needs two superadmins", !run(RA.setSecondApprover(true)).ok);
+    check("rr add a superadmin", run(RA.setSuperadmin("liz", true)).ok && run(RA.setSecondApprover(true)).ok);
+    check("rr author cannot publish own draft under second approval", !run(RA.publish(fd.id)).ok);
+    run(act.setPersona("liz"));
+    check("rr second superadmin publishes", run(RA.publish(fd.id)).ok && M.classify(T.ferr, R().versions, fem, 155, "2026-10-25").outcome === "normal" && M.classify(T.ferr, R().versions, fem, 155, "2026-10-19").outcome === "high_mild");
+    check("rr cannot remove the last superadmin", run(RA.setSuperadmin("neil", false)).ok && !run(RA.setSuperadmin("liz", false)).ok && !R().settings.secondApprover);
+    check("rr answer a question", run(RA.answerQuestion("Q-DATE", "Agreed: sample date.")).ok && R().questions["Q-DATE"].status === "answered");
+    run(act.setPersona("participant"));
+    check("rr participant cannot answer", !run(RA.answerQuestion("Q-AGE", "x")).ok);
+    s = createInitialState();
+  }
+  /* ---------- END health screening reference range checks ---------- */
 } finally {
   await server.close();
 }

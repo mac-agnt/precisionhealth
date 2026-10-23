@@ -14,6 +14,7 @@ import { initialFluState } from "../flu";
 import { initialOccHealthState } from "../occHealth";
 import { initialNurseOpsState } from "../nurseOps";
 import { initialAdviceLibraryState } from "../adviceLibrary";
+import { initialReferenceRangesState } from "../referenceRangesData";
 
 export function createInitialState(): PhState {
   const plan = buildRoster();
@@ -90,6 +91,7 @@ export function createInitialState(): PhState {
     occHealth: initialOccHealthState(),
     nurseOps: initialNurseOpsState(),
     adviceLibrary: initialAdviceLibraryState(),
+    referenceRanges: initialReferenceRangesState(),
   };
   state.portal = buildPortalBaseline(state);
   return state;

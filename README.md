@@ -29,6 +29,7 @@ Every screen is linkable: `#/Results/imports?batch=BATCH-20261002-01`, `#/Partic
 | Clinics | Overview, Schedule, Appointments, Team & Resources |
 | Participants | Directory, Screening History, Communications |
 | Results | Inbox, Imports, Review, Follow-up, Corrections |
+| Health Screening | Reference ranges, Check a result, Change control, Results impact, Calculations, Cohorts, To confirm (versioned, superadmin-controlled ranges from Precision Health's table, see `docs/client-source/REFERENCE_RANGES.md`) |
 | Reporting | Overview, Report Builder, Exports |
 | Work | Automations, Tasks, Approvals, Workflows, Schedules |
 | Records | Ontology, Files, Contacts, Companies, Staff |

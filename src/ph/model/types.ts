@@ -1036,4 +1036,6 @@ export interface PhState {
   occHealth: import("./occHealth").OccHealthState;
   nurseOps: import("./nurseOps").NurseOpsState;
   adviceLibrary: import("./adviceLibrary").AdviceLibraryState;
+  /** Health Screening reference ranges: versioned, superadmin-controlled (Health Screening module). */
+  referenceRanges: import("./referenceRanges").ReferenceRangesState;
 }
