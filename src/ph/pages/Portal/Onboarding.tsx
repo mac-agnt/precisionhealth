@@ -26,9 +26,11 @@ export function CodeEntry({ d, onAccepted }: { d: PortalData; onAccepted: () => 
   const submit = (e?: FormEvent) => {
     e?.preventDefault();
     const v = code.trim().toUpperCase();
-    if (!v) { setErr("Enter the code from your invitation message."); return; }
+    if (!v) { setErr("Enter the code from your invitation message, or your Precision ID."); return; }
+    /* Returning participants sign in with their Precision ID: one ID per person that stays with them for as long as they are with Precision Health (Stephen, 2 Oct walkthrough). */
+    if (v === d.person.id.toUpperCase()) { setErr(null); onAccepted(); return; }
     const expected = d.code;
-    if (!expected || v !== expected.code.toUpperCase()) { setErr("That code is not recognised. Check the code in your invitation message, including the dashes."); return; }
+    if (!expected || v !== expected.code.toUpperCase()) { setErr("That code or ID is not recognised. Check it, including the dashes."); return; }
     if (expected.status !== "active" || expected.expiresOn < today(state)) { setErr(`This invitation code is no longer active. Email ${SUPPORT_EMAIL} and we will sort it out.`); return; }
     setErr(null);
     onAccepted();
@@ -46,10 +48,10 @@ export function CodeEntry({ d, onAccepted }: { d: PortalData; onAccepted: () => 
       </div>
       <Card className="pp-entry-card">
         <div className="pp-eyebrow">Participant portal · step 1 of 2</div>
-        <h2 className="pp-title" style={{ marginTop: 6 }}>Enter your invitation code</h2>
-        <p className="pp-lead">It is in your invitation email and tells us which screening programme you are booking.</p>
+        <h2 className="pp-title" style={{ marginTop: 6 }}>Enter your invitation code or Precision ID</h2>
+        <p className="pp-lead">New here? Use the code in your invitation email. Screened with us before? Use your Precision ID: it stays the same every year.</p>
         <form onSubmit={submit} style={{ marginTop: 16, display: "flex", flexDirection: "column", gap: 12 }} noValidate>
-          <Field label="Invitation code" htmlFor="pp-code" error={err}>
+          <Field label="Invitation code or Precision ID" htmlFor="pp-code" error={err}>
             <TextInput id="pp-code" value={code} onChange={(e) => { setCode(e.target.value); setErr(null); }} placeholder="For example DEMO-ABC-26" autoComplete="off" spellCheck={false} invalid={!!err} aria-describedby={err ? undefined : "pp-code-help"} />
           </Field>
           <Button type="submit" variant="primary" icon="arrow" className="pp-btn-block">Continue</Button>
@@ -59,6 +61,7 @@ export function CodeEntry({ d, onAccepted }: { d: PortalData; onAccepted: () => 
           <span>
             Design preview. The fictional code for this invitation is <strong style={{ color: "var(--ink)" }}>{d.code?.code || "not set"}</strong>.{" "}
             {d.code ? <button type="button" className="ph-link" onClick={() => { setCode(d.code!.code); setErr(null); }}>Use the demo code</button> : null}
+            <span style={{ display: "block", marginTop: 4 }}>This participant's Precision ID is <strong style={{ color: "var(--ink)" }}>{d.person.id}</strong>.{" "}<button type="button" className="ph-link" onClick={() => { setCode(d.person.id); setErr(null); }}>Use the Precision ID</button></span>
             <span style={{ display: "block", marginTop: 4 }}>No account, password or authentication is created. A code never shows who else is invited.</span>
           </span>
         </div>

@@ -81,3 +81,25 @@ Fields: date; company/client location; **job completed** (type of work; pay rate
 ## Tools seen
 
 Help Scout, Perplexity, Monday.com (CRM, rota, bookings, flu, onboarding), Jotform (forms and Tables), Gmail, WhatsApp, DocuSign, Xero, Meddbase, Slack (ECG photos), Google Drive.
+
+## Coverage check (23 Oct 2026)
+
+Every request in this walkthrough against where it is in Pulse:
+
+| Stephen asked for | Where |
+| --- | --- |
+| Help Scout enquiries into the pipeline, lead research, proposals from the price list | Sales: CRM, Pipeline, Proposals, Price list |
+| Recall on the anniversary, repeat business, lapsed clients, Tender Watchdog | Sales: Recall & repeat |
+| Booking columns (blood code, parking, room, contact on the day) and the nurse day brief | Clinics: Schedule and session logistics |
+| POC nurse form (bilateral BP, arm span for Marfan, O2 sats, POC bloods, ECG codes) | Nurse portal |
+| One unique ID per person for as long as they are with Precision Health, used to log on to the portal | Precision ID (PH-P-xxxx): participant portal sign-in accepts it; shown on Your account |
+| End of Day and mileage form (job, full or half day, DNA, vaccines, cold chain, batch) | Nurse portal, clinic close |
+| Liz reports some screen types as well as Neil | Results, Review: reporter assignment |
+| Cheat codes that expand to approved advice | Results, Review: advice codes |
+| AI prepares the report and advice, a clinician reviews before release | Results, Review: AI draft, clinician approves |
+| OH client onboarding link, onboarding board (Aidan, Fiona, Sinead), SLA and DSA generated | Occupational Health: Clients & onboarding, Agreements |
+| OH questionnaires into Meddbase by API, Meddbase diaries | Occupational Health: Questionnaires, Meddbase sessions (simulated) |
+| Irish Life bookings, invoice number, payment status, Xero draft, Lifestyle Checkpoint | Sales: Irish Life Health |
+| Flu by week, projected vs actual, stock vs allocated, vaccine supply | Flu |
+| Subsistence and hotel booking forms | Not built yet |
+| Finance reporting ("to come later") | Not built yet |

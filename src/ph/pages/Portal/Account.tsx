@@ -36,7 +36,7 @@ export function AccountView({ d, delivery, setDelivery, onSignOut }: { d: Portal
             ["Email", det.email],
             ["Mobile", mobileText],
             ["Programme", d.programme.name],
-            ["Your reference", d.person.id],
+            ["Your Precision ID (stays with you every year)", d.person.id],
           ]} />
           <p className="pp-small" style={{ margin: "10px 0 0" }}>To correct your name or date of birth after you book, email <a className="ph-link" href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a>. The nurse checks two identifiers at your appointment.</p>
         </Card>
