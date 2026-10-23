@@ -82,24 +82,20 @@ Fields: date; company/client location; **job completed** (type of work; pay rate
 
 Help Scout, Perplexity, Monday.com (CRM, rota, bookings, flu, onboarding), Jotform (forms and Tables), Gmail, WhatsApp, DocuSign, Xero, Meddbase, Slack (ECG photos), Google Drive.
 
-## Coverage check (23 Oct 2026)
+## Coverage check (23 Oct 2026, corrected after a full audit)
 
-Every request in this walkthrough against where it is in Pulse:
-
-| Stephen asked for | Where |
+| Stephen asked for | Status |
 | --- | --- |
-| Help Scout enquiries into the pipeline, lead research, proposals from the price list | Sales: CRM, Pipeline, Proposals, Price list |
-| Recall on the anniversary, repeat business, lapsed clients, Tender Watchdog | Sales: Recall & repeat |
-| Booking columns (blood code, parking, room, contact on the day) and the nurse day brief | Clinics: Schedule and session logistics |
-| POC nurse form (bilateral BP, arm span for Marfan, O2 sats, POC bloods, ECG codes) | Nurse portal |
-| One unique ID per person for as long as they are with Precision Health, used to log on to the portal | Precision ID (PH-P-xxxx): participant portal sign-in accepts it; shown on Your account |
-| End of Day and mileage form (job, full or half day, DNA, vaccines, cold chain, batch) | Nurse portal, clinic close |
-| Liz reports some screen types as well as Neil | Results, Review: reporter assignment |
-| Cheat codes that expand to approved advice | Results, Review: advice codes |
-| AI prepares the report and advice, a clinician reviews before release | Results, Review: AI draft, clinician approves |
-| OH client onboarding link, onboarding board (Aidan, Fiona, Sinead), SLA and DSA generated | Occupational Health: Clients & onboarding, Agreements |
-| OH questionnaires into Meddbase by API, Meddbase diaries | Occupational Health: Questionnaires, Meddbase sessions (simulated) |
-| Irish Life bookings, invoice number, payment status, Xero draft, Lifestyle Checkpoint | Sales: Irish Life Health |
-| Flu by week, projected vs actual, stock vs allocated, vaccine supply | Flu |
-| Subsistence and hotel booking forms | Not built yet |
-| Finance reporting ("to come later") | Not built yet |
+| Help Scout enquiries, lead research, proposals from the price list | On screen: Sales, Pipeline and Proposals |
+| Recall on the anniversary, lapsed clients | On screen: Sales, Recall & repeat (lapsed is a flag, not its own list) |
+| Tender Watchdog | Data only, no screen yet |
+| Bookings Pending board columns (screening type, status, blood code, Eircode, parking, contact on the day, staff email) and the nurse day brief | Data only (nurseOps.ts), no screen yet; staff email not modelled |
+| POC Screen with QRISK nurse form (screen type, bilateral BP, arm span for Marfan, O2 sats, POC bloods with outcomes, ECG codes, POC unique ID) | Data only (POC_FORM_SECTIONS), the nurse portal always shows the LAB form |
+| End of Day and mileage form | Data only (nurseOps.ts), no form on screen |
+| Subsistence and hotel booking forms | Not built |
+| One unique ID per person, used to log on to the portal | On screen: Precision ID sign-in |
+| Cheat codes, AI draft with clinician review, Liz reporting some screens | On screen: Results, Review (named reporter views not built) |
+| OH onboarding (Aidan, Fiona, Sinead), SLA and DSA, questionnaires to Meddbase | On screen: Occupational Health (Meddbase simulated; videos are written guides) |
+| Irish Life bookings, invoice number, payment status, Xero draft | On screen: Sales, Irish Life Health (web-app intake not on screen) |
+| Flu by week, projected vs actual, stock vs allocated | On screen: Flu (contacts and notes boards not built) |
+| Finance reporting ("to come later") | Not built |
