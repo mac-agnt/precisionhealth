@@ -7,6 +7,7 @@ import { usePhState } from "../../store";
 import { Button, DemoTag, Icon, Pill } from "../../ui";
 import { Portal } from "../Clinics/shared";
 import { clinicCounts, clinicEpisodes, clinicRows } from "./data";
+import { NurseDayForms } from "../Clinics/EodForm";
 
 export function ClinicClose({ session, onOpen, onOpenTask, receipt }: { session: ClinicSession; onOpen: (bookingId: string) => void; onOpenTask: (taskId: string) => void; receipt?: ReactNode }) {
   const state = usePhState();
@@ -77,6 +78,8 @@ export function ClinicClose({ session, onOpen, onOpenTask, receipt }: { session:
           </ul>
         </div>
       ) : null}
+
+      <NurseDayForms session={session} />
 
       <div className="np-two">
         <div className="np-card">

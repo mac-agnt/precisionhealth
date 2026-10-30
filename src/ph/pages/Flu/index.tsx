@@ -3,6 +3,8 @@
    the participant preview sees nothing. Handlers are registered by ./actions at import time. */
 import "./flu.css";
 import "./actions";
+import "./boardsActions";
+import FluBoards from "./Boards";
 import { useState } from "react";
 import {
   FLU_SEASON_ARCHIVE, FLU_SEASON_CURRENT, FLU_SUPPLY_OWNER, FLU_WEEKS_2025, fluAccessFor, fluBatchLabel, fluColdChainRows, fluRunningTotal, fluStock,
@@ -46,7 +48,7 @@ export default function Flu({ tab }: { tab: string }) {
   }
   return (
     <div className="ph-page flu">
-      {tab === "bookings" ? <Bookings /> : tab === "stock" ? <Stock /> : tab === "cold-chain" ? <ColdChain /> : <Overview />}
+      {tab === "bookings" ? <Bookings /> : tab === "stock" ? <Stock /> : tab === "contacts" ? <FluBoards /> : tab === "cold-chain" ? <ColdChain /> : <Overview />}
     </div>
   );
 }

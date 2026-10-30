@@ -12,6 +12,7 @@ export * from "./salesFlow";
 export * from "./flu";
 export * from "./occHealth";
 export * from "./nurseOps";
+export * from "./gaps";
 export * from "./adviceLibrary";
 export * from "./referenceRanges";
 export * from "./referenceRangesData";

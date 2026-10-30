@@ -23,11 +23,11 @@ export const PAGES: PageDef[] = [
     { id: "executive", label: "Executive" }, { id: "clinic-operations", label: "Clinic operations" }, { id: "clinical-delivery", label: "Clinical delivery" }] },
   { id: "Sales", section: "Sell", label: "Sales", icon: "navSales", hint: "Leads, proposals, onboarding, retention", tabs: [
     { id: "pipeline", label: "Pipeline" }, { id: "proposals", label: "Proposals" }, { id: "price-list", label: "Price list" }, { id: "onboarding", label: "Onboarding" },
-    { id: "recall", label: "Retention" }, { id: "partners", label: "Irish Life Health" }] },
+    { id: "recall", label: "Retention" }, { id: "partners", label: "Irish Life Health" }, { id: "tenders", label: "Tenders" }] },
   { id: "Programmes", section: "Deliver screening", label: "Programmes", icon: "navProgrammes", hint: "Screening programmes", tabs: [
     { id: "overview", label: "Overview" }, { id: "programmes", label: "All programmes" }, { id: "invitations", label: "Invitations" }, { id: "forms-templates", label: "Forms and templates" }] },
   { id: "Clinics", section: "Deliver screening", label: "Clinics", icon: "navClinics", hint: "Capacity and sessions", tabs: [
-    { id: "overview", label: "Today" }, { id: "days", label: "Screening days" }, { id: "schedule", label: "Schedule" }, { id: "appointments", label: "Appointments" }, { id: "team-resources", label: "Team and resources" }] },
+    { id: "overview", label: "Today" }, { id: "days", label: "Screening days" }, { id: "schedule", label: "Schedule" }, { id: "appointments", label: "Appointments" }, { id: "board", label: "Bookings board" }, { id: "end-of-day", label: "End of day" }, { id: "team-resources", label: "Team and resources" }] },
   { id: "Participants", section: "Deliver screening", label: "Participants", icon: "navParticipants", hint: "People and messages", tabs: [
     { id: "directory", label: "Directory" }, { id: "screening-history", label: "Screening history" }, { id: "communications", label: "Communications" }, { id: "portal-admin", label: "Portal admin" }] },
   { id: "Results", section: "Deliver screening", label: "Results", icon: "navResults", hint: "Lab imports and sign-off", tabs: [
@@ -36,7 +36,7 @@ export const PAGES: PageDef[] = [
     { id: "ranges", label: "Ranges" }, { id: "cohorts", label: "Cohorts" }, { id: "calculations", label: "Calculations" },
     { id: "check", label: "Test run" }, { id: "changes", label: "Changes" }, { id: "impact", label: "Impact" }, { id: "questions", label: "To confirm" }] },
   { id: "Flu", section: "Services", label: "Flu", icon: "navFlu", hint: "Flu clinics and vaccine stock", tabs: [
-    { id: "overview", label: "Overview" }, { id: "bookings", label: "Bookings" }, { id: "stock", label: "Vaccine stock" }, { id: "cold-chain", label: "Cold chain" }] },
+    { id: "overview", label: "Overview" }, { id: "bookings", label: "Bookings" }, { id: "stock", label: "Vaccine stock" }, { id: "cold-chain", label: "Cold chain" }, { id: "contacts", label: "Contacts and notes" }] },
   { id: "OccHealth", section: "Services", label: "Occupational Health", icon: "navOcc", hint: "OH clients, onboarding, Meddbase", tabs: [
     { id: "clients", label: "Clients and onboarding" }, { id: "questionnaires", label: "Questionnaires" }, { id: "sessions", label: "Meddbase sessions" }, { id: "agreements", label: "Agreements" }] },
   { id: "Reporting", section: "Run the business", label: "Reporting", icon: "navReporting", hint: "Employer reports", tabs: [
