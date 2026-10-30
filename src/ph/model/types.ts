@@ -1042,4 +1042,6 @@ export interface PhState {
   referenceRanges: import("./referenceRanges").ReferenceRangesState;
   /** Lab CSV uploads and the rows waiting for a person to match them (Results, Imports). */
   labCsv: import("./labCsv").LabCsvState;
+  /** Stephen's sales workflow: first-touch clock, first reply, meeting notes, deal instructions, follow ups. */
+  salesFlow: import("./salesFlow").SalesFlowState;
 }

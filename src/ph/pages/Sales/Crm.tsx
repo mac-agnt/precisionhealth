@@ -4,9 +4,10 @@
    email, meeting or note, set the next action, research with the agent, start a proposal, and the
    full timeline. Same records as the Pipeline and Proposals tabs. */
 import "./crmActions";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { DragEvent } from "react";
-import { SALES_BUDGET_LABEL, SALES_SERVICE_LABEL, SALES_SOURCES, SALES_SOURCE_LABEL, SALES_STAGE_LABEL, act, fmtDate, fmtShortDateTime, salesEur, salesEurRange, salesLeadViews, today } from "../../model";
+import { SALES_BUDGET_LABEL, SALES_SERVICE_LABEL, SALES_SOURCES, SALES_SOURCE_LABEL, SALES_STAGE_LABEL, act, fmtDate, fmtShortDateTime, salesEur, salesEurRange, salesFollowSequence, salesInboundFor, salesJourney, salesLeadViews, salesNetTotals, salesNextFollowLabel, today } from "../../model";
+import type { PhState } from "../../model";
 import type { SalesLeadView, SalesService, SalesSource, SalesStage } from "../../model";
 import { useNav } from "../../nav-context";
 import { dispatch, usePersona, usePhState } from "../../store";
@@ -15,16 +16,23 @@ import type { Column } from "../../ui";
 import { salesAct } from "./actions";
 import { CRM_ACTIVITY_LABEL, crmAct } from "./crmActions";
 import type { CrmActivityKind } from "./crmActions";
-import { LostReasonModal, NewLeadModal, createProgrammeTask } from "./LeadForms";
+import { LostReasonModal, NewLeadModal } from "./LeadForms";
+import { FirstTouchNote, FollowUps, JourneyBar, LEAD_FLOW_CSS, NextStep, NotesEditor, TouchTimer, useMarkWon } from "./LeadFlow";
+import ProposalBuilder from "./ProposalBuilder";
 import type { LeadPrefill } from "./LeadForms";
 import { STAGE_LOOK, StagePill, useSalesRights } from "./shared";
 
 const STAGES: SalesStage[] = ["new", "proposal_sent", "won", "lost"];
-const value = (v: SalesLeadView) => (v.totals ? v.totals.totalHigh : 0);
-const valueText = (v: SalesLeadView) => (v.totals ? salesEurRange(v.totals.totalLow, v.totals.totalHigh) : "");
+/* Values after any discount in the proposal's deal instructions. */
+let netState: PhState | null = null;
+const net = (v: SalesLeadView) => (v.proposal && netState ? salesNetTotals(netState, v.proposal) : null);
+const value = (v: SalesLeadView) => net(v)?.netHigh ?? (v.totals ? v.totals.totalHigh : 0);
+const valueText = (v: SalesLeadView) => { const n = net(v); return n ? salesEurRange(n.netLow, n.netHigh) : v.totals ? salesEurRange(v.totals.totalLow, v.totals.totalHigh) : ""; };
 
 export default function Crm() {
   const s = usePhState();
+  netState = s;
+  const nav = useNav();
   const p = usePersona();
   const rights = useSalesRights();
   const t = today(s);
@@ -35,7 +43,9 @@ export default function Crm() {
   const [service, setService] = useState<SalesService | "all">("all");
   const [source, setSource] = useState<SalesSource | "all">("all");
   const [overdue, setOverdue] = useState(false);
-  const [open, setOpen] = useState<string | null>(null);
+  const [open, setOpenRaw] = useState<string | null>(nav.params.lead || null);
+  useEffect(() => { if (nav.params.lead) setOpenRaw(nav.params.lead); }, [nav.params.lead]);
+  const setOpen = (id: string | null) => { setOpenRaw(id); if (!id && nav.params.lead) nav.setParams({}); };
   const [adding, setAdding] = useState<LeadPrefill | null>(null);
   const [lost, setLost] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState<SalesStage | null>(null);
@@ -69,7 +79,7 @@ export default function Crm() {
 
   return (
     <div className="ph-page">
-      <style>{CSS}</style>
+      <style>{CSS + LEAD_FLOW_CSS}</style>
       <PageHeader title="Pipeline" sub="Every enquiry, lead and client in one place, from first contact to won. Drag a card to move it along; click it to see and do everything for that company."
         actions={rights.manage ? <Button variant="primary" icon="plus" onClick={() => setAdding({ source: "website" })}>Add lead</Button> : null} />
       {!rights.manage ? (
@@ -77,7 +87,7 @@ export default function Crm() {
           <Button size="sm" variant="primary" onClick={() => dispatch(act.setPersona("stephen"))}>Work as Stephen</Button></div>) : null}
       <KpiStrip>
         <Kpi label="Open leads" value={views.filter((v) => v.lead.stage === "new" || v.lead.stage === "proposal_sent").length} sub={`${views.filter((v) => v.lead.stage === "new").length} new, ${openDeals.length} with a proposal out`} />
-        <Kpi label="Pipeline value" value={salesEur(openDeals.reduce((n, v) => n + v.totals!.totalHigh, 0))} sub="Proposals out, high estimate" />
+        <Kpi label="Pipeline value" value={salesEur(openDeals.reduce((n, v) => n + value(v), 0))} sub="Proposals out, high estimate" />
         <Kpi label="Win rate" value={won + lostN ? `${Math.round((won / (won + lostN)) * 100)}%` : "No decisions"} sub={`${won} won, ${lostN} lost`} tone="ok" />
         <Kpi label="Overdue next actions" value={views.filter((v) => v.overdue).length} tone={views.some((v) => v.overdue) ? "bad" : "ok"} onClick={() => setOverdue(true)} sub={`As of ${fmtDate(t)}`} />
       </KpiStrip>
@@ -107,7 +117,8 @@ export default function Crm() {
         {mode === "board" ? (
           <div className="crm-board">
             {STAGES.map((st) => {
-              const items = filtered.filter((v) => v.lead.stage === st).sort((a, b) => (a.lead.nextActionOn || "9").localeCompare(b.lead.nextActionOn || "9"));
+              const waiting = (v: SalesLeadView) => { const i = salesInboundFor(s, v.lead.id); return i && !i.firstTouchAt ? 0 : 1; };
+              const items = filtered.filter((v) => v.lead.stage === st).sort((a, b) => waiting(a) - waiting(b) || (a.lead.nextActionOn || "9").localeCompare(b.lead.nextActionOn || "9"));
               const total = items.reduce((n, v) => n + value(v), 0);
               return (
                 <div key={st} className={`crm-col${dragOver === st ? " over" : ""}`} onDragOver={(e) => { if (rights.manage) { e.preventDefault(); setDragOver(st); } }} onDragLeave={() => setDragOver(null)} onDrop={(e) => onDrop(e, st)}>
@@ -123,6 +134,7 @@ export default function Crm() {
                         <span className="crm-card-sub">{v.lead.contact.name} · {SALES_SOURCE_LABEL[v.lead.source]}</span>
                         <span className="crm-tags">{v.lead.services.map((x) => <span key={x} className="crm-tag">{SALES_SERVICE_LABEL[x]}</span>)}</span>
                         {v.totals ? <span className="crm-card-val ph-num">{valueText(v)}</span> : null}
+                        <CardFlow s={s} leadId={v.lead.id} />
                         {v.lead.stage === "new" || v.lead.stage === "proposal_sent" ? <span className="crm-card-next"><NextAction v={v} compact /></span> : null}
                       </button>))}
                     {!items.length ? <div className="crm-empty">{rights.manage ? "Drop a lead here" : "None"}</div> : null}
@@ -171,19 +183,19 @@ function LeadWorkspace({ v, onClose, onMove }: { v: SalesLeadView; onClose: () =
   const [text, setText] = useState("");
   const [next, setNext] = useState("");
   const [nextOn, setNextOn] = useState("");
+  const [building, setBuilding] = useState(false);
+  const markWon = useMarkWon();
+  const journey = salesJourney(s, L.id);
+  const open = L.stage === "new" || L.stage === "proposal_sent";
   const log = () => { if (dispatch(crmAct.logActivity(L.id, kind, text, next, nextOn || null)).ok) { setText(""); setNext(""); setNextOn(""); } };
   const staff = (id: string) => s.staff.find((x) => x.id === id)?.name || id;
   return (
     <Drawer open onClose={onClose} width={680} title={L.company}
       sub={<>{L.services.map((x) => SALES_SERVICE_LABEL[x]).join(", ") || "Service to confirm"} · {SALES_SOURCE_LABEL[L.source]}{L.sourceRef ? ` (${L.sourceRef})` : ""} · received {fmtDate(L.receivedOn)} · owner {staff(L.ownerId)}</>}>
       <div className="ph-stack" style={{ gap: 18 }}>
-        <div className="crm-stages" role="group" aria-label="Stage">
-          {STAGES.map((st) => (
-            <button key={st} type="button" className={`crm-stage${L.stage === st ? " on" : ""}`} disabled={!rights.manage || L.stage === st} onClick={() => onMove(st)}>
-              <Icon name={STAGE_LOOK[st].icon} size={12} />{SALES_STAGE_LABEL[st]}
-            </button>))}
-        </div>
-        {L.lostReason ? <div className="crm-banner"><Icon name="x" size={14} /><span>Lost: {L.lostReason}</span></div> : null}
+        <JourneyBar leadId={L.id} />
+        <NextStep lead={L} onBuild={() => setBuilding(true)} />
+        <FirstTouchNote lead={L} />
 
         <div className="crm-kv">
           <div><p className="crm-k">Contact</p><p className="crm-v"><strong>{L.contact.name}</strong>, {L.contact.role}<br />{L.contact.email}<br />{L.contact.phone}</p></div>
@@ -194,12 +206,16 @@ function LeadWorkspace({ v, onClose, onMove }: { v: SalesLeadView; onClose: () =
 
         <div className="ph-row-flex ph-wrap" style={{ gap: 8 }}>
           {rights.manage && !L.research ? <Button size="sm" icon="spark" onClick={() => dispatch(salesAct.research(L.id))}>Research with agent</Button> : null}
-          {rights.manage && !v.proposal && L.stage !== "won" && L.stage !== "lost" ? <Button size="sm" icon="file" onClick={() => { if (dispatch(salesAct.createProposal(L.id)).ok) nav.go({ page: "Sales", tab: "proposals" }); }}>Start proposal</Button> : null}
-          {v.proposal ? <Button size="sm" icon="file" onClick={() => nav.go({ page: "Sales", tab: "proposals", params: { proposal: v.proposal!.id } })}>Open proposal</Button> : null}
-          {rights.manage && L.stage === "won" && !L.handoverTaskId ? <Button size="sm" variant="primary" icon="arrow" onClick={() => createProgrammeTask(L.id)}>Create programme</Button> : null}
+          {rights.manage && open && journey.current !== "reply" && journey.current !== "proposal" ? <Button size="sm" icon="file" onClick={() => setBuilding(true)}>{v.proposal ? "Proposal builder" : "Build proposal"}</Button> : null}
+          {v.proposal ? <Button size="sm" icon="eye" onClick={() => nav.go({ page: "Sales", tab: "proposals", params: { proposal: v.proposal!.id } })}>View proposal</Button> : null}
+          {rights.manage && open && journey.current !== "follow" ? <Button size="sm" icon="check" onClick={() => markWon(L.id)}>Mark as won</Button> : null}
+          {rights.manage && open ? <Button size="sm" variant="ghost" icon="x" onClick={() => onMove("lost")}>Mark as lost</Button> : null}
+          {rights.manage && L.stage === "lost" ? <Button size="sm" icon="refresh" onClick={() => onMove("new")}>Reopen lead</Button> : null}
           {L.handoverTaskId ? <Button size="sm" icon="check" onClick={() => nav.go({ page: "Work", tab: "tasks", params: { task: L.handoverTaskId! } })}>Programme task {L.handoverTaskId}</Button> : null}
-          <Button size="sm" icon="mail" onClick={() => { try { window.location.href = `mailto:${L.contact.email}`; } catch { /* ignore */ } }}>Email contact</Button>
         </div>
+
+        {journey.current !== "meeting" ? <Section title="Meeting notes" sub={s.salesFlow.notes[L.id] ? "The proposal builder reads these." : undefined}><NotesEditor lead={L} /></Section> : null}
+        {journey.current !== "follow" && salesFollowSequence(s, L.id) ? <Section title="Follow ups"><FollowUps leadId={L.id} /></Section> : null}
 
         <Section title="Enquiry"><div style={{ fontSize: 12.5, lineHeight: 1.55 }}>{L.enquiry}</div></Section>
         {L.research ? <Section title="Agent research" sub="Prepared by the Sales agent for Stephen to check. Demo text."><div style={{ fontSize: 12.5, lineHeight: 1.55, whiteSpace: "pre-wrap" }}>{L.research}</div></Section> : null}
@@ -213,7 +229,7 @@ function LeadWorkspace({ v, onClose, onMove }: { v: SalesLeadView; onClose: () =
                 <Field label="Next action (optional)"><TextInput value={next} onChange={(e) => setNext(e.target.value)} placeholder="Send revised proposal" /></Field>
                 <Field label="Due"><TextInput type="date" value={nextOn} onChange={(e) => setNextOn(e.target.value)} /></Field>
               </div>
-              <div className="ph-row-flex" style={{ justifyContent: "flex-end" }}><Button variant="primary" icon="check" onClick={log} disabled={text.trim().length < 3}>Log {CRM_ACTIVITY_LABEL[kind].toLowerCase()}</Button></div>
+              <div className="ph-row-flex" style={{ justifyContent: "flex-end" }}><Button icon="check" onClick={log} disabled={text.trim().length < 3}>Log {CRM_ACTIVITY_LABEL[kind].toLowerCase()}</Button></div>
             </div>
           </Section>) : null}
 
@@ -222,7 +238,23 @@ function LeadWorkspace({ v, onClose, onMove }: { v: SalesLeadView; onClose: () =
             <li key={i}><span className="crm-dot" /><div><div style={{ fontSize: 12.5, lineHeight: 1.5 }}>{h.text}</div><div className="ph-faint" style={{ fontSize: 11.5 }}>{fmtShortDateTime(h.at)} · {staff(h.by)}</div></div></li>))}</ul>
         </Section>
       </div>
+      {building ? <ProposalBuilder lead={L} onClose={() => setBuilding(false)} /> : null}
     </Drawer>
+  );
+}
+
+/** Board card extras: the live first-touch timer and the next follow up. */
+function CardFlow({ s, leadId }: { s: PhState; leadId: string }) {
+  const inb = salesInboundFor(s, leadId);
+  const lead = s.sales.leads.find((l) => l.id === leadId);
+  const fu = salesNextFollowLabel(s, leadId);
+  const showTimer = !!inb && lead?.stage === "new";
+  if (!showTimer && !fu) return null;
+  return (
+    <span className="crm-card-flow">
+      {showTimer ? <TouchTimer inb={inb!} /> : null}
+      {fu ? <span className={`crm-fu${fu.overdue ? " late" : ""}`}><Icon name="mail" size={11} />{fu.text}</span> : null}
+    </span>
   );
 }
 
@@ -249,6 +281,9 @@ const CSS = `
 .crm-tag { font-size: 10.5px; padding: 2px 7px; border-radius: 999px; background: var(--track); color: var(--dim); }
 .crm-card-val { font-size: 12.5px; font-weight: 600; color: var(--ink); }
 .crm-card-next { border-top: 1px dashed var(--border); padding-top: 6px; }
+.crm-card-flow { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.crm-fu { display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; color: var(--accent); }
+.crm-fu.late { color: var(--warn); }
 .crm-empty { font-size: 12px; color: var(--faint); text-align: center; padding: 18px 8px; border: 1px dashed var(--border); border-radius: 12px; }
 .crm-stages { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
 .crm-stage { display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 8px 6px; border-radius: 10px; border: 1px solid var(--border); background: var(--surface-2); color: var(--dim); font: inherit; font-size: 12px; cursor: pointer; }

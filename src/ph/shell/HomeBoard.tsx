@@ -8,6 +8,7 @@ import { usePhState } from "../store";
 import { Icon, Pill, ProgressBar } from "../ui";
 import { labQueue } from "../model";
 import LabMatchCard from "./LabMatchCard";
+import InboundLeadCard from "../pages/Sales/InboundCard";
 
 const REASON: Record<string, string> = { dob_mismatch: "Date of birth mismatch", unknown_specimen: "Unknown specimen ID", multiple_candidates: "Two candidate episodes" };
 
@@ -178,6 +179,7 @@ export default function HomeBoard({ v }: { v: { show?: Record<string, boolean>; 
   return (
     <>
       <LabMatchCard />
+      <InboundLeadCard />
       {show.clinics && <ClinicsCard state={state} edit={edit} remove={rm("clinics")} />}
       {show.imports && p.perms.has("imports.view") && !labQueue(state).length && <ImportsCard state={state} edit={edit} remove={rm("imports")} />}
       {show.review && <ReviewCard state={state} edit={edit} remove={rm("review")} />}

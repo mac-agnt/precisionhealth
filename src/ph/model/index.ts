@@ -8,6 +8,7 @@ export * from "./interpret";
 export * from "./reportContent";
 export * from "./advice";
 export * from "./sales";
+export * from "./salesFlow";
 export * from "./flu";
 export * from "./occHealth";
 export * from "./nurseOps";

@@ -277,6 +277,9 @@ const sendProposal: Handler<{ proposalId: string }> = (c, a) => {
   note(c, lead, `Proposal ${p.id} v${v.version} sent to ${lead.contact.email} (simulated, no email left Pulse).`);
   const moved = lead.stage === "new" || lead.stage === "lost";
   if (moved) { lead.stage = "proposal_sent"; lead.stageAt = c.stamp(); lead.lostReason = null; note(c, lead, "Moved to Proposal sent."); }
+  /* The weekly soft follow ups (salesFlow) start a week after sending. */
+  lead.nextAction = "Follow up week 1";
+  lead.nextActionOn = addDays(localDateOf(v.sentAt), 7);
   c.emit({ verb: "sales.proposal_sent", simulated: true, integrationId: "email",
     summary: `${c.first()} marked ${p.id} v${v.version} for ${lead.company} as sent to ${mask(lead.contact.email)}, ${salesEurRange(t.totalLow, t.totalHigh)}. Simulated: no email was sent.${moved ? " Lead moved to Proposal sent." : ""}` });
   return c.ok(`${p.id} v${v.version} marked as sent (simulated, nothing was emailed).${moved ? " Lead moved to Proposal sent." : ""}`);

@@ -10,6 +10,7 @@ import { FIRST_SCREENING_REF, buildClinical } from "./clinical";
 import { buildOps } from "./ops";
 import { buildPortalBaseline } from "../portalAdmin";
 import { initialSalesState } from "../sales";
+import { initialSalesFlowState, seedSalesFlow } from "../salesFlow";
 import { initialFluState } from "../flu";
 import { initialOccHealthState } from "../occHealth";
 import { initialNurseOpsState } from "../nurseOps";
@@ -97,7 +98,9 @@ export function createInitialState(): PhState {
     adviceLibrary: initialAdviceLibraryState(),
     referenceRanges: ranges,
     labCsv: initialLabCsvState(),
+    salesFlow: initialSalesFlowState(),
   };
   state.portal = buildPortalBaseline(state);
+  seedSalesFlow(state);
   return state;
 }
