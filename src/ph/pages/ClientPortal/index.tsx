@@ -35,7 +35,7 @@ export function ClientPortalPreview({ open, onClose }: { open: boolean; onClose:
   const [programmeId, setProgrammeId] = useState<ProgrammeId>("PRG-SISK-26");
   /* A client portal created on the Portals page (no programme yet), shown instead of a programme. */
   const [customId, setCustomId] = useState<string | null>(null);
-  const customs = usePhState().portalsHub?.clients || [];
+  const customs = (usePhState().portalsHub?.clients || []).filter((c) => !c.programmeId);
   const custom = customId ? customs.find((x) => x.id === customId) || null : null;
   const [device, setDevice] = useState<DeviceId>("desktop");
   const [views, setViews] = useState<Partial<Record<ProgrammeId, ClientView>>>({});

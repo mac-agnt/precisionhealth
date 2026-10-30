@@ -290,8 +290,8 @@ function stProgramme(x: Ctx): Part {
   if (ready && l) {
     return { status: "todo", date: null, facts: ["Package, sites, form and invite code are set up by the operations team."], next: "Ask the team to set up the programme.", open: go("Open Programmes", { page: "Programmes", tab: "programmes" }), actions: [{ kind: "programmeTask", label: "Create the programme set-up task", leadId: l.id }, create] };
   }
-  if (ready) {
-    return { status: "todo", date: null, facts: ["Package, sites, window and invite code."], next: "Create the programme.", open: go("Open Programmes", { page: "Programmes", tab: "programmes" }), actions: [create] };
+  if (ready || x.onb) {
+    return { status: "todo", date: null, facts: ["Package, sites, window and invite code."], next: ready ? "Create the programme." : "Create the programme now, or once onboarding is finished.", open: go("Open Programmes", { page: "Programmes", tab: "programmes" }), actions: [create] };
   }
   return { status: "todo", date: null, facts: ["Starts after onboarding."], next: null, open: go("Open Programmes", { page: "Programmes", tab: "programmes" }), actions: [] };
 }

@@ -57,7 +57,7 @@ export function ProgrammeManage({ pid }: { pid: ProgrammeId }) {
         <div className="pm-title">
           <Pill tone={st === "live" ? "ok" : "warn"} icon={st === "live" ? "check" : "edit"}>{st === "live" ? "Live" : "Draft"}</Pill>
           <span className="pm-what">
-            {p.setup ? <>{p.setup.serviceLabel}, {PROGRAMME_METHOD_LABEL[p.setup.method].toLowerCase()}{p.setup.flu ? ", with flu" : ""}</> : "Comprehensive lab screen"}
+            {p.setup ? <>{p.setup.serviceLabel}{/point of care|lab/i.test(p.setup.serviceLabel) ? "" : `, ${PROGRAMME_METHOD_LABEL[p.setup.method].toLowerCase()}`}{p.setup.flu ? ", with flu" : ""}</> : "Comprehensive lab screen"}
             {" "}<span className="pm-dim">Code <b className="pm-mono">{p.inviteCode}</b>{p.setup ? `, HR ${p.setup.hrName}` : ""}</span>
           </span>
         </div>
@@ -70,7 +70,7 @@ export function ProgrammeManage({ pid }: { pid: ProgrammeId }) {
       </div>
       <div className="pm-counts">
         <button type="button" className="pm-count" onClick={() => nav.go({ page: "Clinics", tab: "days" })}>
-          <b>{days.length || sessions.length}</b><span>{days.length ? "Screening days" : "Clinic sessions"}</span>
+          <b>{days.length || sessions.length}</b><span>{days.length || !sessions.length ? "Screening days" : "Clinic sessions"}</span>
           <i>{nextSession ? `Next ${fmtDate(nextSession.date)}` : "None booked yet"}</i>
         </button>
         <button type="button" className="pm-count" onClick={() => nav.go({ page: "Programmes", tab: "invitations", params: { programme: pid } })}>

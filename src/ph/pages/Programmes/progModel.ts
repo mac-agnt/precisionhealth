@@ -67,7 +67,8 @@ export function autoCode(s: PhState, company: string, start: LocalDate | ""): st
 }
 export function defaultName(company: string, method: ProgrammeMethod, start: LocalDate | ""): string {
   const y = (start || "").slice(0, 4);
-  return company.trim() ? `${company.trim()} ${method === "poc" ? "Point of Care Screening" : "Health Screening"}${y ? ` ${y}` : ""}` : "";
+  const c = company.replace(/\s*\(fictional\)/i, "").trim();
+  return c ? `${c} ${method === "poc" ? "Point of Care Screening" : "Health Screening"}${y ? ` ${y}` : ""}` : "";
 }
 
 export function blankForm(s: PhState): ProgForm {
@@ -145,7 +146,7 @@ export function progErrors(s: PhState, f: ProgForm, editingId?: string): ProgErr
 /** A short programme code (ACME) and id (PRG-ACME-26), unique in state. */
 export function programmeIds(s: PhState, company: string, start: LocalDate): { id: string; code: string } {
   const word = company.replace(/\(fictional\)/i, "").trim().split(/\s+/)[0] || "CLIENT";
-  const stem = word.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 6) || "CLIENT";
+  const stem = word.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 8) || "CLIENT";
   const yy = start.slice(2, 4);
   let id = `PRG-${stem}-${yy}`, code = stem;
   for (let n = 2; s.programmes.some((p) => p.id === id); n++) { id = `PRG-${stem}${n}-${yy}`; code = `${stem}${n}`; }

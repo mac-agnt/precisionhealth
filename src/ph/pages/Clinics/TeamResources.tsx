@@ -23,6 +23,7 @@ import { ClxDrawer, slotCount, useWidth } from "./shared";
 const WD = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const short = (d: LocalDate) => { const [, m, dd] = d.split("-").map(Number); return `${dd} ${["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][m - 1]}`; };
 const firstName = (s: Staff | undefined) => (s ? s.name.split(" ")[0] : "");
+const KIND_SHORT: Record<RotaItem["kind"], string> = { screening_day: "Screening day", clinic: "Clinic", booking: "Booking", flu: "Flu", oh: "Meddbase", leave: "Leave", training: "Training" };
 
 type Sel = { kind: "item"; key: string; date: LocalDate; staffId: string | null } | { kind: "cell"; staffId: string; date: LocalDate } | null;
 
@@ -117,7 +118,7 @@ function Chip({ it, bad, onClick, showWho }: { it: RotaItem; bad: boolean; onCli
     <button type="button" className={`rt-chip k-${it.kind}${bad ? " bad" : ""}${it.locked ? " past" : ""}`} onClick={onClick}
       title={`${it.title}. ${rotaTimeText(it)}${it.where ? `. ${it.where}` : ""}${bad ? ". Conflict" : ""}`}>
       <span className="rt-chip-t">{bad ? <Icon name="alert" size={11} /> : null}{it.absence ? it.title : it.client || it.title}</span>
-      <span className="rt-chip-s">{showWho ? showWho : it.absence ? rotaTimeText(it) : `${ROTA_KIND_LABEL[it.kind]}${it.start ? `, ${it.start}` : ""}`}</span>
+      <span className="rt-chip-s">{showWho ? showWho : it.absence ? rotaTimeText(it) : `${KIND_SHORT[it.kind]}${it.start ? `, ${it.start}` : ""}`}</span>
     </button>
   );
 }
