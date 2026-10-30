@@ -39,6 +39,8 @@ export default function ScreeningDays() {
   const selected = days.find((d) => d.id === nav.params.day) || null;
 
   useEffect(() => () => { if (timer.current) window.clearTimeout(timer.current); }, []);
+  /* Asked from the Pulse button: #/Clinics/days?ask=IBM, 6 November builds the draft straight away. */
+  useEffect(() => { if (nav.params.ask && manage) { build(nav.params.ask); nav.setParams({ ...nav.params, ask: "" }); } }, [nav.params.ask]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (draft) draftRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }); }, [draft?.request, draft?.via]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const build = (request: string) => {

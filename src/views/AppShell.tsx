@@ -10,6 +10,7 @@ import Agents from "./pages/Agents";
 import PhRouter from "../ph/pages/PhRouter";
 import PortalPreview from "../ph/pages/Portal";
 import { NursePortalPreview } from "../ph/pages/NursePortal";
+import PulseAssistant from "../ph/shell/PulseAssistant";
 import { ClientPortalPreview } from "../ph/pages/ClientPortal";
 import { NavContext } from "../ph/nav-context";
 import { ToastHost } from "../ph/ui";
@@ -17,7 +18,6 @@ import { BrandLogo, Monogram } from "../ph/shell/Brand";
 import { PersonaMenu } from "../ph/shell/PersonaMenu";
 import { SidebarAccount } from "../ph/shell/SidebarAccount";
 import { DemoBadge } from "../ph/shell/DemoBadge";
-import HeliosMini from "./overlays/HeliosMini";
 import AgentStudio from "./overlays/AgentStudio";
 import CommandPalette from "./overlays/CommandPalette";
 import BackgroundGallery from "./overlays/BackgroundGallery";
@@ -429,21 +429,7 @@ export default function AppShell({ v }: Props) {
           {v.isAgents && <Agents v={v} />}
         </div>
       </main>
-      {v.showFab && (
-        <>
-          <button className={cx("ix18", "ixo")} onClick={v.toggleMini} title={v.fabTitle} style={{"position":"fixed","right":"26px","bottom":"26px","zIndex":"47","width":"56px","height":"56px","border":"1px solid var(--accent-line)","borderRadius":"var(--cta-r,14px)","background":"var(--accent-fill,var(--accent))","color":"var(--on-accent)","boxShadow":"0 14px 34px rgba(0,0,0,.34)","cursor":"pointer","display":"flex","alignItems":"center","justifyContent":"center","transition":"transform .3s var(--ease),box-shadow .3s var(--ease)"}}>
-            <span style={{"position":"relative","width":"24px","height":"24px","flex":"none"}}>
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" style={css(v.fabChatStyle)}>
-                <path d="M21 11.5a8.4 8.4 0 0 1-9 8.4 9.9 9.9 0 0 1-4-.8L3 21l1.9-4.9A8.3 8.3 0 0 1 4 11.5 8.4 8.4 0 0 1 12 3a8.4 8.4 0 0 1 9 8.5Z M8 12h1.6l1.2-2.6 1.6 5 1.4-2.4H16" />
-              </svg>
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" style={css(v.fabCloseStyle)}>
-                <path d="M7 7l10 10 M17 7 7 17" />
-              </svg>
-            </span>
-          </button>
-        </>
-      )}
-      {v.miniOpen && <HeliosMini v={v} />}
+      <PulseAssistant />
       {v.builderOpen && <AgentStudio v={v} />}
       {v.paletteOpen && <CommandPalette v={v} />}
       {v.bgGallery?.open && <BackgroundGallery v={v} />}
