@@ -98,7 +98,7 @@ const FIELD_ALIASES: Record<IdentityField, string[]> = {
   result: ["result", "value", "result value"],
   unit: ["unit", "units"],
 };
-export const FIELD_LABEL: Record<IdentityField, string> = {
+export const LAB_FIELD_LABEL: Record<IdentityField, string> = {
   uniqueId: "Unique ID", surname: "Surname", given: "First name", name: "Name", dob: "Date of birth", collected: "Date collected", test: "Test", result: "Result", unit: "Unit",
 };
 
@@ -165,7 +165,7 @@ export function parseLabCsv(text: string): ParsedLabFile {
   const header = rows[0];
   const columns: ColumnMap[] = header.map((h) => {
     const f = fieldForHeader(h);
-    if (f) return { header: h, kind: "identity", field: f, label: FIELD_LABEL[f] };
+    if (f) return { header: h, kind: "identity", field: f, label: LAB_FIELD_LABEL[f] };
     const code = analyteForHeader(h);
     if (code) return { header: h, kind: "test", code, label: ANALYTES[code].name };
     return { header: h, kind: "ignored", label: "Not used" };

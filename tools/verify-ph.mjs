@@ -19,17 +19,17 @@ try {
 
   /* ---------- baseline arithmetic ---------- */
   const T = M.totalCounts(s);
-  eq("invited", T.invited, 850); eq("capacity", T.capacity, 475); eq("booked", T.booked, 365); eq("attended", T.attended, 225);
+  eq("invited", T.invited, 850); eq("capacity", T.capacity, 539) /* 475 baseline + 64 on the three seeded screening days */; eq("booked", T.booked, 365); eq("attended", T.attended, 225);
   eq("upcoming", T.upcoming, 140); eq("released", T.released, 184); eq("ready", T.ready, 21); eq("awaiting", T.awaiting, 15); eq("held", T.onHold, 5);
   eq("not started", T.notStarted, 480); eq("drafts", T.drafts, 5);
   eq("states partition", T.released + T.ready + T.awaiting + T.onHold, T.episodes);
-  eq("booked pct", Math.round(T.bookedPct * 10) / 10, 76.8);
+  eq("booked pct", Math.round(T.bookedPct * 10) / 10, 67.7); // 76.8 before the seeded screening days added capacity
   const P = (id) => M.programmeCounts(s, id);
   eq("sisk", [P("PRG-SISK-26").invited, P("PRG-SISK-26").capacity, P("PRG-SISK-26").booked, P("PRG-SISK-26").attended, P("PRG-SISK-26").released, P("PRG-SISK-26").ready, P("PRG-SISK-26").awaiting, P("PRG-SISK-26").onHold], [500, 300, 240, 150, 126, 12, 9, 3]);
-  eq("sf", [P("PRG-SF-26").invited, P("PRG-SF-26").capacity, P("PRG-SF-26").booked, P("PRG-SF-26").attended, P("PRG-SF-26").released, P("PRG-SF-26").ready, P("PRG-SF-26").awaiting, P("PRG-SF-26").onHold], [200, 100, 80, 50, 40, 6, 3, 1]);
-  eq("ibm", [P("PRG-IBM-26").invited, P("PRG-IBM-26").capacity, P("PRG-IBM-26").booked, P("PRG-IBM-26").attended, P("PRG-IBM-26").released, P("PRG-IBM-26").ready, P("PRG-IBM-26").awaiting, P("PRG-IBM-26").onHold], [150, 75, 45, 25, 18, 3, 3, 1]);
-  eq("sessions", [s.sessions.length, s.sessions.filter((x) => x.programmeId === "PRG-SISK-26").length, s.sessions.filter((x) => x.programmeId === "PRG-SF-26").length, s.sessions.filter((x) => x.programmeId === "PRG-IBM-26").length], [19, 12, 4, 3]);
-  check("25 slots per session", s.sessions.every((x) => M.sessionSlots(x).length === 25));
+  eq("sf", [P("PRG-SF-26").invited, P("PRG-SF-26").capacity, P("PRG-SF-26").booked, P("PRG-SF-26").attended, P("PRG-SF-26").released, P("PRG-SF-26").ready, P("PRG-SF-26").awaiting, P("PRG-SF-26").onHold], [200, 115, 80, 50, 40, 6, 3, 1]);
+  eq("ibm", [P("PRG-IBM-26").invited, P("PRG-IBM-26").capacity, P("PRG-IBM-26").booked, P("PRG-IBM-26").attended, P("PRG-IBM-26").released, P("PRG-IBM-26").ready, P("PRG-IBM-26").awaiting, P("PRG-IBM-26").onHold], [150, 124, 45, 25, 18, 3, 3, 1]);
+  eq("sessions", [s.sessions.length, s.sessions.filter((x) => x.programmeId === "PRG-SISK-26").length, s.sessions.filter((x) => x.programmeId === "PRG-SF-26").length, s.sessions.filter((x) => x.programmeId === "PRG-IBM-26").length], [22, 12, 5, 5]); // 19 baseline + 3 seeded screening days
+  check("25 slots per session", s.sessions.filter((x) => !s.screeningDays.days.some((d) => d.sessionId === x.id)).every((x) => M.sessionSlots(x).length === 25));
   const slots = M.sessionSlots(s.sessions[0]);
   check("breaks not bookable", !slots.some((x) => ["10:30", "12:30", "12:45", "14:30"].includes(x.start)) && slots.some((x) => x.start === "10:45") && slots.some((x) => x.start === "13:00"));
   check("no slot starts inside a break", slots.every((x) => !(x.start >= "10:30" && x.start < "10:45") && !(x.start >= "12:30" && x.start < "13:00") && !(x.start >= "14:30" && x.start < "14:45")));

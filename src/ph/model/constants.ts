@@ -50,6 +50,12 @@ export const STAFF: Staff[] = [
   { id: "anita", name: "Anita Mulhere", displayName: "Anita Mulhere", title: "Occupational Health and Wellness Nurse", team: "nursing", role: "clinical_capture",
     email: "demo.anita@precisionhealth.ie", emailVerified: false, initials: "AM", tint: "#6FB0A6",
     assignment: "Clinical capture. Assigned to the Salesforce clinic today in this demo." },
+  { id: "aisling", name: "Aisling Moran", displayName: "Aisling Moran", title: "Occupational Health and Wellness Nurse", team: "nursing", role: "clinical_capture",
+    email: "demo.aisling@precisionhealth.ie", emailVerified: false, initials: "AM", tint: "#86BDB5",
+    assignment: "Clinic nurse for client screening days in this demo. Fictional profile." },
+  { id: "ciara", name: "Ciara Nolan", displayName: "Ciara Nolan", title: "Occupational Health and Wellness Nurse", team: "nursing", role: "clinical_capture",
+    email: "demo.ciara@precisionhealth.ie", emailVerified: false, initials: "CN", tint: "#9CC9C2",
+    assignment: "Clinic nurse for client screening days in this demo. Fictional profile." },
   { id: "ian", name: "Ian Murtagh", displayName: "Ian Murtagh", title: "Wellness Advisor", team: "nursing", role: "wellness_support",
     email: "demo.ian@precisionhealth.ie", emailVerified: false, initials: "IM", tint: "#A9CFC9",
     assignment: "Support resource at the Sisk clinic today. Not a second booked nurse." },
@@ -64,7 +70,7 @@ export const STAFF_BY_ID: Record<StaffId, Staff> = Object.fromEntries(STAFF.map(
 
 export const TEAMS: Team[] = [
   { id: "programme-operations", name: "Programme Operations", purpose: "Bookings, invitations, import operations and reminders.", memberIds: ["brenda"], ownerId: null },
-  { id: "nursing", name: "Nursing", purpose: "Clinic delivery and clinical capture at screening sessions.", memberIds: ["liz", "fiona", "anita", "ian"], ownerId: "liz" },
+  { id: "nursing", name: "Nursing", purpose: "Clinic delivery and clinical capture at screening sessions.", memberIds: ["liz", "fiona", "anita", "aisling", "ciara", "ian"], ownerId: "liz" },
   { id: "clinical-review", name: "Clinical Review", purpose: "Clinician review, advice and release of individual reports.", memberIds: ["neil"], ownerId: "neil" },
   { id: "client-programmes", name: "Client Programmes", purpose: "Client relationships, programme oversight and employer reporting.", memberIds: ["stephen", "martina"], ownerId: "stephen" },
 ];

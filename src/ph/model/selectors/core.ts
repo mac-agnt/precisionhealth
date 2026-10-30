@@ -158,8 +158,9 @@ export const personName = (p: Person | undefined | null) => (p ? `${p.given} ${p
 export const plural = (n: number, one: string, many?: string) => `${n} ${n === 1 ? one : many || one + "s"}`;
 
 /* ---- sessions and capacity ---- */
-export function sessionSlots(s: Pick<ClinicSession, "start" | "end" | "breaks" | "slotMinutes">): Slot[] {
-  return buildSlots(s.start, s.end, s.breaks, s.slotMinutes);
+export function sessionSlots(s: Pick<ClinicSession, "start" | "end" | "breaks" | "slotMinutes" | "maxSlots">): Slot[] {
+  const all = buildSlots(s.start, s.end, s.breaks, s.slotMinutes);
+  return s.maxSlots && s.maxSlots > 0 ? all.slice(0, s.maxSlots) : all;
 }
 export function activeBookings(state: PhState, sessionId: Id): Booking[] {
   return (ix(state).bookingsBySession.get(sessionId) || []).filter((b) => b.status === "confirmed").sort((a, b) => (a.slotStart < b.slotStart ? -1 : 1));

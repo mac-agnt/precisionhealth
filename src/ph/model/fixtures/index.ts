@@ -17,6 +17,7 @@ import { initialNurseOpsState } from "../nurseOps";
 import { initialAdviceLibraryState } from "../adviceLibrary";
 import { initialReferenceRangesState, setActiveRangeVersions } from "../referenceRangesData";
 import { initialLabCsvState } from "../labCsv";
+import { seedScreeningDays } from "../screeningDays";
 
 export function createInitialState(): PhState {
   /* Band every seeded result against the seeded reference ranges (Health Screening). */
@@ -25,6 +26,8 @@ export function createInitialState(): PhState {
   const plan = buildRoster();
   const clin = buildClinical(plan);
   const ops = buildOps(plan, clin);
+  /* Screening days: seeded days come with their clinic sessions, added after the roster is built. */
+  const days = seedScreeningDays(plan.sessions);
   const nextEpisode = clin.episodes.reduce((m, e) => {
     const n = Number(e.id.slice(5));
     return n >= 1000 && n > m ? n : m;
@@ -39,7 +42,7 @@ export function createInitialState(): PhState {
     contacts: structuredClone(CONTACTS),
     programmes: structuredClone(PROGRAMMES),
     appointmentTypes: structuredClone(APPOINTMENT_TYPES),
-    sessions: plan.sessions,
+    sessions: [...plan.sessions, ...days.sessions],
     resources: structuredClone(RESOURCES),
     persons: plan.persons,
     memberships: plan.memberships,
@@ -99,6 +102,7 @@ export function createInitialState(): PhState {
     referenceRanges: ranges,
     labCsv: initialLabCsvState(),
     salesFlow: initialSalesFlowState(),
+    screeningDays: days.state,
   };
   state.portal = buildPortalBaseline(state);
   seedSalesFlow(state);
