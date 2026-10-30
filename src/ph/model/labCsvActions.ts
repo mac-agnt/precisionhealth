@@ -8,6 +8,9 @@
    labcsv/reject   a person rejects a queued row. Nothing is attached.
    labcsv/rejectFeedRow  the same for a row held from the Eurofins feed: nothing is attached, the
                    held report goes back to waiting for that result.
+   results/enterValues   a clinician types the results from the lab report straight onto a real
+                   participant's screening (Health Screening, Enter results). Only tests still to
+                   come are added, once each, banded by the reference ranges; who and when are kept.
 
    Integrity guard: an action that changes or releases results fails when it is attributed to an
    agent (action.actor.kind === "agent", or action.agentId). Agents can draft wording only. */
@@ -168,6 +171,42 @@ const handlers: Record<string, Handler> = {
     return c.ok("Row rejected. Nothing was attached to any participant.", "info");
   },
 
+  "results/enterValues": (c, a: { episodeId: string; values: Array<{ code: string; valueText: string }> }) => {
+    const d = c.need("clinical.review", "enter results onto a participant's record") || guardStaff(c, "enter results"); if (d) return d;
+    const ep = c.ix().episodeById.get(a.episodeId);
+    if (!ep) return c.fail("Choose a participant first.");
+    if (ep.reportState === "released") return c.fail("This report is already released. A change to a released result is a correction, in Results, Corrections.");
+    if (ep.reportState === "on_hold") return c.fail("This screening is on hold. Resolve the hold first, so nothing is added to the wrong record.");
+    const pending = new Set(expectedTests(c.s, ep).filter((t) => t.status === "pending").map((t) => t.code));
+    const results: LabResultCell[] = [];
+    for (const v of a.values || []) {
+      const code = v.code as LabResultCell["code"];
+      const text = String(v.valueText ?? "").trim();
+      if (!text) continue;
+      if (!ANALYTES[code]) return c.fail("Unknown test.");
+      if (!pending.has(code)) return c.fail(`${ANALYTES[code].name} is already on the record or was not taken at this screening.`);
+      if (!parseResultText(code, text)) return c.fail(`${ANALYTES[code].name}: "${text}" is not a result Pulse can read. Type the number from the lab report.`);
+      results.push({ code, valueText: text, unit: ANALYTES[code].unit });
+    }
+    if (!results.length) return c.fail("Type at least one result first.");
+    const person = c.ix().personById.get(ep.personId)!;
+    const at = c.stamp();
+    const date = localDateOf(c.now);
+    const prefix = `BATCH-${date.replace(/-/g, "")}-`;
+    const batchId = `${prefix}${pad(c.s.batches.filter((b) => b.id.startsWith(prefix)).length + 1, 2)}`;
+    c.s.batches.push({
+      id: batchId, lab: "Eurofins", filename: `Entered in Pulse by ${c.persona().name}`, receivedAt: at, processedAt: at, specimenCount: 1, kind: "upload", status: "complete",
+      source: `Typed from the lab report by ${c.persona().name} onto ${person.given} ${person.family}'s screening.`, note: `${plural(results.length, "result", "results")} entered by hand for ${person.given} ${person.family}.`,
+    });
+    const file: LabFileIdentity = { surname: person.family, given: person.given, dobText: "", dob: person.dob, uniqueId: ep.screeningRef };
+    const created = commitResults(c, ep, file, results, batchId, 1, null);
+    c.inv();
+    const left = expectedTests(c.s, ep).filter((t) => t.status !== "received").length;
+    c.emit({ verb: "results.entered", summary: `${c.first()} entered ${plural(created, "result", "results")} from the lab report onto ${person.given} ${person.family}'s screening (${ep.id}). ${ep.reportState === "ready_for_review" ? "Ready for review." : `${plural(left, "test", "tests")} still to come.`}`,
+      entity: { kind: "episode", id: ep.id }, programmeId: ep.programmeId, personId: ep.personId, restricted: true, publicSummary: "Results entered on a clinical record" });
+    return c.ok(ep.reportState === "ready_for_review" ? `Saved to ${person.given} ${person.family}'s record. Ready for review.` : `Saved to ${person.given} ${person.family}'s record. ${plural(left, "test is", "tests are")} still to come.`, "ok", ep.id);
+  },
+
   "labcsv/rejectFeedRow": (c, a: { rowId: string; reason?: string }) => {
     const d = c.need("identity.resolve", "reject lab rows") || guardStaff(c, "reject lab rows"); if (d) return d;
     const at = c.s.importRows.findIndex((r) => r.id === a.rowId);
@@ -195,7 +234,7 @@ export const AGENT_RESULTS_RULE = "Agents can draft wording but cannot change re
 export const RESULT_EDIT_ACTIONS = [
   "import/commitPreview", "import/resolveRow", "import/confirmUnit", "import/deliverSampleResults", "resultsui/confirmUnit",
   "review/release", "review/releaseRoutine", "correction/start", "correction/release",
-  "labcsv/import", "labcsv/resolve", "labcsv/reject", "labcsv/rejectFeedRow",
+  "labcsv/import", "labcsv/resolve", "labcsv/reject", "labcsv/rejectFeedRow", "results/enterValues",
 ];
 type MaybeAgent = { actor?: { kind?: string; label?: string; id?: string }; agentId?: string };
 export function agentActor(a: MaybeAgent): string | null {
@@ -223,4 +262,5 @@ export const labAct = {
   resolve: (recordId: string, episodeId: string, reason: string) => ({ type: "labcsv/resolve", recordId, episodeId, reason }),
   reject: (recordId: string, reason?: string) => ({ type: "labcsv/reject", recordId, reason }),
   rejectFeedRow: (rowId: string, reason?: string) => ({ type: "labcsv/rejectFeedRow", rowId, reason }),
+  enterValues: (episodeId: string, values: Array<{ code: string; valueText: string }>) => ({ type: "results/enterValues", episodeId, values }),
 };

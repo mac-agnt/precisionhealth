@@ -8,7 +8,7 @@ import { usePersona } from "../../store";
 import { useNav } from "../../nav-context";
 import { PageHeader, RestrictedNotice, Segmented } from "../../ui";
 import Ranges from "./Ranges";
-import TestRun from "./TestRun";
+import EnterResults from "./EnterResults";
 import Changes from "./Changes";
 import { Calculations, Cohorts, Impact, Questions } from "./Reference";
 
@@ -33,7 +33,7 @@ export default function Screening({ tab }: { tab: string }) {
   return (
     <div className="ph-page scr">
       <SubNav tab={tab} />
-      {tab === "check" ? <TestRun /> : tab === "changes" ? <Changes /> : tab === "impact" ? <Impact /> : tab === "calculations" ? <Calculations />
+      {tab === "check" ? <EnterResults /> : tab === "changes" ? <Changes /> : tab === "impact" ? <Impact /> : tab === "calculations" ? <Calculations />
         : tab === "cohorts" ? <Cohorts /> : tab === "questions" ? <Questions /> : <Ranges />}
     </div>
   );

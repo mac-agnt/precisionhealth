@@ -371,7 +371,7 @@ export function labLog(state: PhState): LabLogEntry[] {
       if (state.labCsv.uploads.some((u) => u.batchId === b.id)) continue;
       const rows = state.importRows.filter((r) => r.batchId === b.id);
       out.push({
-        batchId: b.id, uploadId: null, filename: b.filename, at: b.processedAt, by: b.kind === "sample" ? "Sample delivery" : "Eurofins feed",
+        batchId: b.id, uploadId: null, filename: b.filename, at: b.processedAt, by: b.kind === "sample" ? "Sample delivery" : /^Entered in Pulse by /.test(b.filename) ? b.filename.replace(/^Entered in Pulse by /, "") : "Eurofins feed",
         matched: rows.filter((r) => r.state === "imported" || r.state === "resolved").length, flagged: rows.filter((r) => r.state === "quarantined").length, rejected: 0,
         results: rows.filter((r) => r.observationId).length, personId: null,
       });
