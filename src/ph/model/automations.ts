@@ -770,9 +770,9 @@ export const AUTOMATIONS: AutomationDef[] = [
       "Cells below the threshold suppressed, with complementary suppression",
     ],
     steps: [
-      { actor: { kind: "system", label: "Pulse" }, action: "Builds the aggregate draft from released reports", channel: "Reporting, Report Builder", output: "Draft with denominators and methodology" },
+      { actor: { kind: "system", label: "Pulse" }, action: "Builds the aggregate draft from released reports", channel: "Reporting, Report builder", output: "Draft with denominators and methodology" },
       { actor: { kind: "agent", label: "Programme Reporting", agentId: "reporting" }, action: "Prepares charts and an optional narrative from the disclosure-controlled snapshot", channel: "Programme Reporting agent", output: "Draft narrative for clinician approval" },
-      { actor: { kind: "staff", label: "Programme reporting", role: "programme_reporting" }, action: "Completes the disclosure review", channel: "Reporting, Report Builder", output: "Cohort confirmed safe to share" },
+      { actor: { kind: "staff", label: "Programme reporting", role: "programme_reporting" }, action: "Completes the disclosure review", channel: "Reporting, Report builder", output: "Cohort confirmed safe to share" },
       { actor: { kind: "staff", label: "Clinician", role: "clinical_review" }, action: "Approves the figures and the narrative", channel: "Work, Approvals", output: "Snapshot frozen" },
       { actor: { kind: "staff", label: "Programme reporting", role: "programme_reporting" }, action: "Exports PDF and PowerPoint from the same snapshot for the employer", channel: "Reporting, Exports", output: "Employer files (browser previews in this demo)", source: "client_spec" },
     ],
@@ -809,7 +809,7 @@ export const AUTOMATIONS: AutomationDef[] = [
     conditions: ["A nurse and any support staff are assigned", "No nurse, support or room overlap", "Edits that affect bookings show the impact first"],
     steps: [
       { actor: { kind: "staff", label: "Programme Operations", role: "operations" }, action: "Schedules the clinic: date, site, room, times and breaks", channel: "Clinics, Schedule", output: "Clinic session with bookable slots", source: "client_spec" },
-      { actor: { kind: "staff", label: "Director of Nursing", role: "nursing_lead" }, action: "Assigns the nurse and support staff", channel: "Clinics, Team & Resources", output: "Assignment on the session" },
+      { actor: { kind: "staff", label: "Director of Nursing", role: "nursing_lead" }, action: "Assigns the nurse and support staff", channel: "Clinics, Team and resources", output: "Assignment on the session" },
       { actor: { kind: "system", label: "Pulse" }, action: "Checks nurse, support and room overlaps across sessions before saving", channel: "Pulse schedule rules", output: "Overlap list, empty when clear" },
       { actor: { kind: "agent", label: "Ops Watchdog", agentId: "watchdog" }, action: "Re-checks each morning and flags clashes and capacity gaps", channel: "Ops Watchdog agent", output: "Flag for a person" },
       { actor: { kind: "system", label: "Pulse" }, action: "Generates the clinic preparation checklist the day before", channel: "Work, Schedules", output: "Preparation tasks" },

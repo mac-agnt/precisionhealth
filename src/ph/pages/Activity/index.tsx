@@ -1,6 +1,6 @@
-/* Activity: Everything, People, Agents and Needs Attention, all read from the one append-only
+/* Activity: Everything, People, Agents and Needs attention, all read from the one append-only
    activity store with the same event IDs. Clinical events are hidden or shown as a public
-   summary for roles that cannot see clinical work. Resolved stories leave Needs Attention while
+   summary for roles that cannot see clinical work. Resolved stories leave Needs attention while
    their events stay in Everything. */
 import { useMemo, useState } from "react";
 import { PROGRAMME_BY_ID, PROGRAMME_ORDER, activityFeed, attentionTasks, fmtDateTime, fmtWhen } from "../../model";
@@ -189,7 +189,7 @@ function AgentsTab() {
   );
 }
 
-/* ---- Needs Attention: unresolved story events and their linked open tasks ---- */
+/* ---- Needs attention: unresolved story events and their linked open tasks ---- */
 function AttentionTab() {
   const state = usePhState();
   const p = usePersona();

@@ -1,4 +1,4 @@
-/* Participants module: Directory, Screening History, Communications and Portal admin. Every list and count
+/* Participants module: Directory, Screening history, Communications and Portal admin. Every list and count
    comes from the shared store. Role checks re-filter live when the persona changes. */
 import { useNav } from "../../nav-context";
 import { usePersona } from "../../store";

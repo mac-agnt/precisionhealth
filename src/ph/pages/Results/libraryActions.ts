@@ -5,7 +5,7 @@
    advicelib/prepareDraft is the AI-assisted path: it writes a draft built only from approved
    snippets plus a personalised opening line into the episode's draft report version. It never
    releases anything: the advice reviewed and preview ticks are cleared, so the clinician must
-   read, edit and tick the existing release checklist. It respects Settings, AI Controls. */
+   read, edit and tick the existing release checklist. It respects Settings, AI controls. */
 import {
   approvedVersion, draftVersion, findSnippet, isReporterId, lastApproved, pendingDraft, registerHandlers, snippetStatus, staffName,
 } from "../../model";
@@ -134,7 +134,7 @@ registerHandlers({
 
   [LIB.prepareDraft]: (c: Ctx, a: { episodeId: string }): ActionResult => {
     const d = c.need("clinical.review", "prepare report advice"); if (d) return d;
-    if (!c.s.settings.aiDraftingOn) return c.fail("Prepare draft is switched off in Settings, AI Controls. Codes and manual advice still work.");
+    if (!c.s.settings.aiDraftingOn) return c.fail("Prepare draft is switched off in Settings, AI controls. Codes and manual advice still work.");
     const ep = c.ix().episodeById.get(a.episodeId);
     const why = notReviewable(c, ep); if (why) return c.fail(why);
     const prep = preparedDraftFor(c.s, ep!.id);

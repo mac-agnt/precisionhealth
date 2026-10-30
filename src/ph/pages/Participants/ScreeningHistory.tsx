@@ -1,4 +1,4 @@
-/* Participants, Screening History: an episode-centred table and a person timeline covering
+/* Participants, Screening history: an episode-centred table and a person timeline covering
    appointment, form version, observations, calculations, review, report versions and
    follow-up. Clinical roles see clinical items (capture roles for their own sessions only).
    Operations see a workflow-only view: clinical content is unavailable in that preview. */

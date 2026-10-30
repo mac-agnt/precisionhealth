@@ -1,4 +1,4 @@
-/* Clinic Operations dashboard: today's three clinics, day and week capacity, resource
+/* Clinic operations dashboard: today's three clinics, day and week capacity, resource
    assignments, the attendance pipeline and reminder delivery. At 08:15 nothing is checked in or
    completed; historical attendance stays with past sessions. Future appointments are never shown
    as completed. Logical reminders and provider attempts are counted separately. */

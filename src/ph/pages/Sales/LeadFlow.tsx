@@ -5,27 +5,33 @@
 import "./flowActions";
 import { useEffect, useMemo, useState } from "react";
 import {
+  ONB_STEP_LABEL, onbCurrentStep, onbProgress,
   SALES_JOURNEY, SALES_SAMPLE_NOTES, fmtShortDateTime, fmtTime, fmtWeekdayDate, salesDuration, salesEurRange, salesFirstReplyDraft, salesFollowSequence, salesInboundFor, salesJourney,
   salesLatestVersion, salesNetTotals, salesParseNotes, salesTouchClock,
 } from "../../model";
 import type { SalesFlowInbound, SalesLead, SalesProposal } from "../../model";
 import { useNav } from "../../nav-context";
-import { dispatch, usePhState } from "../../store";
+import { dispatch, getState, usePhState } from "../../store";
 import { Button, DemoTag, Icon, Pill, TextInput, Textarea } from "../../ui";
 import { salesAct } from "./actions";
 import { flowAct } from "./flowActions";
 import { liveNowIso, useLiveNow } from "./liveClock";
 import { useSalesRights } from "./shared";
+import { onbForLead, onbSuggestedKind } from "./onbSelect";
+import { onbAct } from "./onbActions";
 
 /* ---------------------------------------------------------------- mark as won */
 
-/** Marks the lead as won and starts onboarding (Sales, Onboarding, with the lead). */
+/** Marks the lead as won, starts its onboarding (linked back to the lead) and opens it. */
 export function useMarkWon(): (leadId: string) => boolean {
   const nav = useNav();
   return (leadId: string) => {
     const r = dispatch(flowAct.markWon(leadId));
-    if (r.ok) nav.go({ page: "Sales", tab: "onboarding", params: { lead: leadId } });
-    return r.ok;
+    if (!r.ok) return false;
+    const lead = getState().sales.leads.find((l) => l.id === leadId);
+    const o = lead ? dispatch(onbAct.start(onbSuggestedKind(lead), leadId), { silent: true }) : null;
+    nav.go({ page: "Sales", tab: "onboarding", params: o?.ok && o.id ? { onb: o.id, step: "details" } : { lead: leadId } });
+    return true;
   };
 }
 
@@ -141,11 +147,16 @@ export function NextStep({ lead, onBuild }: { lead: SalesLead; onBuild: () => vo
         </div>
       </div>);
   }
+  const onb = onbForLead(s, lead.id);
+  const onbPr = onb ? onbProgress(onb) : null;
   return (
     <div className="lf-next lf-won">
-      <div className="lf-next-head"><Icon name="check" size={16} /><b>Won. Onboarding has started.</b></div>
-      <p>{lead.company} moves to onboarding: dates, venue, booking page and invitations.</p>
-      <div className="lf-actions"><Button variant="primary" icon="arrow" onClick={() => nav.go({ page: "Sales", tab: "onboarding", params: { lead: lead.id } })}>Open onboarding</Button></div>
+      <div className="lf-next-head"><Icon name="check" size={16} /><b>{onb ? `Won. Onboarding ${onb.id}, ${onb.completedAt ? "finished" : `step ${Math.min(onbPr!.done + 1, onbPr!.total)} of ${onbPr!.total}: ${ONB_STEP_LABEL[onbCurrentStep(onb)]}`}` : "Won. Next: start onboarding."}</b></div>
+      <p>{onb ? (onb.completedAt ? `${lead.company} is onboarded. Next: set up the programme and the first screening day.` : `${lead.company} is being onboarded: details, agreements, team and Xero.`) : `${lead.company} moves to onboarding: the onboarding link, DSA and SLA, team and Xero.`}</p>
+      <div className="lf-actions">
+        <Button variant="primary" icon="arrow" onClick={() => nav.go({ page: "Sales", tab: "onboarding", params: onb ? { onb: onb.id } : { lead: lead.id } })}>{onb ? `Open onboarding ${onb.id}` : "Start onboarding"}</Button>
+        <Button variant="ghost" icon="flag" onClick={() => nav.go({ page: "Clients", tab: "journey", params: { who: lead.id } })}>See the whole journey</Button>
+      </div>
     </div>);
 }
 

@@ -55,7 +55,7 @@ export default function Overview() {
   return (
     <div className="ph-page">
       <PageHeader title="Employer reporting" sub="Programme reports built from released reports only, with disclosure control before anything reaches an employer."
-        actions={<><DemoTag>Synthetic data</DemoTag>{sisk ? <Button variant="primary" icon="edit" onClick={() => open(sisk.id)}>Open Report Builder</Button> : null}</>} />
+        actions={<><DemoTag>Synthetic data</DemoTag>{sisk ? <Button variant="primary" icon="edit" onClick={() => open(sisk.id)}>Open Report builder</Button> : null}</>} />
       <div className="ph-stack">
         <KpiStrip>
           <Kpi label="Employer reports" value={reports.length} sub={STATES.map((st) => `${count(st)} ${STATUS_LABEL[st].toLowerCase()}`).join(", ")} />

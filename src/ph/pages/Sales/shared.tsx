@@ -97,7 +97,7 @@ export function ViewOnly({ children }: { children?: ReactNode }) {
   return (
     <div className="sl-note" role="note">
       <Icon name="lock" size={13} />
-      <span>{children || "View only. Stephen Kelly owns sales in this demo. Switch role in Settings, Experience to make changes."}</span>
+      <span>{children || "View only. Stephen Kelly owns sales in this demo. Switch role in Settings, Display to make changes."}</span>
     </div>
   );
 }

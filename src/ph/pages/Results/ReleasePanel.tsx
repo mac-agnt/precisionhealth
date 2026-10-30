@@ -19,6 +19,7 @@ import type { ViewerModel } from "./Sheet";
 import { AdviceBox, ConfirmReplace, LibrarySelect, SourcePill, SuggestedCodes, TraceList, notInsertableText } from "./AdviceCodes";
 import { libAct } from "./libraryActions";
 import { releasedLine } from "./LabImport";
+import { retReleaseQueue } from "../Sales/onbSelect";
 import { snippetSuggestions } from "./libraryModel";
 
 /* ---- checklist ---- */
@@ -221,7 +222,7 @@ export function FlagsCard({ b, canAct }: { b: Bundle; canAct: boolean }) {
  * blur, and reports every keystroke through onTextChange so the report preview shows the text as
  * typed. Approved advice codes expand in place (CHOL-HI then Space or Tab, or "/" to search), the
  * suggested codes for this episode insert with one click, and "Prepare draft" (when the drafting
- * path is on in Settings, AI Controls) writes a draft built only from approved snippets. Every
+ * path is on in Settings, AI controls) writes a draft built only from approved snippets. Every
  * inserted passage traces back to its code and version. variant "sheet" is the NEW ADVICE box
  * under the results viewer; "card" is the stacked editor used in Corrections.
  */
@@ -421,6 +422,9 @@ export function ReleasedCard({ b, onNext }: { b: Bundle; onNext?: () => void }) 
               Availability notice <span className="phr-mono">{msg.id}</span> by {msg.channel === "sms" ? "SMS" : "email"} to {msg.destination}: {msg.status}. It says a report is ready and contains no results. <DemoTag>Simulated</DemoTag>
             </div>
           </div>
+        ) : null}
+        {retReleaseQueue(state).some((x) => x.programmeId === b.programme.id) ? (
+          <div className="phr-banner" style={{ flexDirection: "column", alignItems: "flex-start", gap: 8 }}><div><Icon name="mail" size={14} style={{ color: "var(--accent)", verticalAlign: "-2px", marginRight: 6 }} /><b>Next: tell {b.programme.clientName} the results are out.</b> The results-out email to HR, with the feedback form and invoice note, is waiting in Retention.</div><Button size="sm" variant="primary" icon="arrow" onClick={() => nav.go({ page: "Sales", tab: "recall" })}>Open Retention</Button></div>
         ) : null}
         <div className="phr-row">
           <Button icon="user" onClick={() => nav.openPortal(b.person.id)} title={p.isParticipant ? undefined : "Opens the participant portal preview as this participant"}>Participant portal preview</Button>

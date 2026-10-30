@@ -163,10 +163,10 @@ function ContentEditor({ state, programmeId }: { state: PhState; programmeId: Pr
         <PreviewCard state={state} programmeId={programmeId} f={draft} unsaved={changed.length > 0} />
         <DocumentsCard state={state} programmeId={programmeId} />
         <Card>
-          <CardHeader title="Questionnaire in use" sub="Clinically owned and versioned in Forms & Templates. The portal asks it before a booking can be confirmed." />
+          <CardHeader title="Questionnaire in use" sub="Clinically owned and versioned in Forms and templates. The portal asks it before a booking can be confirmed." />
           <div className="ph-row-flex" style={{ gap: 10, flexWrap: "wrap" }}>
             <span className="ph-grow" style={{ fontSize: 13, color: "var(--ink)" }}>{tpl?.name || prog.templateId} <span className="ph-faint">v{tpl?.currentVersion || "?"}</span></span>
-            <Button size="sm" icon="layers" onClick={() => nav.go({ page: "Programmes", tab: "forms-templates", params: { template: prog.templateId } })}>Open in Forms & Templates</Button>
+            <Button size="sm" icon="layers" onClick={() => nav.go({ page: "Programmes", tab: "forms-templates", params: { template: prog.templateId } })}>Open in Forms and templates</Button>
           </div>
         </Card>
       </div>

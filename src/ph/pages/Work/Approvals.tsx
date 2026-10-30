@@ -13,9 +13,9 @@ import { StaffCell, Tag, WIDE_MIN, isClinicalViewer, mergeParams, useMeasure } f
 
 const TYPE: Record<ApprovalType, { label: string; icon: GlyphName; open: string; where: string }> = {
   report_release: { label: "Clinician report release", icon: "file", open: "Open the episode in Review", where: "Results, Review" },
-  employer_report: { label: "Employer report sign-off", icon: "chart", open: "Open the report in Report Builder", where: "Reporting, Report Builder" },
+  employer_report: { label: "Employer report sign-off", icon: "chart", open: "Open the report in Report builder", where: "Reporting, Report builder" },
   invitation_prep: { label: "Invitation preparation", icon: "send", open: "Open the draft in Invitations", where: "Programmes, Invitations" },
-  form_publication: { label: "Form template publication", icon: "layers", open: "Open the template in Forms & Templates", where: "Programmes, Forms & Templates" },
+  form_publication: { label: "Form template publication", icon: "layers", open: "Open the template in Forms and templates", where: "Programmes, Forms and templates" },
 };
 const TYPE_ORDER: ApprovalType[] = ["report_release", "employer_report", "invitation_prep", "form_publication"];
 type StatusFilter = "pending" | "decided" | "all";

@@ -105,7 +105,7 @@ export default function Automations() {
           <Kpi label="Exceptions needing a person" value={openTotal} tone={openTotal ? "warn" : "ok"}
             sub={`${open.length ? `Across ${open.length} automations.` : "None open."}${hiddenOpen ? " Clinical counts are shown to clinical roles only." : ""}`} />
           <Kpi label="Tools replaced or touched" value={systems.length} icon="layers" sub={systems.map(systemName).join(", ")}
-            onClick={() => nav.go({ page: "Settings", tab: "systems-integrations" })} hint="Open Settings, Systems & Integrations" />
+            onClick={() => nav.go({ page: "Settings", tab: "systems-integrations" })} hint="Open Settings, Integrations" />
           <Kpi label="Linked activity" value={eventsTotal} icon="list" sub="Entries in the shared activity log, as your role sees them."
             onClick={() => nav.go({ page: "Activity", tab: "everything" })} hint="Open Activity" />
         </KpiStrip>

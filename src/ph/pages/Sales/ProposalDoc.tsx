@@ -13,6 +13,7 @@ import { salesAct } from "./actions";
 import { useMarkWon } from "./LeadFlow";
 import ProposalBuilder from "./ProposalBuilder";
 import { useSalesRights } from "./shared";
+import { JourneyStrip } from "../Journey/JourneyStrip";
 
 const STATUS_TONE: Record<SalesProposalVersion["status"], Tone> = { draft: "neutral", sent: "warn", accepted: "ok", declined: "bad" };
 
@@ -65,6 +66,7 @@ function Doc({ p, manage }: { p: SalesProposal; manage: boolean }) {
   const upsell = c.upsell.map(item).filter((x): x is NonNullable<typeof x> => !!x);
   return (
     <div className="pd-right">
+      {lead ? <JourneyStrip lead={lead.id} at="proposal" /> : null}
       <div className="pd-bar">
         <Pill tone={STATUS_TONE[v.status]}>{SALES_PROPOSAL_STATUS_LABEL[v.status]}</Pill>
         <span className="ph-faint" style={{ fontSize: 12 }}>{v.status === "sent" && v.sentAt ? `Sent ${fmtDate(v.sentAt)}` : v.status === "draft" ? "Not sent yet" : v.decidedAt ? `${SALES_PROPOSAL_STATUS_LABEL[v.status]} ${fmtDate(v.decidedAt)}` : ""}{p.versions.length > 1 ? ` · ${p.versions.length} versions` : ""}</span>

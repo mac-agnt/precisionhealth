@@ -25,7 +25,7 @@ export default function Executive() {
     { key: "capacity", label: "Programme capacity booked", value: rate(T.booked, T.capacity), icon: "calendar",
       sub: `${T.booked} of ${T.capacity} slots across all ${PROGRAMME_ORDER.length} programme windows` },
     { key: "today", label: "Today's utilisation", value: rate(D.booked, D.capacity), icon: "clock", onClick: () => nav.setTab("clinic-operations"),
-      hint: "Open Clinic Operations", sub: `${D.booked} of ${D.capacity} slots at today's ${D.sessions} clinics. A separate measure.` },
+      hint: "Open Clinic operations", sub: `${D.booked} of ${D.capacity} slots at today's ${D.sessions} clinics. A separate measure.` },
     { key: "released", label: "Reports released", value: T.released, icon: "file",
       sub: `of ${T.attended} attended episodes (${rate(T.released, T.attended)})` },
     { key: "potential", label: "Potential capacity", value: unfilled, icon: "layers",
@@ -210,7 +210,7 @@ function AgeingCard({ ready, aged, buckets }: { ready: number; aged: number; buc
   return (
     <Card>
       <CardHeader title="Review ageing" sub={`Time since each of the ${ready} ready reports became ready for review.`}
-        right={clinical ? <GoButton to={{ page: "Dashboard", tab: "clinical-delivery" }}>Clinical Delivery</GoButton> : null} />
+        right={clinical ? <GoButton to={{ page: "Dashboard", tab: "clinical-delivery" }}>Clinical delivery</GoButton> : null} />
       <HBars rows={rows} max={Math.max(1, ready)} valueFmt={(n) => `${n} of ${ready}`} />
       <div className="ph-row-flex" style={{ marginTop: 14, gap: 8, flexWrap: "wrap" }}>
         <Pill tone={aged ? "warn" : "ok"}>{aged ? `${aged} waiting over 48 hours` : "None over 48 hours"}</Pill>

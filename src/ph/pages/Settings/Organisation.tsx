@@ -95,7 +95,7 @@ export default function Organisation() {
               />
               <DefList items={[
                 { label: "Display time zone", value: <>{TZ}<div className="phs-note">Timestamps are kept in UTC internally and shown in Dublin time.</div></> },
-                { label: "Demo clock", value: <>{fmtDateLong(now)}, {fmtTime(now)}<div><button type="button" className="ph-link" style={{ fontSize: 12 }} onClick={() => nav.go({ page: "Settings", tab: "experience" })}>Change it in Experience</button></div></> },
+                { label: "Demo clock", value: <>{fmtDateLong(now)}, {fmtTime(now)}<div><button type="button" className="ph-link" style={{ fontSize: 12 }} onClick={() => nav.go({ page: "Settings", tab: "experience" })}>Change it in Display</button></div></> },
                 { label: "Dates", value: `${fmtDate(now)} or ${fmtNumericDate(now)}` },
                 { label: "Times", value: `24-hour, for example ${fmtTime(now)}` },
                 { label: "Currency", value: "EUR. No prices, margins, turnover or contract amounts are modelled." },

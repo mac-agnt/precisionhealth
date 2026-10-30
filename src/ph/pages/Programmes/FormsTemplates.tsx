@@ -1,4 +1,4 @@
-/* Programmes, Forms & Templates: the form creator.
+/* Programmes, Forms and templates: the form creator.
    Left: template list (status and version) and the reusable block library. Centre: the selected
    version's ordered sections and their fields, with add, drag or up/down reorder, remove and
    required toggles. Right: field editor, a live participant-facing preview, and version history.
@@ -163,7 +163,7 @@ export default function FormsTemplates() {
           </div>
         </div>, document.body) : null}
       <PageHeader
-        title="Forms & Templates"
+        title="Forms and templates"
         sub="Build screening, booking and consent forms from reusable, versioned blocks. Edit fields in a draft, check the participant view, then submit the new version for clinical approval."
         actions={<DemoTag>Sample clinical content</DemoTag>}
       />
