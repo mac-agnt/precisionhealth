@@ -112,6 +112,7 @@ function ClinicCard({ sessionId }: { sessionId: string }) {
 /* ---- day and week capacity ---- */
 function CapacityCard() {
   const s = usePhState();
+  const nav = useNav();
   const [view, setView] = useState<"day" | "week">("day");
   const t = today(s);
   const all = s.sessions.filter((x) => x.status !== "cancelled").map((x) => x.date).sort();
@@ -120,7 +121,10 @@ function CapacityCard() {
   return (
     <Card>
       <CardHeader title="Capacity" sub={view === "day" ? `Slot by slot for ${fmtWeekdayDate(t)}. Each block is a 15-minute slot derived from the clinic day.` : "Booked or attended against capacity for each session in the week."}
-        right={<Segmented label="Capacity view" value={view} onChange={setView} options={[{ id: "day", label: "Day" }, { id: "week", label: "Week" }]} />} />
+        right={<span className="ph-row-flex" style={{ gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
+          <Button size="sm" variant="ghost" icon="calendar" onClick={() => nav.go({ page: "Calendar", tab: "all", params: view === "day" ? { view: "day", date: t } : { view: "week", date: week } })}>Open in Calendar</Button>
+          <Segmented label="Capacity view" value={view} onChange={setView} options={[{ id: "day", label: "Day" }, { id: "week", label: "Week" }]} />
+        </span>} />
       {view === "day" ? <DayTimeline /> : (
         <WeekView weekStart={week} onPrev={week > minWeek ? () => setWeek(addDays(week, -7)) : undefined} onNext={week < maxWeek ? () => setWeek(addDays(week, 7)) : undefined} />
       )}
