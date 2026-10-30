@@ -53,7 +53,7 @@ export function buildOps(plan: RosterPlan, clin: ClinicalBuild): OpsBuild {
       attempts: [{ at, outcome: "delivered", reason: null, auto: false }], cohort: null, at, provider: ch === "sms" ? "Esendex" : "Email",
     });
   }
-  // Today's 45 logical reminders, sent 24 hours before the 09:00 clinic start.
+  // Today's 45 reminders, sent 24 hours before the 09:00 clinic start.
   const todaySessions = plan.sessions.filter((s) => s.date === "2026-10-05");
   const todayBookings = plan.bookings
     .filter((b) => todaySessions.some((s) => s.id === b.sessionId))
@@ -101,7 +101,7 @@ export function buildOps(plan: RosterPlan, clin: ClinicalBuild): OpsBuild {
   });
   const maeveEp = clin.episodes.find((e) => e.personId === "PH-P-0003")!;
   const tasks: Task[] = [
-    t(1, "Resolve laboratory identity exceptions", "Resolve each held row in the Eurofins batch with a documented two-identifier check.", "ST-01", "brenda", "programme-operations", "high", "2026-10-05T09:00:00.000Z", false, ref("batch", BASELINE_BATCH_ID)),
+    t(1, "Resolve laboratory identity exceptions", "Match each waiting lab row in the Eurofins file by checking name, date of birth and Precision ID.", "ST-01", "brenda", "programme-operations", "high", "2026-10-05T09:00:00.000Z", false, ref("batch", BASELINE_BATCH_ID)),
     t(2, "Clinical review of episodes held for identity", "Review each held episode once its identity exception is resolved.", "ST-01", "neil", "clinical-review", "medium", "2026-10-05T11:00:00.000Z", true, ref("batch", BASELINE_BATCH_ID)),
     t(3, "Clear the clinician review queue", "Review and release ready episodes individually. No bulk release.", "ST-02", "neil", "clinical-review", "high", "2026-10-05T15:00:00.000Z", true, ref("programme", "PRG-SISK-26")),
     t(4, "Decide how to fill available IBM capacity today", "Approve or reject the draft invitation list. Available capacity, not lost revenue.", "ST-03", "stephen", "client-programmes", "high", "2026-10-05T10:00:00.000Z", false, ref("invitation", "INV-IBM-01")),
@@ -143,9 +143,9 @@ export function buildOps(plan: RosterPlan, clin: ClinicalBuild): OpsBuild {
   const jobs: ScheduledJob[] = [
     { id: "JOB-REM-TODAY", name: "24-hour reminders: today's clinics", kind: "reminder", cadence: "24 hours before each clinic", lastRunAt: "2026-10-04T08:00:00.000Z",
       nextRunAt: null, status: "failed", lastResult: "", linked: ref("session", "CLN-SISK-20261005"), simulated: true },
-    { id: "JOB-IMPORT-EUROFINS", name: "Eurofins source import (simulated)", kind: "import", cadence: "Weekdays 06:30", lastRunAt: "2026-10-05T05:30:00.000Z",
+    { id: "JOB-IMPORT-EUROFINS", name: "Eurofins source import", kind: "import", cadence: "Weekdays 06:30", lastRunAt: "2026-10-05T05:30:00.000Z",
       nextRunAt: "2026-10-06T05:30:00.000Z", status: "ok", lastResult: "", linked: ref("batch", BASELINE_BATCH_ID), simulated: true },
-    { id: "JOB-GW-WATCH", name: "Google Workspace results folder watcher (simulated)", kind: "import", cadence: "Hourly", lastRunAt: "2026-10-05T07:00:00.000Z",
+    { id: "JOB-GW-WATCH", name: "Google Workspace results folder watcher", kind: "import", cadence: "Hourly", lastRunAt: "2026-10-05T07:00:00.000Z",
       nextRunAt: "2026-10-05T08:00:00.000Z", status: "ok", lastResult: "No new files. Simulated file events only.", linked: null, simulated: true },
     { id: "JOB-REVIEW-1200", name: "Clinical review checkpoint 12:00", kind: "review_checkpoint", cadence: "Weekdays 12:00", lastRunAt: "2026-10-02T11:00:00.000Z",
       nextRunAt: "2026-10-05T11:00:00.000Z", status: "pending", lastResult: "", linked: ref("programme", "PRG-SISK-26"), simulated: true },
@@ -207,19 +207,19 @@ export function buildOps(plan: RosterPlan, clin: ClinicalBuild): OpsBuild {
   const rowsByBatch = new Map<string, number>();
   clin.importRows.forEach((r) => rowsByBatch.set(r.batchId, (rowsByBatch.get(r.batchId) || 0) + 1));
   for (const b of clin.batches.filter((x) => x.id !== BASELINE_BATCH_ID)) {
-    push(b.processedAt, system("Eurofins import (simulated)"), "import.processed",
+    push(b.processedAt, system("Eurofins import"), "import.processed",
       `Simulated Eurofins batch ${b.id} processed: ${rowsByBatch.get(b.id) || 0} observation rows imported.`, { entity: ref("batch", b.id), integrationId: "eurofins", simulated: true });
   }
   const base = clin.importRows.filter((r) => r.batchId === BASELINE_BATCH_ID);
   const imported = base.filter((r) => r.state === "imported").length, dups = base.filter((r) => r.state === "duplicate").length, quar = base.filter((r) => r.state === "quarantined");
-  push("2026-10-02T15:41:00.000Z", system("Google Workspace (simulated)"), "file.added", "Simulated file event: eurofins_results_2026-10-02_demo.csv added to the results folder.", { integrationId: "gworkspace", simulated: true });
-  push("2026-10-05T05:30:00.000Z", system("Eurofins import (simulated)"), "import.partial",
+  push("2026-10-02T15:41:00.000Z", system("Google Workspace"), "file.added", "Simulated file event: eurofins_results_2026-10-02_demo.csv added to the results folder.", { integrationId: "gworkspace", simulated: true });
+  push("2026-10-05T05:30:00.000Z", system("Eurofins import"), "import.partial",
     `Simulated Eurofins batch processed: ${imported} observation rows imported; ${dups} duplicates skipped; ${quar.length} identity exceptions held.`,
     { entity: ref("batch", BASELINE_BATCH_ID), integrationId: "eurofins", storyId: "ST-01", simulated: true });
   quar.forEach((r, i) => {
     const reason = r.quarantine!.reason === "dob_mismatch" ? "date of birth mismatch" : r.quarantine!.reason === "unknown_specimen" ? "unknown specimen identifier" : "two candidate episodes";
     const epId = r.quarantine!.candidateEpisodeIds[0] || "no matching episode";
-    push(`2026-10-05T05:30:${pad(10 + i, 2)}.000Z`, system("Eurofins import (simulated)"), "import.quarantined",
+    push(`2026-10-05T05:30:${pad(10 + i, 2)}.000Z`, system("Eurofins import"), "import.quarantined",
       `Row ${r.id} held: ${reason} (${epId}).`, { entity: ref("row", r.id), integrationId: "eurofins", storyId: "ST-01", simulated: true });
   });
   push("2026-10-05T05:32:00.000Z", agent("lab", "Lab Reconciliation"), "agent.prepared", "Lab Reconciliation prepared the column mapping and validation summary for the Eurofins batch. Draft only. No row was matched.", { entity: ref("batch", BASELINE_BATCH_ID), integrationId: "eurofins", simulated: true });
@@ -229,7 +229,7 @@ export function buildOps(plan: RosterPlan, clin: ClinicalBuild): OpsBuild {
     { entity: ref("episode", "PH-E-0104"), restricted: true, publicSummary: "Data Quality raised an item on a clinical episode", simulated: true });
 
   // Two to four seeded actions per agent, each linked to the record behind it.
-  push("2026-10-05T05:34:00.000Z", agent("lab", "Lab Reconciliation"), "agent.explained", `Lab Reconciliation explained the ${quar.length} validation exceptions in ${BASELINE_BATCH_ID}: none was fuzzy-matched, and each needs a person to confirm two identifiers.`,
+  push("2026-10-05T05:34:00.000Z", agent("lab", "Lab Reconciliation"), "agent.explained", `Lab Reconciliation explained the ${quar.length} validation exceptions in ${BASELINE_BATCH_ID}: none was matched on a guess, and each needs a person to check name, date of birth and Precision ID.`,
     { entity: ref("batch", BASELINE_BATCH_ID), integrationId: "eurofins", storyId: "ST-01", simulated: true });
   push("2026-10-02T14:30:00.000Z", agent("drafting", "Clinical Drafting"), "agent.prepared", "Clinical Drafting loaded 6 approved sample advice wordings for drafting previews. Demo content, no model connected.", { simulated: true });
   push("2026-10-05T05:45:00.000Z", agent("drafting", "Clinical Drafting"), "agent.declined", "Clinical Drafting did not draft advice for PH-E-0201: a Data Quality item is open and a clinician must review it first.",
@@ -239,8 +239,8 @@ export function buildOps(plan: RosterPlan, clin: ClinicalBuild): OpsBuild {
   push("2026-10-02T15:13:00.000Z", agent("reporting", "Programme Reporting"), "agent.flagged", "Programme Reporting suppressed the Site B, age 55+ group (6 participants) in the ER-SISK-01 snapshot. Complementary suppression applied.",
     { entity: ref("employer_report", "ER-SISK-01"), programmeId: "PRG-SISK-26", storyId: "ST-06", simulated: true });
 
-  push("2026-10-04T08:00:00.000Z", system("Reminder job (simulated)"), "reminder.ran", "24-hour reminder job ran for today's clinics: 45 logical reminders scheduled.", { integrationId: "esendex", simulated: true });
-  push("2026-10-04T08:15:00.000Z", system("Esendex delivery (simulated)"), "reminder.failed", "Reminder delivery failed for 2 of 45 scheduled logical reminders.", { integrationId: "esendex", storyId: "ST-05", simulated: true });
+  push("2026-10-04T08:00:00.000Z", system("Reminder job"), "reminder.ran", "24-hour reminder job ran for today's clinics: 45 reminders scheduled.", { integrationId: "esendex", simulated: true });
+  push("2026-10-04T08:15:00.000Z", system("Esendex delivery"), "reminder.failed", "Reminder delivery failed for 2 of 45 scheduled reminders.", { integrationId: "esendex", storyId: "ST-05", simulated: true });
   push("2026-10-05T06:30:00.000Z", agent("watchdog", "Ops Watchdog"), "agent.task", "Ops Watchdog opened a review task for Brenda: 2 failed reminders, due 08:45.", { storyId: "ST-05", simulated: true });
   push("2026-10-05T06:15:00.000Z", agent("watchdog", "Ops Watchdog"), "agent.checked", "Ops Watchdog checked today's three clinics: no nurse or room overlaps.", { simulated: true });
   push("2026-10-05T06:20:00.000Z", agent("watchdog", "Ops Watchdog"), "agent.flagged", "Ops Watchdog flagged available capacity at today's IBM clinic: 10 of 25 slots booked.", { programmeId: "PRG-IBM-26", storyId: "ST-03", entity: ref("session", "CLN-IBM-20261005"), simulated: true });
@@ -248,7 +248,7 @@ export function buildOps(plan: RosterPlan, clin: ClinicalBuild): OpsBuild {
   push("2026-10-02T15:10:00.000Z", staff("brenda"), "invitation.prepared", "Brenda prepared a draft invitation list for IBM. Awaiting approval.", { entity: ref("invitation", "INV-IBM-01"), programmeId: "PRG-IBM-26", storyId: "ST-03" });
   push("2026-10-02T15:12:00.000Z", agent("booking", "Booking Coordinator"), "agent.drafted", "Booking Coordinator drafted the invitation message for IBM. Draft only. Nothing was sent.", { entity: ref("invitation", "INV-IBM-01"), programmeId: "PRG-IBM-26", simulated: true });
   push("2026-10-05T06:00:00.000Z", staff("brenda"), "clinic.prep", "Brenda confirmed site access for the Sisk Site B clinic on Thu 8 Oct.", { entity: ref("session", "CLN-SISK-20261008"), programmeId: "PRG-SISK-26" });
-  push("2026-10-05T05:00:00.000Z", system("Scheduler (simulated)"), "clinic.prep", "Clinic preparation checklists generated for today's three clinics.", { simulated: true });
+  push("2026-10-05T05:00:00.000Z", system("Scheduler"), "clinic.prep", "Clinic preparation checklists generated for today's three clinics.", { simulated: true });
 
   // Recent individual releases.
   const rel = clin.reportVersions.filter((v) => v.status === "released" || v.status === "superseded").filter((v) => v.version === 1 || v.status === "released")
@@ -269,8 +269,8 @@ export function buildOps(plan: RosterPlan, clin: ClinicalBuild): OpsBuild {
   push("2026-10-01T15:00:00.000Z", staff("martina"), "report.drafted", "Martina created draft employer report ER-SISK-01 for Sisk Autumn Screening.", { entity: ref("employer_report", "ER-SISK-01"), programmeId: "PRG-SISK-26" });
   push("2026-10-02T15:10:00.000Z", system("Disclosure control"), "export.blocked", "Sisk employer export blocked: selected cohort has 6 participants.", { entity: ref("employer_report", "ER-SISK-01"), programmeId: "PRG-SISK-26", storyId: "ST-06" });
   push("2026-10-02T15:12:00.000Z", agent("reporting", "Programme Reporting"), "agent.prepared", "Programme Reporting prepared the aggregate snapshot and suppression check for ER-SISK-01. Draft only.", { entity: ref("employer_report", "ER-SISK-01"), programmeId: "PRG-SISK-26", simulated: true });
-  push("2026-10-03T09:00:00.000Z", system("Jotform (simulated)"), "import.demo", "Existing source demo import: 3 legacy form submissions mapped to Pulse template fields (sample).", { integrationId: "jotform", simulated: true });
-  push("2026-10-05T06:10:00.000Z", system("Monday.com (simulated)"), "reference.linked", "Operational reference: nurse coordination note for 5 Oct linked. No clinical values included.", { integrationId: "monday", simulated: true });
+  push("2026-10-03T09:00:00.000Z", system("Jotform"), "import.demo", "Existing source demo import: 3 legacy form submissions mapped to Pulse template fields (sample).", { integrationId: "jotform", simulated: true });
+  push("2026-10-05T06:10:00.000Z", system("Monday.com"), "reference.linked", "Operational reference: nurse coordination note for 5 Oct linked. No clinical values included.", { integrationId: "monday", simulated: true });
 
   ev.sort((a, b) => (a.at < b.at ? -1 : a.at > b.at ? 1 : 0));
   const activity: ActivityEvent[] = ev.map((e, i) => ({ ...e, id: `EVT-${pad(i + 1, 5)}`, seeded: true }));

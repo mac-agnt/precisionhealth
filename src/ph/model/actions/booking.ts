@@ -168,10 +168,10 @@ handlers["booking/create"] = (c, a: { personId: string; sessionId: string; slotS
   addMessage(c, { kind: "confirmation", personId: b.personId, bookingId: b.id, subject: "Your Precision Health appointment is confirmed", programmeId: b.programmeId });
   const short = !queueReminder(c, b);
   c.emit({
-    verb: "booking.confirmed", summary: `${c.personName(b.personId)} booked ${PROGRAMME_BY_ID[b.programmeId].name} on ${fmtDayMonth(s.date)} at ${b.slotStart} (${b.id}). Questionnaire and consent were complete before confirmation.${short ? " Booked inside 24 hours: one confirmation sent, no reminder created." : " One 24-hour reminder is queued (simulated)."}`,
+    verb: "booking.confirmed", summary: `${c.personName(b.personId)} booked ${PROGRAMME_BY_ID[b.programmeId].name} on ${fmtDayMonth(s.date)} at ${b.slotStart} (${b.id}). Questionnaire and consent were complete before confirmation.${short ? " Booked inside 24 hours: one confirmation sent, no reminder created." : " One 24-hour reminder is queued."}`,
     entity: { kind: "booking", id: b.id }, programmeId: b.programmeId, personId: b.personId, storyId: b.programmeId === "PRG-IBM-26" ? "ST-03" : null,
   });
-  return c.ok(`Booked ${fmtDate(s.date)} at ${b.slotStart}. ${short ? "Because it is inside 24 hours, one confirmation was sent and no reminder was created." : "A confirmation was sent and a 24-hour reminder is queued (simulated)."}`, "ok", b.id);
+  return c.ok(`Booked ${fmtDate(s.date)} at ${b.slotStart}. ${short ? "Because it is inside 24 hours, one confirmation was sent and no reminder was created." : "A confirmation was sent and a 24-hour reminder is queued."}`, "ok", b.id);
 };
 
 handlers["booking/reschedule"] = (c, a: { bookingId: string; sessionId: string; slotStart: string }) => {
@@ -288,7 +288,7 @@ handlers["clinic/checkIn"] = (c, a: { bookingId: string }) => {
   if (poc) { cap.variant = "poc"; cap.form = pocFormPrefill(cap.form); }
   c.s.captureDrafts[b.id] = cap;
   c.emit({ verb: "clinic.checkin", summary: `${c.first()} checked in ${c.personName(b.personId)} for ${b.slotStart} (${b.id})${poc ? ` on the ${POC_FORM_NAME} form` : ""}.`, entity: { kind: "booking", id: b.id }, programmeId: b.programmeId, personId: b.personId });
-  return c.ok(poc ? `Checked in on the ${POC_FORM_NAME} form. Choose the screen type and confirm identity first.` : "Checked in. Confirm identity before any specimen is created.", "ok", b.id);
+  return c.ok(poc ? "Checked in. Choose the screen type, then confirm their identity." : "Checked in. Confirm their identity first.", "ok", b.id);
 };
 
 handlers["clinic/confirmIdentity"] = (c, a: { bookingId: string; dob: string; reference: string }) => {
@@ -306,7 +306,7 @@ handlers["clinic/confirmIdentity"] = (c, a: { bookingId: string; dob: string; re
   ];
   cap.rev++;
   cap.savedAt = c.stamp();
-  return c.ok("Two identifiers confirmed. Specimen creation is unlocked.", "ok");
+  return c.ok("Identity confirmed.", "ok");
 };
 
 handlers["clinic/saveCapture"] = (c, a: { bookingId: string; baseRev: number; measures?: Partial<Record<MeasureKey, { value: number | null; state: "recorded" | "missing" | "not_done" | "declined"; provenance?: "measured" | "self_reported" }>>; urine?: ClinicalCapture["urine"]; notes?: string; form?: Record<string, NurseFormValue> }) => {
@@ -354,14 +354,14 @@ handlers["clinic/saveCapture"] = (c, a: { bookingId: string; baseRev: number; me
   cap.savedAt = c.stamp();
   const b = c.ix().bookingById.get(a.bookingId)!;
   raiseEcgReview(c, b, cap, { kind: "booking", id: b.id });
-  return c.ok(cap.ecgReview && cap.ecgReview.at === cap.savedAt ? "Saved. ECG review requested: the photo was shared to the clinical channel (simulated)." : "Saved.", "info");
+  return c.ok(cap.ecgReview && cap.ecgReview.at === cap.savedAt ? "Saved. ECG review requested: the photo was shared to the clinical channel." : "Saved.", "info");
 };
 
 handlers["clinic/toggleChecklist"] = (c, a: { bookingId: string; key: "specimens" | "labels" | "questionnaire" }) => {
   const blocked = canWork(c, a.bookingId); if (blocked) return c.fail(blocked);
   const cap = captureOf(c, a.bookingId);
   if (!cap) return c.fail("Check the participant in first.");
-  if ((a.key === "specimens" || a.key === "labels") && cap.identity.some((x) => !x.confirmed)) return c.fail("Confirm identity with two identifiers before creating a specimen or labels.");
+  if ((a.key === "specimens" || a.key === "labels") && cap.identity.some((x) => !x.confirmed)) return c.fail("Confirm their identity first: name, date of birth and booking reference.");
   cap.checklist[a.key] = !cap.checklist[a.key];
   cap.rev++;
   return c.ok();

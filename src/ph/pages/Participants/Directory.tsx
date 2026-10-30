@@ -87,7 +87,7 @@ export default function DirectoryTab() {
   const setProgramme = (v: string) => nav.setParams(withParams(params, { programme: v === "all" ? null : v }));
 
   const reportCell = (r: DirectoryRow) => {
-    if (!r.episodeIds.length) return <span className="ph-faint">No episode yet</span>;
+    if (!r.episodeIds.length) return <span className="ph-faint">No screening yet</span>;
     const ep = I.episodeById.get(r.episodeIds[r.episodeIds.length - 1]);
     if (!ep) return null;
     return <LabAware state={state} ep={ep}><StatusPill s={clinicalViewer && canViewEpisodeClinical(state, ep.id) ? clinicalStatus(ep) : opsStatus(ep)} /></LabAware>;
@@ -130,7 +130,7 @@ export default function DirectoryTab() {
         <span className="ph-row-flex" style={{ gap: 6 }}>
           <Icon name={r.membership.contactPreference === "sms" ? "sms" : "mail"} size={13} style={{ color: "var(--faint)" }} />
           {r.membership.contactPreference === "sms" ? "SMS" : "Email"}
-          {failedFor(r.person.id) ? <Pill tone="bad" title="A message to this person failed delivery (simulated).">Failed</Pill> : null}
+          {failedFor(r.person.id) ? <Pill tone="bad" title="A message to this person failed delivery.">Failed</Pill> : null}
         </span>
       ),
     },
@@ -177,7 +177,7 @@ export default function DirectoryTab() {
         <div className="ph-split-even">
           <ByProgramme state={state} onPick={(pid, s) => nav.setParams(withParams(params, { programme: pid, stage: s === "all" ? null : s }))} />
           <Card>
-            <CardHeader title="Demonstration cases" sub="Named fictional people used in the walkthrough." right={<DemoTag>Fictional</DemoTag>} />
+            <CardHeader title="Demonstration cases" sub="People used in the walkthrough." right={<DemoTag>Fictional</DemoTag>} />
             {DEMO_CASES.map((c) => {
               const r = directory(state, { q: c.id })[0];
               if (!r) return null;
@@ -285,7 +285,7 @@ export function PersonDrawer({ personId, onClose }: { personId: Id; onClose: () 
       onClose={onClose}
       width={600}
       title={name}
-      sub={<>{person.id}, {prog.name}. Synthetic record: name, email and employer are never identity keys.</>}
+      sub={<>{person.id}, {prog.name}. Matched by date of birth and Precision ID, never by name or email.</>}
       footer={
         <>
           <Button icon="user" onClick={() => nav.openPortal(person.id)} title="Opens the separate participant portal preview as this person. The demo acts as the participant while it is open.">Open portal preview</Button>

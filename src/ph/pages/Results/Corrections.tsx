@@ -102,7 +102,7 @@ function CorrectionsWorkspace() {
             <Card pad={false}>
               <div ref={ref} style={{ padding: "14px 16px 10px" }}>
                 <CardHeader title="Released reports" sub="Most recently released first. Choose one to see its versions or start a correction."
-                  right={<SearchBox value={q} onChange={setQ} placeholder="Name or Unique ID" width={200} />} />
+                  right={<SearchBox value={q} onChange={setQ} placeholder="Name or Precision ID" width={200} />} />
                 <div className="phr-row">
                   <Chip on={f === "all"} onClick={() => setF("all")} count={counts.all}>All released</Chip>
                   <Chip on={f === "corrected"} onClick={() => setF("corrected")} count={counts.corrected}>Corrected</Chip>

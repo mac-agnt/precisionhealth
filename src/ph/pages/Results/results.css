@@ -46,6 +46,8 @@
 
 /* selectable lists (review queue, batch list, version list) */
 .phr-list { display: flex; flex-direction: column; gap: 2px; }
+.phr-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+@media (max-width: 600px) { .phr-chips { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; } .phr-chips > * { flex: none; } }
 .phr-item { display: block; width: 100%; text-align: left; padding: 8px 10px; border-radius: 10px; border: 1px solid transparent; background: none; color: inherit; font: inherit; cursor: pointer; transition: background .15s var(--ease), border-color .15s var(--ease); }
 .phr-item:hover { background: var(--surface-2); }
 .phr-item[aria-current="true"] { background: var(--accent-faint); border-color: var(--accent-line); }

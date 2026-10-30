@@ -59,7 +59,7 @@ function refreshBatchNote(c: Ctx, batchId: string): void {
   const left = c.s.importRows.filter((r) => r.batchId === batchId && r.state === "quarantined").length;
   const head = batch.note.replace(/\s*(\w+ rows? needs? explicit identity resolution\.|Every held row was resolved[^.]*\.)$/, "");
   batch.status = left ? "partial" : "complete";
-  batch.note = `${head} ${left ? `${WORDS[left] || left} ${left === 1 ? "row needs" : "rows need"} explicit identity resolution.` : "Every held row was resolved by a person with a documented two-identifier check."}`.trim();
+  batch.note = `${head} ${left ? `${WORDS[left] || left} ${left === 1 ? "row needs" : "rows need"} explicit identity resolution.` : "Every held row was matched by a person who checked name, date of birth and Precision ID."}`.trim();
 }
 
 handlers["import/resolveRow"] = (c, a: { rowId: string; episodeId: string; checks: string[]; reason: string }) => {
@@ -68,7 +68,7 @@ handlers["import/resolveRow"] = (c, a: { rowId: string; episodeId: string; check
   if (at < 0 || c.s.importRows[at].state !== "quarantined") return c.fail("This row is not held for review. It was already resolved.");
   // Rows are shared with the previous state: change a copy (see workingCopy in reducer.ts).
   const row: ImportRow = { ...c.s.importRows[at] };
-  if (!a.checks || !a.checks.includes("specimen") || !a.checks.includes("dob")) return c.fail("Confirm two identifiers: the specimen identifier and the date of birth from the collection record.");
+  if (!a.checks || !a.checks.includes("specimen") || !a.checks.includes("dob")) return c.fail("Confirm the three identifiers: name, date of birth and Precision ID.");
   if (!(a.reason || "").trim() || a.reason.trim().length < 8) return c.fail("Record a reason for the resolution, at least a short sentence.");
   const held = episodeHeldByRow(c.s, row.id);
   if (!held) return c.fail("No held episode is linked to this row.");
@@ -99,10 +99,10 @@ handlers["import/resolveRow"] = (c, a: { rowId: string; episodeId: string; check
   refreshBatchNote(c, row.batchId);
   const person = c.personName(held.personId);
   c.emit({
-    verb: "import.resolved", summary: `${c.first()} resolved the identity exception for row ${row.id} (${held.id}, ${person}) with a documented two-identifier check. Row committed once.`,
+    verb: "import.resolved", summary: `${c.first()} matched lab row ${row.id} to ${person} (${held.id}) after checking name, date of birth and Precision ID. Added once.`,
     entity: { kind: "row", id: row.id }, programmeId: held.programmeId, personId: held.personId, storyId: "ST-01", integrationId: "eurofins", simulated: true,
   });
-  return c.ok(`Row committed once. ${held.id} is now ${held.reportState === "ready_for_review" ? "ready for review" : "awaiting its remaining results"}.`, "ok", held.id);
+  return c.ok(`Row matched and added once. ${held.id} is now ${held.reportState === "ready_for_review" ? "ready for review" : "awaiting its remaining results"}.`, "ok", held.id);
 };
 
 handlers["import/confirmUnit"] = (c, a: { episodeId: string; reason: string }) => {
@@ -210,7 +210,7 @@ handlers["import/deliverSampleResults"] = (c, a: { episodeId: string }) => {
   const allIn = expectedTests(c.s, ep).every((t) => t.status === "received");
   c.s.specimens.filter((x) => x.episodeId === ep.id).forEach((x) => { x.status = allIn ? "resulted" : "received"; });
   c.emit({
-    verb: "import.processed", actor: { kind: "system", id: "system", label: "Eurofins import (simulated)" },
+    verb: "import.processed", actor: { kind: "system", id: "system", label: "Eurofins import" },
     summary: `Simulated Eurofins batch ${batchId} processed for ${ep.id}: ${pending.length} observation rows imported, loaded by ${c.first()}. ${ready ? "The episode is ready for clinician review. Nothing was released." : "Some expected results are still outstanding."}`,
     entity: { kind: "batch", id: batchId }, programmeId: ep.programmeId, personId: ep.personId, integrationId: "eurofins", simulated: true,
   });
@@ -277,7 +277,7 @@ function doRelease(c: Ctx, ep: Episode, draft: ReportVersion, mode: "routine" | 
   });
   c.inv();
   c.emit({ verb: "report.released", summary: `${c.first()} released report ${ep.id} v${draft.version}${prev ? " (correction). v" + prev.version + " superseded" : ""}.`, entity: { kind: "report", id: draft.id }, programmeId: ep.programmeId, personId: ep.personId, storyId: prev ? null : "ST-02" });
-  c.emit({ verb: "notice.queued", summary: `Report availability notice for ${ep.id} v${draft.version} sent by ${channel === "sms" ? "SMS" : "email"} (simulated). The message contains no results.`, entity: { kind: "message", id: `MSG-${pad(n, 5)}` }, programmeId: ep.programmeId, personId: ep.personId, integrationId: channel === "sms" ? "esendex" : "email", simulated: true });
+  c.emit({ verb: "notice.queued", summary: `Report availability notice for ${ep.id} v${draft.version} sent by ${channel === "sms" ? "SMS" : "email"}. The message contains no results.`, entity: { kind: "message", id: `MSG-${pad(n, 5)}` }, programmeId: ep.programmeId, personId: ep.personId, integrationId: channel === "sms" ? "esendex" : "email", simulated: true });
 }
 
 handlers["review/setAdvice"] = (c, a: { episodeId: string; text: string }) => {
@@ -482,8 +482,8 @@ handlers["reminder/retry"] = (c, a: { messageId: string }) => {
   if (m.status !== "failed") return c.fail("This reminder is not failed. A retry was already made.");
   m.attempts.push({ at: c.stamp(), outcome: "delivered", reason: null, auto: false });
   m.status = "delivered";
-  c.emit({ verb: "reminder.retried", summary: `${c.first()} retried reminder ${m.logicalId} to the verified ${m.channel === "sms" ? "mobile" : "email"} destination. Delivered (simulated). Logical reminders stay at ${c.s.messages.filter((x) => x.kind === "reminder" && x.cohort === m.cohort && x.status !== "cancelled").length}.`, entity: { kind: "message", id: m.id }, personId: m.personId, storyId: "ST-05", integrationId: m.provider === "Esendex" ? "esendex" : "email", simulated: true });
-  return c.ok("Retry delivered (simulated). One logical reminder moved from failed to delivered and the attempt was added to its history.", "ok");
+  c.emit({ verb: "reminder.retried", summary: `${c.first()} retried reminder ${m.logicalId} to the verified ${m.channel === "sms" ? "mobile" : "email"} destination. Delivered. Reminders stay at ${c.s.messages.filter((x) => x.kind === "reminder" && x.cohort === m.cohort && x.status !== "cancelled").length}.`, entity: { kind: "message", id: m.id }, personId: m.personId, storyId: "ST-05", integrationId: m.provider === "Esendex" ? "esendex" : "email", simulated: true });
+  return c.ok("Retry delivered. One reminder moved from failed to delivered and the attempt was added to its history.", "ok");
 };
 
 /* ---- data quality ---- */

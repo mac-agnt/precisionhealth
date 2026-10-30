@@ -130,7 +130,7 @@ function ContentEditor({ state, programmeId }: { state: PhState; programmeId: Pr
                 <input type="radio" name="pa-delivery" checked={f.reportDelivery === m} disabled={ro} onChange={() => set("reportDelivery", m)} />
                 <span>
                   <span style={{ color: "var(--ink)", fontWeight: 500 }}>{DELIVERY_MODE_LABEL[m]}</span>
-                  <span className="ph-faint" style={{ display: "block", fontSize: 11.5 }}>{m === "portal" ? "The report appears in My results once a doctor releases it." : "As today: an encrypted PDF by email, with the access code by SMS through Esendex (simulated)."}</span>
+                  <span className="ph-faint" style={{ display: "block", fontSize: 11.5 }}>{m === "portal" ? "The report appears in My results once a doctor releases it." : "As today: an encrypted PDF by email, with the access code by SMS through Esendex."}</span>
                 </span>
               </label>
             ))}

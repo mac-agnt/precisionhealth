@@ -105,7 +105,29 @@ export function refLabel(state: PhState, r: EntityRef): string {
     case "template": return state.forms.templates.find((t) => t.id === r.id)?.name || r.id;
     case "company": return state.companies.find((c) => c.id === r.id)?.name || r.id;
     case "system": return INTEGRATIONS.find((x) => x.id === r.id)?.name || r.id;
-    case "batch": return r.id;
+    case "batch": {
+      const b = state.batches.find((x) => x.id === r.id);
+      return b ? `${b.lab} lab results, ${fmtDayMonth(b.receivedAt.slice(0, 10))}` : "Lab results";
+    }
+    case "row": return "Lab result row";
+    case "followup": {
+      const f = state.followUps.find((x) => x.id === r.id);
+      const p = f ? I.personById.get(f.personId) : undefined;
+      return p ? `Follow up: ${p.given} ${p.family}` : "Follow up";
+    }
+    case "episode": case "report": {
+      const e = state.episodes.find((x) => x.id === r.id.replace(/-v\d+$/, ""));
+      const p = e ? I.personById.get(e.personId) : undefined;
+      return p ? `Report: ${p.given} ${p.family}` : "Report";
+    }
+    case "booking": {
+      const b = state.bookings.find((x) => x.id === r.id);
+      const p = b ? I.personById.get(b.personId) : undefined;
+      return p ? `Booking: ${p.given} ${p.family}` : "Booking";
+    }
+    case "approval": return state.approvals.find((x) => x.id === r.id)?.title || "Approval";
+    case "employer_report": { const e = state.employerReports.find((x) => x.id === r.id); return e ? `Employer report, ${PROGRAMME_BY_ID[e.programmeId].clientName}` : "Employer report"; }
+    case "task": return state.tasks.find((x) => x.id === r.id)?.title || "Task";
     default: return r.id;
   }
 }
@@ -125,7 +147,7 @@ export function TaskStatusPill({ tv }: { tv: TaskView }) {
   if (tv.status === "done") return <Pill tone="ok">Done</Pill>;
   if (tv.status === "blocked") return <Pill tone="warn" icon="lock" title={tv.blockReason || undefined}>Blocked</Pill>;
   if (tv.overdue) return <Pill tone="bad" icon="alert">Overdue</Pill>;
-  return <Pill tone="info" icon="clock">Open</Pill>;
+  return <Pill tone="info" icon="clock">To do</Pill>;
 }
 
 /** "due in 45m" or "2h overdue", relative to the demo clock. */

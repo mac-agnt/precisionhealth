@@ -1,5 +1,5 @@
-/* Meddbase sessions: OH clinician diaries as in Meddbase, with Pulse's readiness check per slot
-   (questionnaire received or not). Meddbase stays the system of record for occupational health. */
+/* MediBase sessions: OH clinician diaries as in MediBase, with Pulse's readiness check per slot
+   (questionnaire received or not). MediBase stays the system of record for occupational health. */
 import { act, fmtWeekdayDate, ohDiarySlots, ohDiaryStats } from "../../model";
 import type { OhSlotView } from "../../model";
 import { dispatch, usePhState } from "../../store";
@@ -16,15 +16,15 @@ export default function Sessions() {
   const diaries = state.occHealth.diaries;
   const d = diaries.find((x) => x.id === nav.params.diary) || diaries[0];
   const dis = { disabled: !manage, title: manage ? undefined : VIEW_ONLY_TITLE };
-  if (!d) return <div className="ph-page"><PageHeader title="Meddbase sessions" /></div>;
+  if (!d) return <div className="ph-page"><PageHeader title="MediBase sessions" /></div>;
   const st = ohDiaryStats(state, d);
   const client = state.occHealth.clients.find((c) => c.id === d.clientId);
   const cols: Column<OhSlotView>[] = [
     { key: "t", header: "Time", cell: (v) => <span className="ph-num">{v.slot.start}</span> },
-    { key: "e", header: "Employee (fictional)", cell: (v) => v.slot.employee ? <span>{v.slot.employee.name} <span className="ph-faint">{v.slot.employee.ref}</span></span> : <span className="ph-faint">{v.slot.appointmentType}</span> },
+    { key: "e", header: "Employee", cell: (v) => v.slot.employee ? <span>{v.slot.employee.name} <span className="ph-faint">{v.slot.employee.ref}</span></span> : <span className="ph-faint">{v.slot.appointmentType}</span> },
     { key: "a", header: "Appointment", cell: (v) => v.slot.kind === "booked" ? v.slot.appointmentType : "" },
     { key: "q", header: "Questionnaire received", cell: (v) => v.slot.kind === "booked" ? <ReceivedPill received={v.received} chased={!!v.slot.chasedAt} /> : null },
-    { key: "m", header: "In Meddbase", cell: (v) => v.submission ? <MeddbasePill sent={v.inMeddbase} /> : null },
+    { key: "m", header: "In MediBase", cell: (v) => v.submission ? <MeddbasePill sent={v.inMeddbase} /> : null },
     { key: "x", header: <span className="ph-faint">Action</span>, align: "right", cell: (v) => {
       if (v.slot.kind !== "booked") return null;
       if (!v.received) return (
@@ -33,15 +33,15 @@ export default function Sessions() {
           <Button size="sm" {...dis} onClick={() => dispatch(ohAct.simulateQuestionnaire(v.slot.id))}>Simulate receipt</Button>
         </span>
       );
-      if (!v.inMeddbase && v.submission) return <Button size="sm" icon="send" {...dis} onClick={() => dispatch(ohAct.sendToMeddbase([v.submission!.id]))}>Send to Meddbase</Button>;
+      if (!v.inMeddbase && v.submission) return <Button size="sm" icon="send" {...dis} onClick={() => dispatch(ohAct.sendToMeddbase([v.submission!.id]))}>Send to MediBase</Button>;
       return null;
     } },
   ];
   return (
     <div className="ph-page">
-      <PageHeader eyebrow="Occupational health" title="Meddbase sessions"
-        sub="OH clinician diaries as they appear in Meddbase, with Pulse's readiness check: is each employee's questionnaire in before they are seen. Meddbase stays the system of record."
-        actions={<Button icon="link" onClick={() => dispatch(act.toast("info", `Simulated: this would open ${d.meddbaseRef} in Meddbase. Meddbase is not connected in the demo.`))}>Open in Meddbase (Simulated)</Button>} />
+      <PageHeader eyebrow="Occupational health" title="MediBase sessions"
+        sub="OH clinician diaries as they appear in MediBase, with Pulse's readiness check: is each employee's questionnaire in before they are seen. MediBase stays the system of record."
+        actions={<Button icon="link" onClick={() => dispatch(act.toast("info", `Simulated: this would open ${d.meddbaseRef} in MediBase. MediBase is not connected in the demo.`))}>Open in MediBase</Button>} />
       <div className="ph-stack">
         <div className="oh-toolbar">
           {diaries.map((x) => <Chip key={x.id} on={x.id === d.id} onClick={() => nav.setParams({ diary: x.id })}>{x.clinicianName}, {fmtWeekdayDate(x.date)}</Chip>)}
@@ -52,10 +52,10 @@ export default function Sessions() {
             <Kpi label="Booked" value={st.booked} sub={`of ${st.slots} slots, ${st.free} free`} />
             <Kpi label="Questionnaires in" value={st.received} sub={`of ${st.booked} booked`} tone="ok" />
             <Kpi label="Missing" value={st.missing} sub={`${st.chased} chased`} tone={st.missing ? "warn" : "ok"} />
-            <Kpi label="In Meddbase" value={st.inMeddbase} sub={`of ${st.received} received, Simulated`} />
+            <Kpi label="In MediBase" value={st.inMeddbase} sub={`of ${st.received} received`} />
           </KpiStrip>
         </Card>
-        <OhNote>Chasing and sending are Simulated: no email, SMS or Meddbase call is made. <DemoTag>Simulated</DemoTag></OhNote>
+        <OhNote>Chasing and sending are Simulated: no email, SMS or MediBase call is made. <DemoTag>Simulated</DemoTag></OhNote>
         <Card pad={false}>
           <DataTable rows={ohDiarySlots(state, d)} columns={cols} rowKey={(v) => v.slot.id} pageSize={40} caption="Diary slots" />
         </Card>

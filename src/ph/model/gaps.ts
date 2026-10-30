@@ -228,13 +228,13 @@ export function initialGapsState(): GapsState {
     { id: "EXP-0002", kind: "subsistence", staffId: "ian", date: "2026-09-30", clientLocation: "ABP, Cahir site canteen", target: null, meals: ["lunch"], amount: 18, nights: 0, area: "",
       note: "", status: "pending", requestedAt: "2026-09-30T15:40:00.000Z", requestedBy: "ian", decidedAt: null, decidedBy: null, decisionNote: "", hotel: null, bookingRef: null },
     { id: "EXP-0003", kind: "hotel", staffId: "liz", date: "2026-10-27", clientLocation: "ABP, Cahir, Co. Tipperary", target: { kind: "board", id: "BRD-0004" }, meals: [], amount: 0, nights: 1, area: "Near Cahir, Co. Tipperary",
-      note: "Executive assessments start at 08:00 on 28 Oct.", status: "booked", requestedAt: "2026-10-01T11:00:00.000Z", requestedBy: "liz", decidedAt: "2026-10-01T14:30:00.000Z", decidedBy: "stephen", decisionNote: "", hotel: "Galtee View Hotel, Cahir (fictional)", bookingRef: "HB-26-0412" },
+      note: "Executive assessments start at 08:00 on 28 Oct.", status: "booked", requestedAt: "2026-10-01T11:00:00.000Z", requestedBy: "liz", decidedAt: "2026-10-01T14:30:00.000Z", decidedBy: "stephen", decisionNote: "", hotel: "Galtee View Hotel, Cahir", bookingRef: "HB-26-0412" },
     { id: "EXP-0004", kind: "hotel", staffId: "anita", date: "2026-11-10", clientLocation: "Dornan Group, Cork", target: { kind: "board", id: "BRD-0006" }, meals: [], amount: 0, nights: 2, area: "Cork city, then Limerick",
       note: "Cork on 10 Nov and Limerick on 11 Nov, first appointment 08:30 both days.", status: "pending", requestedAt: "2026-10-02T16:10:00.000Z", requestedBy: "anita", decidedAt: null, decidedBy: null, decisionNote: "", hotel: null, bookingRef: null },
   ];
   const fluContacts: FluContact[] = [
     { id: "FC-0001", company: "Irish Life Health", name: "Corporate wellness bookings team", role: "Partner bookings (confidential)", email: "flu.bookings@example.com", phone: "01 555 0190", note: "Send weekly projected numbers by Thursday noon.", updatedAt: SEED, updatedBy: "system" },
-    { id: "FC-0002", company: "Corrib Pharma Distribution (fictional)", name: "Orla Feeney", role: "Account manager", email: "orla.feeney@example.com", phone: "091 555 0133", note: "Vaccine orders and delivery dates. Ask for batch numbers on dispatch.", updatedAt: SEED, updatedBy: "system" },
+    { id: "FC-0002", company: "Corrib Pharma Distribution", name: "Orla Feeney", role: "Account manager", email: "orla.feeney@example.com", phone: "091 555 0133", note: "Vaccine orders and delivery dates. Ask for batch numbers on dispatch.", updatedAt: SEED, updatedBy: "system" },
     { id: "FC-0003", company: "Lough Ree Credit Union", name: "Pádraig Kenny", role: "HR officer", email: "padraig.kenny@example.com", phone: "090 555 0108", note: "Prefers mornings. Room by the staff canteen.", updatedAt: SEED, updatedBy: "system" },
     { id: "FC-0004", company: "Moyvalley Foods", name: "Sorcha Dunne", role: "Health and safety lead", email: "sorcha.dunne@example.com", phone: "045 555 0162", note: "Shift workers: two clinics, 07:30 and 14:00.", updatedAt: SEED, updatedBy: "system" },
   ];

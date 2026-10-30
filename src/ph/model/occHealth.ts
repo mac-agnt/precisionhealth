@@ -1,13 +1,13 @@
-/* Occupational health: client onboarding, agreements, Meddbase set-up, pre-appointment
-   questionnaires and Meddbase clinician diaries (RECORDING.md section 6).
+/* Occupational health: client onboarding, agreements, MediBase set-up, pre-appointment
+   questionnaires and MediBase clinician diaries (RECORDING.md section 6).
 
    The "Complete onboarding occ health" Monday.com board is rebuilt here: one row per OH client and
    one step per owner (Aidan adds the client to Xero, Fiona's SLA and DSA go out through DocuSign,
-   Stephen sets up the recurring invoice, Sinead sets up Meddbase). A client is fully completed only
+   Stephen sets up the recurring invoice, Sinead sets up MediBase). A client is fully completed only
    when every step is done. Aidan and Sinead are named owners in this slice, not Pulse users.
 
-   Meddbase stays the system of record for occupational health. Pulse shows readiness: which
-   employees have returned their questionnaire before their slot. Every push to Meddbase, DocuSign,
+   MediBase stays the system of record for occupational health. Pulse shows readiness: which
+   employees have returned their questionnaire before their slot. Every push to MediBase, DocuSign,
    Xero or Jotform is simulated. Client names are business references used as demo labels; every
    contact, employee, fee, invoice and registration number is fictional.
 
@@ -37,8 +37,8 @@ export interface OhOwnerDef {
 export const OH_STEPS: OhOwnerDef[] = [
   { step: "xero", owner: "Aidan", column: "Added to Xero", doneMeans: "Client added as a contact in Xero with the billing details from the form.", staffId: null, system: "xero" },
   { step: "agreements", owner: "Fiona", column: "SLA and DSA", doneMeans: "Service level agreement and data sharing agreement generated, sent via DocuSign and signed.", staffId: "fiona", system: "docusign" },
-  { step: "recurring_invoice", owner: "Stephen", column: "Recurring invoice", doneMeans: "Yearly Meddbase fee set up as a recurring invoice in Xero, first invoice raised.", staffId: "stephen", system: "xero" },
-  { step: "meddbase", owner: "Sinead", column: "Meddbase set-up", doneMeans: "Client account, users and services set up in Meddbase, so employees can be booked and referred.", staffId: null, system: "meddbase" },
+  { step: "recurring_invoice", owner: "Stephen", column: "Recurring invoice", doneMeans: "Yearly MediBase fee set up as a recurring invoice in Xero, first invoice raised.", staffId: "stephen", system: "xero" },
+  { step: "meddbase", owner: "Sinead", column: "MediBase set-up", doneMeans: "Client account, users and services set up in MediBase, so employees can be booked and referred.", staffId: null, system: "meddbase" },
 ];
 export const OH_STEP_BY_ID: Record<OhStepId, OhOwnerDef> = Object.fromEntries(OH_STEPS.map((s) => [s.step, s])) as Record<OhStepId, OhOwnerDef>;
 
@@ -105,7 +105,7 @@ export function ohFormErrors(f: OhOnboardingForm): Partial<Record<keyof OhOnboar
   }
   if (f.contactEmail.trim() && !OH_EMAIL_RE.test(f.contactEmail.trim())) e.contactEmail = "Enter a valid email address.";
   if (f.billingEmail.trim() && !OH_EMAIL_RE.test(f.billingEmail.trim())) e.billingEmail = "Enter a valid email address.";
-  if (!Number.isFinite(f.meddbaseUsers) || f.meddbaseUsers < 1 || f.meddbaseUsers > 50) e.meddbaseUsers = "Between 1 and 50 Meddbase users.";
+  if (!Number.isFinite(f.meddbaseUsers) || f.meddbaseUsers < 1 || f.meddbaseUsers > 50) e.meddbaseUsers = "Between 1 and 50 MediBase users.";
   if (!f.services.length) e.services = "Choose at least one service.";
   if (f.poRequired && !f.poNumber.trim()) e.poNumber = "Add the purchase order number, or untick purchase order required.";
   return e;
@@ -121,7 +121,7 @@ export function ohBlankForm(): OhOnboardingForm {
 /** Sample answers for the preview: a fictional aviation business, as in Stephen's example lead. */
 export function ohSampleForm(): OhOnboardingForm {
   return {
-    companyName: "Corrib Aviation Services (fictional)", registeredName: "Corrib Aviation Services Limited (fictional)", croNumber: "700412 (demo)",
+    companyName: "Corrib Aviation Services", registeredName: "Corrib Aviation Services Limited", croNumber: "700412 (demo)",
     registeredAddress: "Demo address, Shannon, Co. Clare", contactName: "Nessa Farrell", contactRole: "HR Manager", contactEmail: "nessa.farrell@example.com",
     contactPhone: "+353 61 555 0142", meddbaseUsers: 3, sites: "Shannon hangar and crew base", services: ["Pre-employment medicals", "Drug and alcohol testing", "Psychological assessment"],
     referralManagers: "Nessa Farrell, Owen Kehoe", meddbaseNotes: "Flight crew recruitment: pre-employment medicals, drug testing and psychological testing.",
@@ -129,7 +129,7 @@ export function ohSampleForm(): OhOnboardingForm {
   };
 }
 
-/** Yearly Meddbase account fee by number of users. Demo figures, not Precision Health's price list. */
+/** Yearly MediBase account fee by number of users. Demo figures, not Precision Health's price list. */
 export function ohMeddbaseFee(users: number): number {
   return users <= 3 ? 450 : users <= 6 ? 600 : users <= 10 ? 750 : 900;
 }
@@ -165,7 +165,7 @@ export type OhGroup = "onboarding" | "fully_completed";
 export const ohStepsDone = (c: OhClient) => OH_STEPS.filter((s) => c.steps[s.step].status === "done").length;
 export const ohIsFullyCompleted = (c: OhClient) => OH_STEPS.every((s) => c.steps[s.step].status === "done");
 export const ohGroupOf = (c: OhClient): OhGroup => (ohIsFullyCompleted(c) ? "fully_completed" : "onboarding");
-/** Employees can only be sent questionnaires once Meddbase is set up for the client. */
+/** Employees can only be sent questionnaires once MediBase is set up for the client. */
 export const ohMeddbaseReady = (c: OhClient) => c.steps.meddbase.status === "done";
 
 /* ---------- agreements ---------- */
@@ -272,14 +272,14 @@ export interface OhSubmission {
   templateId: string;
   employee: OhEmployee;
   submittedAt: Iso;
-  /** Meddbase diary slot this questionnaire is for, if the appointment is booked. */
+  /** MediBase diary slot this questionnaire is for, if the appointment is booked. */
   slotId: string | null;
   meddbase: { status: "not_sent" | "sent"; at: Iso | null; by: string | null; ref: string | null };
   /** True when created by the "simulate the employee submitting it" action. */
   simulated: boolean;
 }
 
-/* ---------- Meddbase diaries ---------- */
+/* ---------- MediBase diaries ---------- */
 export interface OhSlot {
   id: string; // MDB-D1-0730
   start: Hhmm;
@@ -323,7 +323,7 @@ export const OH_AGREEMENT_SHORT: Record<OhAgreementKind, string> = { sla: "SLA",
 export const OH_MERGE_LABELS: Record<string, string> = {
   clientName: "Client name", registeredName: "Registered name", croNumber: "Registration number", registeredAddress: "Registered address",
   contactName: "Contact", contactRole: "Contact role", contactEmail: "Contact email", services: "Services", sites: "Sites", referralManagers: "Referral managers",
-  meddbaseUsers: "Meddbase users", meddbaseFee: "Yearly Meddbase fee", invoiceFrequency: "Invoice frequency", billingContact: "Billing contact",
+  meddbaseUsers: "MediBase users", meddbaseFee: "Yearly MediBase fee", invoiceFrequency: "Invoice frequency", billingContact: "Billing contact",
   billingEmail: "Billing email", poLine: "Purchase order", effectiveDate: "Effective date", phLegalName: "Precision Health legal name",
   phCompanyNumber: "Precision Health company number", phAddress: "Precision Health address",
 };
@@ -334,14 +334,14 @@ const SLA_TEMPLATE: Array<{ heading: string; paragraphs: string[] }> = [
     "This Service Level Agreement is made on {{effectiveDate}} between {{phLegalName}}, trading as Precision Health, company number {{phCompanyNumber}}, of {{phAddress}} (\"Precision Health\"), and {{registeredName}}, company registration number {{croNumber}}, of {{registeredAddress}} (\"the Client\")."] },
   { heading: "2. Services", paragraphs: [
     "Precision Health will provide these occupational health services to the Client: {{services}}.",
-    "Services are delivered at {{sites}}, at Precision Health clinics or by video where suitable, and are recorded in Meddbase, the occupational health system Precision Health sets up for the Client with {{meddbaseUsers}} Client users."] },
+    "Services are delivered at {{sites}}, at Precision Health clinics or by video where suitable, and are recorded in MediBase, the occupational health system Precision Health sets up for the Client with {{meddbaseUsers}} Client users."] },
   { heading: "3. Contacts and referrals", paragraphs: [
-    "The Client's nominated contact is {{contactName}} ({{contactRole}}), {{contactEmail}}. Referral managers who may raise referrals in Meddbase: {{referralManagers}}.",
-    "Referrals are raised in Meddbase. Employees complete the pre-appointment questionnaire before they are seen."] },
+    "The Client's nominated contact is {{contactName}} ({{contactRole}}), {{contactEmail}}. Referral managers who may raise referrals in MediBase: {{referralManagers}}.",
+    "Referrals are raised in MediBase. Employees complete the pre-appointment questionnaire before they are seen."] },
   { heading: "4. Service levels", paragraphs: [
     "Response times for referrals, appointments and reports are set out in Schedule 1 of Precision Health's master agreement and are not changed by this document."] },
   { heading: "5. Fees and invoicing", paragraphs: [
-    "The yearly Meddbase account fee is {{meddbaseFee}}, invoiced {{invoiceFrequency}} by Precision Health through Xero. Service fees are as agreed in the proposal.",
+    "The yearly MediBase account fee is {{meddbaseFee}}, invoiced {{invoiceFrequency}} by Precision Health through Xero. Service fees are as agreed in the proposal.",
     "Billing contact: {{billingContact}}, {{billingEmail}}. {{poLine}}"] },
   { heading: "6. Term", paragraphs: [
     "This agreement starts on {{effectiveDate}} and continues for twelve months, then renews each year unless either party gives notice in writing."] },
@@ -355,7 +355,7 @@ const DSA_TEMPLATE: Array<{ heading: string; paragraphs: string[] }> = [
     "From the Client: employee name, date of birth, contact details, job role, work location and the reason for a referral.",
     "To the Client: fitness for work outcomes and recommended adjustments. Clinical detail is not shared with the Client unless the employee agrees."] },
   { heading: "4. Systems and access", paragraphs: [
-    "Occupational health records are held in Meddbase. Client access is limited to {{meddbaseUsers}} named Meddbase users, set up by Precision Health. Pre-appointment questionnaires are collected through Precision Health's forms and added to the employee's Meddbase record."] },
+    "Occupational health records are held in MediBase. Client access is limited to {{meddbaseUsers}} named MediBase users, set up by Precision Health. Pre-appointment questionnaires are collected through Precision Health's forms and added to the employee's MediBase record."] },
   { heading: "5. Roles, retention and security", paragraphs: [
     "Each party's role under data protection law, retention periods, security measures and breach notification are set out in Precision Health's master data sharing agreement and are not changed by this document."] },
   { heading: "6. Contacts", paragraphs: [
@@ -636,7 +636,7 @@ export function initialOccHealthState(): OccHealthState {
     if (v.status === "draft") { v.generatedAt = at("2026-10-02", a.kind === "sla" ? "16:20" : "16:22"); v.merged.effectiveDate = fmtDateLong("2026-10-02"); }
   }
 
-  /* Meddbase diaries: Ian Murtagh's day at a client site in the screening van, 07:30 to 16:30, 15-minute health surveillance slots. */
+  /* MediBase diaries: Ian Murtagh's day at a client site in the screening van, 07:30 to 16:30, 15-minute health surveillance slots. */
   const diaries: OhDiary[] = [
     buildDiary("MDB-D1", "MB-DIARY-24017", { name: "Ian Murtagh", role: "Wellness Advisor", staffId: "ian" }, DEMO_TODAY, "OHC-04", "Screening van at the client's project site",
       "07:30", "16:30", "12:00", [{ label: "Health surveillance: respiratory", templateId: "OHQ-RESP" }, { label: "Health surveillance: skin", templateId: "OHQ-SKIN" }], [6, 17, 27, 33], 0, "BMD"),

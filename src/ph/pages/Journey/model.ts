@@ -448,18 +448,18 @@ function stRetention(x: Ctx): Part {
   const facts: string[] = [];
   if (last) facts.push(`Results-out email sent ${fmtDate(last.sentAt)} to ${last.toName}, with the feedback form and invoice note`);
   if (item) facts.push(`${plural(item.newReports, "new report")} released since HR was last told`);
-  facts.push(x.onb?.xero.contactRef ? `Invoice raised in Xero (simulated), contact ${x.onb.xero.contactRef}` : "Invoice follows the results-out email (Xero, not connected in the demo)");
+  facts.push(x.onb?.xero.contactRef ? `Invoice raised in Xero, contact ${x.onb.xero.contactRef}` : "Invoice follows the results-out email (Xero, not connected in the demo)");
   const rem = x.recall ? retReminders(x.s).find((m) => m.recall.id === x.recall!.id) : undefined;
   if (x.recall) facts.push(rem ? (rem.emailId ? `Rebooking reminder sent` : `Rebooking reminder ${fmtDate(rem.dueOn)}, 3 months before ${fmtDate(x.recall.recallOn)}`) : `Anniversary ${fmtDate(x.recall.recallOn)}`);
   const open = go("Open Retention", { page: "Sales", tab: "recall" });
   const acts: JAction[] = [];
-  if (item) acts.push({ kind: "act", label: "Send results-out email (simulated)", action: { type: "ret/sendResultsOut", programmeId: p.id } });
+  if (item) acts.push({ kind: "act", label: "Send results-out email", action: { type: "ret/sendResultsOut", programmeId: p.id } });
   if (x.nextLead) {
     facts.push(`Next year: lead ${x.nextLead.id} is in the pipeline, back to stage 1`);
     return { status: "done", date: x.nextLead.receivedOn, facts, next: null, open: go("Open next year's lead", leadLink(x.nextLead)), actions: [go("Open next year's lead", leadLink(x.nextLead))] };
   }
   if (!c.released) return { status: "todo", date: null, facts, next: null, open, actions: acts };
-  if (rem && rem.state === "due") acts.push({ kind: "act", label: "Send rebooking reminder (simulated)", action: { type: "ret/sendRebooking", recallId: x.recall!.id } });
+  if (rem && rem.state === "due") acts.push({ kind: "act", label: "Send rebooking reminder", action: { type: "ret/sendRebooking", recallId: x.recall!.id } });
   if (x.recall && !item) acts.push({ kind: "act", label: "Start next year's screening", action: nextYearLeadAction(x.s, x.recall), who: "Stephen Kelly", openResult: "lead" });
   return { status: "progress", date: null, facts, next: item ? "Tell HR the results are out." : rem && !rem.emailId ? `Rebooking reminder goes ${fmtDate(rem.dueOn)}. Or start next year's screening now.` : "Plan next year's screening.", open, actions: acts };
 }

@@ -347,9 +347,9 @@ function build2025(): Pick<FluState, "clinics" | "orders" | "batches" | "wastage
   const rng = makeRng("flu-2025-archive");
   const clinics = seasonClinics(2025, FLU_WEEKS_2025, rng);
   const orders: FluOrder[] = [
-    { id: "FVO-25-01", season: 2025, supplier: "Corrib Pharma Distribution (fictional)", quantity: 2000, orderedOn: "2025-06-16", expectedOn: "2025-10-06", status: "delivered", deliveredOn: "2025-10-06", sampleBatch: null, note: "First allocation of the 2025 season." },
-    { id: "FVO-25-02", season: 2025, supplier: "Corrib Pharma Distribution (fictional)", quantity: 1500, orderedOn: "2025-06-16", expectedOn: "2025-10-27", status: "delivered", deliveredOn: "2025-10-29", sampleBatch: null, note: "Arrived two days late after the bank holiday." },
-    { id: "FVO-25-03", season: 2025, supplier: "Corrib Pharma Distribution (fictional)", quantity: 1500, orderedOn: "2025-09-08", expectedOn: "2025-11-07", status: "delivered", deliveredOn: "2025-11-07", sampleBatch: null, note: "Top-up order for November demand." },
+    { id: "FVO-25-01", season: 2025, supplier: "Corrib Pharma Distribution", quantity: 2000, orderedOn: "2025-06-16", expectedOn: "2025-10-06", status: "delivered", deliveredOn: "2025-10-06", sampleBatch: null, note: "First allocation of the 2025 season." },
+    { id: "FVO-25-02", season: 2025, supplier: "Corrib Pharma Distribution", quantity: 1500, orderedOn: "2025-06-16", expectedOn: "2025-10-27", status: "delivered", deliveredOn: "2025-10-29", sampleBatch: null, note: "Arrived two days late after the bank holiday." },
+    { id: "FVO-25-03", season: 2025, supplier: "Corrib Pharma Distribution", quantity: 1500, orderedOn: "2025-09-08", expectedOn: "2025-11-07", status: "delivered", deliveredOn: "2025-11-07", sampleBatch: null, note: "Top-up order for November demand." },
   ];
   const batches: FluBatch[] = [
     { id: "FB-25-01", season: 2025, orderId: "FVO-25-01", code: "5DE36D2", expiry: "05/26", quantity: 2000, receivedOn: "2025-10-06" },
@@ -402,9 +402,9 @@ function build2026(): Pick<FluState, "clinics" | "orders"> {
     preferredWeek: r.preferredWeek, batchId: null, coldChain: null, eodId: null, recordedBy: null, recordedAt: null,
   }));
   const orders: FluOrder[] = [
-    { id: "FVO-26-01", season: 2026, supplier: "Corrib Pharma Distribution (fictional)", quantity: 1200, orderedOn: "2026-06-15", expectedOn: "2026-10-07", status: "on_order", deliveredOn: null, sampleBatch: { code: "6AK21F3", expiry: "06/27" }, note: "First allocation. Supplier says no stock in the country before 7 Oct." },
-    { id: "FVO-26-02", season: 2026, supplier: "Corrib Pharma Distribution (fictional)", quantity: 2400, orderedOn: "2026-06-15", expectedOn: "2026-10-21", status: "on_order", deliveredOn: null, sampleBatch: { code: "6AM04D8", expiry: "06/27" }, note: "" },
-    { id: "FVO-26-03", season: 2026, supplier: "Corrib Pharma Distribution (fictional)", quantity: 2400, orderedOn: "2026-07-01", expectedOn: "2026-11-04", status: "on_order", deliveredOn: null, sampleBatch: { code: "6AP17C5", expiry: "07/27" }, note: "" },
+    { id: "FVO-26-01", season: 2026, supplier: "Corrib Pharma Distribution", quantity: 1200, orderedOn: "2026-06-15", expectedOn: "2026-10-07", status: "on_order", deliveredOn: null, sampleBatch: { code: "6AK21F3", expiry: "06/27" }, note: "First allocation. Supplier says no stock in the country before 7 Oct." },
+    { id: "FVO-26-02", season: 2026, supplier: "Corrib Pharma Distribution", quantity: 2400, orderedOn: "2026-06-15", expectedOn: "2026-10-21", status: "on_order", deliveredOn: null, sampleBatch: { code: "6AM04D8", expiry: "06/27" }, note: "" },
+    { id: "FVO-26-03", season: 2026, supplier: "Corrib Pharma Distribution", quantity: 2400, orderedOn: "2026-07-01", expectedOn: "2026-11-04", status: "on_order", deliveredOn: null, sampleBatch: { code: "6AP17C5", expiry: "07/27" }, note: "" },
     { id: "FVO-26-04", season: 2026, supplier: "Supplier to confirm", quantity: 600, orderedOn: "2026-09-30", expectedOn: "2026-11-16", status: "on_order", deliveredOn: null, sampleBatch: { code: "6AR02H1", expiry: "07/27" }, note: "For Precision's own clients once bookings open. Quantity to confirm." },
   ];
   return { clinics, orders };

@@ -712,7 +712,7 @@ try {
     const id = sub.id;
     check("oh step done on Aidan's behalf", oh({ type: "oh/completeStep", clientId: id, step: "xero" }).ok && O().clients[13].steps.xero.doneBy.includes("on Aidan's behalf"));
     check("oh step idempotent", !oh({ type: "oh/completeStep", clientId: id, step: "xero" }).ok);
-    check("oh Meddbase needs signed DSA", !oh({ type: "oh/completeStep", clientId: id, step: "meddbase" }).ok);
+    check("oh MediBase needs signed DSA", !oh({ type: "oh/completeStep", clientId: id, step: "meddbase" }).ok);
     check("oh agreements step not tickable before signing", !oh({ type: "oh/completeStep", clientId: id, step: "agreements" }).ok);
     check("oh generate both", oh({ type: "oh/generateAgreement", clientId: id, kind: "both" }).ok && M.ohAgreementsStage(o, id) === "generated");
     const doc = M.ohDocText(M.ohRenderAgreement(M.ohAgreementFor(o, id, "sla")));
@@ -723,8 +723,8 @@ try {
     check("oh signed kept", !oh({ type: "oh/generateAgreement", clientId: id, kind: "both" }).ok);
     oh(act.setPersona("stephen"));
     check("oh recurring invoice raises a simulated invoice", oh({ type: "oh/completeStep", clientId: id, step: "recurring_invoice" }).ok && O().clients[13].lastAnnualInvoice.simulated);
-    check("oh not fully completed until Meddbase", M.ohGroupOf(O().clients[13]) === "onboarding" && !O().clients[13].fullyCompletedAt);
-    check("oh Meddbase step completes client", oh({ type: "oh/completeStep", clientId: id, step: "meddbase" }).ok && M.ohGroupOf(O().clients[13]) === "fully_completed" && !!O().clients[13].fullyCompletedAt);
+    check("oh not fully completed until MediBase", M.ohGroupOf(O().clients[13]) === "onboarding" && !O().clients[13].fullyCompletedAt);
+    check("oh MediBase step completes client", oh({ type: "oh/completeStep", clientId: id, step: "meddbase" }).ok && M.ohGroupOf(O().clients[13]) === "fully_completed" && !!O().clients[13].fullyCompletedAt);
     check("oh invite link once", oh({ type: "oh/issueInviteLink", clientId: id }).ok && !oh({ type: "oh/issueInviteLink", clientId: id }).ok);
     const d1 = O().diaries[0];
     const miss = M.ohDiarySlots(o, d1).find((v) => v.slot.kind === "booked" && !v.received);
@@ -732,7 +732,7 @@ try {
     check("oh chase once", oh({ type: "oh/chaseQuestionnaire", slotId: miss.slot.id }).ok && !oh({ type: "oh/chaseQuestionnaire", slotId: miss.slot.id }).ok);
     check("oh simulated receipt", oh({ type: "oh/simulateQuestionnaire", slotId: miss.slot.id }).ok && M.ohDiaryStats(o, O().diaries[0]).received === before + 1);
     const unsent = O().submissions.filter((x) => x.meddbase.status !== "sent").map((x) => x.id);
-    check("oh send to Meddbase simulated", oh({ type: "oh/sendToMeddbase", submissionIds: unsent.slice(0, 3) }).ok && O().submissions.filter((x) => x.meddbase.status === "sent").length === 3 && !oh({ type: "oh/sendToMeddbase", submissionIds: unsent.slice(0, 3) }).ok);
+    check("oh send to MediBase simulated", oh({ type: "oh/sendToMeddbase", submissionIds: unsent.slice(0, 3) }).ok && O().submissions.filter((x) => x.meddbase.status === "sent").length === 3 && !oh({ type: "oh/sendToMeddbase", submissionIds: unsent.slice(0, 3) }).ok);
     check("oh events say Simulated", o.activity.filter((e) => e.verb.startsWith("oh.") && e.simulated).length >= 8 && o.activity.filter((e) => e.verb.startsWith("oh.")).every((e) => !/[!—]/.test(e.summary)));
     check("oh deterministic", JSON.stringify(createInitialState().occHealth) === JSON.stringify(createInitialState().occHealth));
   }
@@ -897,22 +897,36 @@ try {
     check("rr second superadmin publishes", run(RA.publish(fd.id)).ok && M.classify(T.ferr, R().versions, fem, 155, "2026-10-25").outcome === "normal" && M.classify(T.ferr, R().versions, fem, 155, "2026-10-19").outcome === "high_mild");
     check("rr cannot remove the last superadmin", run(RA.setSuperadmin("neil", false)).ok && !run(RA.setSuperadmin("liz", false)).ok && !R().settings.secondApprover);
     check("rr answer a question", run(RA.answerQuestion("Q-DATE", "Agreed: sample date.")).ok && R().questions["Q-DATE"].status === "answered");
-    run(act.setPersona("brenda"));
     {
-      const n = s.activity.length, persons = s.persons.length, obs = s.observations.length;
-      check("rr test run logged by any staff, nothing saved to a patient", run({ type: "rr/logTestRun", name: "Test Patient B", results: 16, flagged: 9, date: "2026-10-05", versions: ["RRV-TC-1"] }).ok
-        && s.activity.length === n + 1 && s.activity.at(-1).verb === "ranges.test_run" && s.activity.at(-1).simulated && s.persons.length === persons && s.observations.length === obs);
-      check("rr test run needs a result", !run({ type: "rr/logTestRun", name: "x", results: 0, flagged: 0, date: "2026-10-05", versions: [] }).ok);
-    }
-    {
+      /* Enter results (Health Screening): a doctor types lab results onto a real participant's screening. No new episode is created. */
+      const LA = M.labAct;
+      const ep0 = s.episodes.find((e) => e.id === "PH-E-1181");
+      const pend = M.expectedTests(s, ep0).filter((t) => t.status === "pending").map((t) => t.code);
+      run(act.setPersona("brenda"));
+      check("enter results is for the clinical team", !run(LA.enterValues("PH-E-1181", [{ code: "TC", valueText: "4.4" }])).ok);
       run(act.setPersona("neil"));
-      const ready = M.reviewStats(s).ready, eps = s.episodes.length;
-      const r = run({ type: "rr/createTestReport", personId: "PH-P-0501", date: "2026-10-05", measures: { heightM: 1.78, weightKg: 85, bpSys: 150, bpDia: 84 }, lab: { TC: 5.6, HDL: 1.1, LDL: 3.2 } });
-      const ep = s.episodes.find((e) => e.id === r.id);
-      check("rr test report lands in the review queue", r.ok && s.episodes.length === eps + 1 && ep && ep.reportState === "ready_for_review" && M.reviewStats(s).ready === ready + 1);
-      const obs = s.observations.filter((o) => o.episodeId === r.id);
-      eq("rr test report results banded by the ranges", obs.map((o) => [o.code, o.band, o.rangeVersion]), [["TC", "borderline", "RRV-TC-1"], ["HDL", "normal", "RRV-HDL-1"], ["LDL", "borderline", "RRV-LDL-1"]]);
-      check("rr test report needs a participant with a visit", !run({ type: "rr/createTestReport", personId: "nobody", date: "2026-10-05", measures: {}, lab: { TC: 5 } }).ok);
+      const eps = s.episodes.length, obsN = s.observations.length;
+      check("enter results needs a value", !run(LA.enterValues("PH-E-1181", [])).ok);
+      check("enter results rejects text it cannot read", !run(LA.enterValues("PH-E-1181", [{ code: "TC", valueText: "high" }])).ok && s.observations.length === obsN);
+      check("agents cannot enter results", !run({ ...LA.enterValues("PH-E-1181", [{ code: "TC", valueText: "4.4" }]), actor: { kind: "agent", label: "Lab Reconciliation" } }).ok);
+      const r1 = run(LA.enterValues("PH-E-1181", [{ code: "TC", valueText: "5.6" }, { code: "HDL", valueText: "1.1" }]));
+      const o1 = s.observations.filter((o) => o.episodeId === "PH-E-1181" && (o.code === "TC" || o.code === "HDL") && o.source.kind === "batch").map((o) => [o.code, o.band]);
+      check("enter results saves onto the real episode, banded", r1.ok && s.episodes.length === eps && JSON.stringify(o1) === JSON.stringify([["TC", "borderline"], ["HDL", "normal"]]), JSON.stringify([r1, o1]));
+      check("a saved value is not entered twice", !run(LA.enterValues("PH-E-1181", [{ code: "TC", valueText: "5.6" }])).ok);
+      const rest = M.expectedTests(s, s.episodes.find((e) => e.id === "PH-E-1181")).filter((t) => t.status === "pending").map((t) => ({ code: t.code, valueText: M.ANALYTES[t.code].qualitative ? "Negative" : "5" }));
+      const r2 = run(LA.enterValues("PH-E-1181", rest));
+      check("all results entered: ready for review in Results", pend.length > 2 && r2.ok && s.episodes.find((e) => e.id === "PH-E-1181").reportState === "ready_for_review" && M.reviewQueue(s).some((i) => i.episode.id === "PH-E-1181"));
+      check("entered results are logged with who", s.activity.some((x) => x.verb === "results.entered" && /Neil/.test(x.summary)));
+      check("released reports cannot be typed over", !run(LA.enterValues("PH-E-0201", [{ code: "TC", valueText: "4" }])).ok);
+      /* New screening, step 6: the summary agent drafts, only the reviewing doctor approves. */
+      const sum = M.screeningSummary(s, "PH-E-0201");
+      check("summary drafted from the banded results", !!sum && sum.text.length > 40 && sum.next.length > 0 && !sum.approved);
+      check("agents cannot approve a summary", !run({ ...M.summaryAct.approve("PH-E-0201"), actor: { kind: "agent", label: "Summary agent" } }).ok);
+      run(act.setPersona("brenda"));
+      check("operations cannot approve a summary", !run(M.summaryAct.approve("PH-E-0201")).ok);
+      run(act.setPersona("neil"));
+      check("doctor approves the summary once, logged with name", run(M.summaryAct.approve("PH-E-0201")).ok && M.screeningSummary(s, "PH-E-0201").approved && /Neil/.test(M.screeningSummary(s, "PH-E-0201").approved.by) && !run(M.summaryAct.approve("PH-E-0201")).ok);
+      check("approved summary visible once released", M.summaryVisible(s, "PH-E-0201"));
       s = createInitialState();
     }
     run(act.setPersona("participant"));

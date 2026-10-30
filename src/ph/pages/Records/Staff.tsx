@@ -87,7 +87,7 @@ export default function Staff() {
         eyebrow="Records"
         gated={false}
         title="Staff"
-        sub={`The ${s.staff.length} demonstration profiles taken from the public website. They are a demo roster, not the total headcount. Assignments and tasks are fictional.`}
+        sub={`The ${s.staff.length} demonstration profiles taken from the public website.`}
       />
       <div className="ph-stack">
         <div className="ph-card" style={{ display: "flex", alignItems: "center", gap: 14, padding: "14px 16px", borderStyle: "dashed" }}>
@@ -235,7 +235,6 @@ function StaffDetail({ x, state }: { x: StaffT; state: PhState }) {
             ))}
             {stories.map((sv) => (
               <li key={sv.def.id} className="phs-small">
-                <span className="ph-dim">{sv.def.id} </span>
                 <button type="button" className="ph-link" onClick={() => nav.go(sv.target)}>{sv.headline}</button>
                 <span className="ph-dim">{sv.open ? ", open" : ", resolved"}</span>
               </li>

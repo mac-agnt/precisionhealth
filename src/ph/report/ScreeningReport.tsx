@@ -148,7 +148,7 @@ export function ScreeningReport({ doc, draftAdvice, compact, coverOnly }: Screen
         <h1 style={{ fontSize: 24, fontWeight: 650, margin: "0 0 14px", textAlign: "center", color: INK, letterSpacing: "-0.01em" }}>{h.title}</h1>
         <table style={{ borderCollapse: "collapse", fontSize: 13.5, marginBottom: 16 }}>
           <tbody>
-            {([["Appointment Date", h.appointmentText], ["Name", h.name], ["Date of Birth", h.dobText], ["Unique ID", h.screeningRef], ["Programme", h.programme]] as const).map(([k, v]) => (
+            {([["Appointment Date", h.appointmentText], ["Name", h.name], ["Date of Birth", h.dobText], ["Precision ID", h.screeningRef], ["Programme", h.programme]] as const).map(([k, v]) => (
               <tr key={k}><td style={{ padding: "3px 28px 3px 0", color: DIM }}>{k}</td><td style={{ padding: "3px 0", fontWeight: 550 }}>{v}</td></tr>
             ))}
           </tbody>

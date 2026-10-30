@@ -92,7 +92,7 @@ registerHandlers({
     if (d.status !== "draft") return c.fail(d.status === "sent" ? "Already sent. Waiting for the signature." : "Already signed.");
     d.status = "sent"; d.sentAt = c.stamp();
     c.emit({ verb: "onboarding.doc_sent", summary: `${c.first()} sent the ${ONB_DOC_TITLE[a.doc]} to ${o.details.main.name} at ${label(o)} for signature. Simulated: nothing was emailed.`, entity: { kind: "onboarding", id: o.id, label: label(o) }, simulated: true, integrationId: "docusign" });
-    return c.ok(`Sent to ${o.details.main.name} for signature (simulated).`);
+    return c.ok(`Sent to ${o.details.main.name} for signature.`);
   },
 
   "onb/signDoc": (c, a: { id: string; doc: OnbDocKind }) => {
@@ -103,7 +103,7 @@ registerHandlers({
     if (d.status === "signed") return c.fail("Already signed.");
     d.status = "signed"; d.signedAt = c.stamp();
     c.emit({ verb: "onboarding.doc_signed", summary: `${label(o)} signed the ${ONB_DOC_TITLE[a.doc]}. Simulated signature.`, entity: { kind: "onboarding", id: o.id, label: label(o) }, simulated: true, integrationId: "docusign" });
-    return c.ok(`${ONB_DOC_TITLE[a.doc]} signed (simulated).`);
+    return c.ok(`${ONB_DOC_TITLE[a.doc]} signed.`);
   },
 
   "onb/route": (c, a: { id: string }) => {
@@ -175,7 +175,7 @@ registerHandlers({
     o.xero.createdAt = c.stamp();
     const codes = onbBillingCodes(o.kind, o.xero.billing).map((x) => x.code).join(", ");
     c.emit({ verb: "onboarding.xero_created", summary: `${c.first()} created ${label(o)} as a Xero contact (${o.xero.contactRef}) with billing codes ${codes}. Simulated: Xero is not connected.`, entity: { kind: "onboarding", id: o.id, label: label(o) }, simulated: true, integrationId: "xero" });
-    return c.ok(`Created in Xero (simulated): ${o.xero.contactRef}.`);
+    return c.ok(`Created in Xero: ${o.xero.contactRef}.`);
   },
 
   "onb/finish": (c, a: { id: string }) => {
@@ -190,10 +190,10 @@ registerHandlers({
     o.completedAt = c.stamp();
     if (o.leadId) {
       const lead = c.s.sales.leads.find((l) => l.id === o.leadId);
-      if (lead) lead.history.push({ at: c.stamp(), by: c.persona().name, text: `Onboarding ${o.id} finished. Welcome email sent (simulated).` });
+      if (lead) lead.history.push({ at: c.stamp(), by: c.persona().name, text: `Onboarding ${o.id} finished. Welcome email sent.` });
     }
     c.emit({ verb: "onboarding.finished", summary: `${label(o)} is onboarded. Welcome email sent to ${o.details.main.name}. Simulated: nothing was emailed.`, entity: { kind: "onboarding", id: o.id, label: label(o) }, simulated: true, integrationId: "email" });
-    return c.ok(`${label(o)} is onboarded. Welcome email sent (simulated).`);
+    return c.ok(`${label(o)} is onboarded. Welcome email sent.`);
   },
 
   /* ---------------- retention ---------------- */
@@ -207,7 +207,7 @@ registerHandlers({
     const id = newEmail(c, { template: "results_out", company: it.company, toName: it.contact.name, toEmail: it.contact.email, subject: r.subject, body: r.body, ref: it.programmeId });
     c.s.onboarding.releaseNotified[it.programmeId] = it.released;
     c.emit({ verb: "retention.results_out_sent", summary: `${c.first()} sent "Results are out" to ${it.contact.name} at ${it.company} (${it.released} reports released). Simulated: nothing was emailed.`, entity: { kind: "programme", id: it.programmeId }, programmeId: it.programmeId, simulated: true, integrationId: "email" });
-    return c.ok(`Sent to ${it.contact.name} (simulated).`, "ok", id);
+    return c.ok(`Sent to ${it.contact.name}.`, "ok", id);
   },
 
   "ret/sendRebooking": (c, a: { recallId: string }) => {
@@ -220,7 +220,7 @@ registerHandlers({
     const id = newEmail(c, { template: "rebooking", company: r.recall.company, toName: r.contact.name, toEmail: r.contact.email, subject: m.subject, body: m.body, ref: r.recall.id });
     c.s.onboarding.rebookSent[r.recall.id] = id;
     c.emit({ verb: "retention.rebooking_sent", summary: `${c.first()} sent the rebooking reminder to ${r.contact.name} at ${r.recall.company} (anniversary ${fmtDate(r.recall.recallOn)}). Simulated: nothing was emailed.`, simulated: true, integrationId: "email" });
-    return c.ok(`Reminder sent to ${r.contact.name} (simulated).`, "ok", id);
+    return c.ok(`Reminder sent to ${r.contact.name}.`, "ok", id);
   },
 
   "ret/contactLeft": (c, a: { company: string; replacement: RetContact | null }) => {

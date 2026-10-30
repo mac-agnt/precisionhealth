@@ -26,6 +26,7 @@ export * from "./portalAdmin";
 export * from "./onboarding";
 export * from "./scheduledActions";
 export * from "./portalsHub";
+export * from "./companyDirectory";
 export * from "./programmeRegistry";
 export * from "./rota";
 export { createInitialState } from "./fixtures";
@@ -39,3 +40,5 @@ export { portalAct } from "./actions/portalAdmin";
 /* Lab CSV import and the results integrity guard register their handlers when this module loads. */
 export * from "./labCsv";
 export { labAct, AGENT_RESULTS_RULE, RESULT_EDIT_ACTIONS, agentActor } from "./labCsvActions";
+/* The screening summary agent registers its approve handler when this module loads. */
+export * from "./screeningSummary";

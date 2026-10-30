@@ -156,8 +156,8 @@ function NurseApp({ nurseId, nurseName, nurseTitle, nurseTint, onPick, view, set
   const row = bookingId ? rows.find((r) => r.booking.id === bookingId) || null : null;
   const receiptEp = receiptFor ? ix(state).episodeById.get(ix(state).bookingById.get(receiptFor)?.episodeId || "") : undefined;
   const receipt = receiptEp && receiptFor !== bookingId ? (
-    <div style={{ position: "relative" }}>
-      <AutomationReceipt episode={receiptEp} onOpenTask={onOpenTask} />
+    <div className="np-receipt-wrap" style={{ position: "relative" }}>
+      <AutomationReceipt episode={receiptEp} onOpenTask={onOpenTask} onOpenEpisode={onOpenEpisode} />
       <button type="button" className="ph-btn ph-btn-ghost ph-btn-icon ph-btn-sm" style={{ position: "absolute", top: 10, right: 10 }} aria-label="Dismiss" onClick={() => setReceiptFor(null)}><Icon name="x" size={14} /></button>
     </div>
   ) : null;

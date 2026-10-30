@@ -121,7 +121,7 @@ try {
   check("brenda cannot mark won", !run(FA.markWon(LID)).ok);
   run(act.setPersona("stephen"));
   const w = run(FA.markWon(LID));
-  check("mark as won", w.ok && w.message === "Onboarding started for Brennan Build Group." && lead().stage === "won" && w.id === LID, w.message);
+  check("mark as won", w.ok && w.message === "Brennan Build Group is won. Choose Occupational Health or Wellness to start onboarding." && lead().stage === "won" && w.id === LID, w.message);
   check("proposal accepted on win", M.salesLatestVersion(P()).status === "accepted");
   const qw = M.salesFollowSequence(s, LID);
   check("sequence stops when won", qw.stopped === "won" && qw.next === null && qw.steps[3].status === "stopped" && M.salesNextFollowLabel(s, LID) === null);

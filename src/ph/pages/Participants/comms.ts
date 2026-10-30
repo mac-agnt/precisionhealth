@@ -1,5 +1,5 @@
 /* Communications selectors local to the Participants module. Counts come from the shared
-   message records: logical reminders and provider attempts are kept apart, and report access
+   message records: reminders and provider attempts are kept apart, and report access
    is read from the report version, never from a delivery receipt. */
 import { PROGRAMME_ORDER, fmtWeekdayDate, ix, memo, today } from "../../model";
 import type { Booking, Message, MessageKind, PhState, ProgrammeId, ReportVersion } from "../../model";
@@ -73,7 +73,7 @@ export function retriedReminders(state: PhState): Message[] {
   return state.messages.filter((m) => m.kind === "reminder" && m.cohort === c && m.status === "delivered" && m.attempts.some((a, i) => i > 0 && !a.auto));
 }
 
-/** Delivered and failed logical reminders per programme for a cohort date. */
+/** Delivered and failed reminders per programme for a cohort date. */
 export function cohortByProgramme(state: PhState, cohort?: string) {
   const c = cohort || today(state);
   return memo(state, "pd-cohort:" + c, () => {

@@ -1,7 +1,7 @@
 /* Occupational health actions, registered at import time through registerHandlers. Every handler
    is permission-checked (Stephen, Fiona, Martina and Brenda manage; clinical roles view; the
    participant preview has no access), idempotent (a repeated click fails and changes nothing) and
-   writes one activity event. Anything that would reach Jotform, DocuSign, Xero or Meddbase is
+   writes one activity event. Anything that would reach Jotform, DocuSign, Xero or MediBase is
    simulated and says so in the event text. */
 import {
   OH_AGREEMENT_SHORT, OH_MANAGERS, OH_QUESTIONNAIRE_BY_ID, OH_STEPS, OH_STEP_BY_ID, OH_TEMPLATE_VERSION, OH_EMAIL_RE,
@@ -100,7 +100,7 @@ const completeStep: Handler<{ clientId: string; step: OhStepId }> = (c, a) => {
   if (a.step === "recurring_invoice" && client.steps.xero.status !== "done") return c.fail(`Aidan adds ${client.name} to Xero first. The recurring invoice is set up on that Xero contact.`);
   if (a.step === "meddbase") {
     const dsa = ohAgreementFor(c.s, client.id, "dsa");
-    if (!dsa || ohCurrentVersion(dsa).status !== "signed") return c.fail(`The data sharing agreement must be signed before ${client.name}'s employee information goes into Meddbase.`);
+    if (!dsa || ohCurrentVersion(dsa).status !== "signed") return c.fail(`The data sharing agreement must be signed before ${client.name}'s employee information goes into MediBase.`);
   }
   st.status = "done";
   st.doneAt = c.now;
@@ -116,7 +116,7 @@ const completeStep: Handler<{ clientId: string; step: OhStepId }> = (c, a) => {
     xero: `${client.name} added to Xero (recorded in Pulse, Simulated: Xero not contacted).`,
     agreements: `SLA and DSA signed for ${client.name}.`,
     recurring_invoice: `recurring yearly invoice of ${ohFmtEur(client.meddbaseFeeEur)} set up for ${client.name}.${extra}`,
-    meddbase: `${client.name} set up in Meddbase with ${client.form.meddbaseUsers} user${client.form.meddbaseUsers === 1 ? "" : "s"} (recorded in Pulse, Simulated: Meddbase not contacted). The client's portal guides are now available.`,
+    meddbase: `${client.name} set up in MediBase with ${client.form.meddbaseUsers} user${client.form.meddbaseUsers === 1 ? "" : "s"} (recorded in Pulse, Simulated: MediBase not contacted). The client's portal guides are now available.`,
   };
   c.emit({ verb: "oh.step_done", integrationId: def.system, simulated: true, summary: `${def.owner}'s step "${def.column}" done by ${st.doneBy}: ${what[a.step]}` });
   const settled = settleClient(c, client);
@@ -145,7 +145,7 @@ const generateAgreement: Handler<{ clientId: string; kind: OhAgreementKind | "bo
       const cur = ohCurrentVersion(ag);
       if (cur.status === "signed") { skipped.push(OH_AGREEMENT_SHORT[kind]); continue; }
       const next = ag.versions.length + 1;
-      if (cur.status === "sent") { cur.status = "voided"; cur.note = `DocuSign envelope ${cur.envelopeId} voided (Simulated) and replaced by version ${next}.`; voided.push(OH_AGREEMENT_SHORT[kind]); }
+      if (cur.status === "sent") { cur.status = "voided"; cur.note = `DocuSign envelope ${cur.envelopeId} voided and replaced by version ${next}.`; voided.push(OH_AGREEMENT_SHORT[kind]); }
       else if (cur.status === "draft") { cur.status = "superseded"; cur.note = `Replaced by version ${next} before sending.`; }
     }
     ag.versions.push({ ...fresh, version: ag.versions.length + 1 });
@@ -155,7 +155,7 @@ const generateAgreement: Handler<{ clientId: string; kind: OhAgreementKind | "bo
   if (client.steps.agreements.status === "not_started") client.steps.agreements.status = "working";
   c.emit({
     verb: "oh.agreement_generated",
-    summary: `${c.first()} generated ${listText(made)} for ${client.name} from the master templates with the onboarding details merged in. Draft, not sent.${voided.length ? ` The earlier ${listText(voided)} DocuSign envelope was voided (Simulated).` : ""}${skipped.length ? ` ${listText(skipped)} already signed, left as it is.` : ""}`,
+    summary: `${c.first()} generated ${listText(made)} for ${client.name} from the master templates with the onboarding details merged in. Draft, not sent.${voided.length ? ` The earlier ${listText(voided)} DocuSign envelope was voided.` : ""}${skipped.length ? ` ${listText(skipped)} already signed, left as it is.` : ""}`,
   });
   return c.ok(`${listText(made)} generated for ${client.name}. Review the preview, then send for signature.`);
 };
@@ -183,7 +183,7 @@ const sendAgreement: Handler<{ clientId: string; kind: OhAgreementKind | "both" 
     verb: "oh.agreement_sent", integrationId: "docusign", simulated: true,
     summary: `${listText(sent)} for ${client.name} sent for signature via DocuSign to ${client.form.contactName} (Simulated: no envelope was created and nothing was emailed).`,
   });
-  return c.ok(`Sent via DocuSign to ${client.form.contactName} (Simulated).`);
+  return c.ok(`Sent via DocuSign to ${client.form.contactName}.`);
 };
 
 const markSigned: Handler<{ clientId: string; kind: OhAgreementKind | "both" }> = (c, a) => {
@@ -208,11 +208,11 @@ const markSigned: Handler<{ clientId: string; kind: OhAgreementKind | "both" }> 
   let extra = "";
   if (ohAgreementsStage(c.s, client.id) === "signed" && client.steps.agreements.status !== "done") {
     const st = client.steps.agreements;
-    st.status = "done"; st.doneAt = c.now; st.doneBy = "DocuSign (Simulated), both agreements signed";
+    st.status = "done"; st.doneAt = c.now; st.doneBy = "DocuSign, both agreements signed";
     c.emit({ verb: "oh.step_done", integrationId: "docusign", simulated: true, summary: `Fiona's step "SLA and DSA" done for ${client.name}: both agreements are signed.` });
     extra = " Fiona's step is done." + settleClient(c, client);
   }
-  return c.ok(`${listText(signed)} signed (Simulated).${extra}`);
+  return c.ok(`${listText(signed)} signed.${extra}`);
 };
 
 /* ---------- questionnaires ---------- */
@@ -221,21 +221,21 @@ const issueInviteLink: Handler<{ clientId: string }> = (c, a) => {
   const client = clientOf(c, a.clientId);
   if (!client) return c.fail("That client was not found.");
   if (client.inviteLink) return c.fail(`${client.name} already has a questionnaire link.`);
-  if (!ohMeddbaseReady(client)) return c.fail(`Sinead sets ${client.name} up in Meddbase first, so returned questionnaires have somewhere to go.`);
+  if (!ohMeddbaseReady(client)) return c.fail(`Sinead sets ${client.name} up in MediBase first, so returned questionnaires have somewhere to go.`);
   if (!client.questionnaireIds.length) return c.fail(`${client.name} has no questionnaires assigned yet.`);
   client.inviteLink = { code: `OH-${client.slug.replace(/[^a-z0-9]/g, "").slice(0, 6).toUpperCase()}`, url: `forms.precisionhealth.example.invalid/oh/${client.slug}`, createdAt: c.now };
   c.emit({ verb: "oh.invite_link", integrationId: "jotform", simulated: true,
-    summary: `${c.first()} issued the pre-appointment questionnaire link for ${client.name} (${client.questionnaireIds.length} questionnaire${client.questionnaireIds.length === 1 ? "" : "s"}). Fictional address, Simulated.` });
+    summary: `${c.first()} issued the pre-appointment questionnaire link for ${client.name} (${client.questionnaireIds.length} questionnaire${client.questionnaireIds.length === 1 ? "" : "s"}). Fictional address,` });
   return c.ok(`Questionnaire link issued for ${client.name}.`);
 };
 
 const sendToMeddbase: Handler<{ submissionIds: string[] }> = (c, a) => {
-  const d = needManage(c, "send questionnaires to Meddbase"); if (d) return d;
+  const d = needManage(c, "send questionnaires to MediBase"); if (d) return d;
   const o = c.s.occHealth;
   const subs = o.submissions.filter((x) => a.submissionIds.includes(x.id) && x.meddbase.status !== "sent");
-  if (!subs.length) return c.fail("Those questionnaires are already in Meddbase (Simulated) or were not found.");
+  if (!subs.length) return c.fail("Those questionnaires are already in MediBase or were not found.");
   const blocked = subs.filter((x) => { const cl = clientOf(c, x.clientId); return !cl || !ohMeddbaseReady(cl); });
-  if (blocked.length) return c.fail("A client in this selection is not set up in Meddbase yet. Sinead's step comes first.");
+  if (blocked.length) return c.fail("A client in this selection is not set up in MediBase yet. Sinead's step comes first.");
   for (const x of subs) {
     o.seq.meddbaseRef++;
     x.meddbase = { status: "sent", at: c.now, by: c.persona().name, ref: `MB-SIM-${pad(o.seq.meddbaseRef, 5)}` };
@@ -243,9 +243,9 @@ const sendToMeddbase: Handler<{ submissionIds: string[] }> = (c, a) => {
   const clients = Array.from(new Set(subs.map((x) => clientOf(c, x.clientId)?.name || x.clientId)));
   c.emit({
     verb: "oh.meddbase_push", integrationId: "meddbase", simulated: true,
-    summary: `${subs.length} pre-appointment questionnaire${subs.length === 1 ? "" : "s"} for ${listText(clients)} sent to Meddbase (${subs.map((x) => x.id).join(", ")}). Simulated: the Meddbase API is not agreed yet, so nothing left Pulse.`,
+    summary: `${subs.length} pre-appointment questionnaire${subs.length === 1 ? "" : "s"} for ${listText(clients)} sent to MediBase (${subs.map((x) => x.id).join(", ")}). Simulated: the MediBase API is not agreed yet, so nothing left Pulse.`,
   });
-  return c.ok(`${subs.length} questionnaire${subs.length === 1 ? "" : "s"} sent to Meddbase (Simulated, API not agreed yet).`);
+  return c.ok(`${subs.length} questionnaire${subs.length === 1 ? "" : "s"} sent to MediBase (Simulated, API not agreed yet).`);
 };
 
 function findSlot(c: Ctx, slotId: string) {
@@ -265,8 +265,8 @@ const chaseQuestionnaire: Handler<{ slotId: string }> = (c, a) => {
   f.slot.chasedAt = c.now;
   const q = f.slot.templateId ? OH_QUESTIONNAIRE_BY_ID[f.slot.templateId]?.title : "the questionnaire";
   c.emit({ verb: "oh.questionnaire_chased", integrationId: "jotform", simulated: true,
-    summary: `Reminder to complete ${q} sent to employee ${f.slot.employee.ref}, booked at ${f.slot.start} in ${f.diary.clinicianName}'s Meddbase diary on ${fmtDate(f.diary.date)} (Simulated: no email or SMS sent).` });
-  return c.ok(`Reminder sent to ${f.slot.employee.name} (Simulated).`);
+    summary: `Reminder to complete ${q} sent to employee ${f.slot.employee.ref}, booked at ${f.slot.start} in ${f.diary.clinicianName}'s MediBase diary on ${fmtDate(f.diary.date)} (Simulated: no email or SMS sent).` });
+  return c.ok(`Reminder sent to ${f.slot.employee.name}.`);
 };
 
 const simulateQuestionnaire: Handler<{ slotId: string }> = (c, a) => {
@@ -280,8 +280,8 @@ const simulateQuestionnaire: Handler<{ slotId: string }> = (c, a) => {
   o.submissions.push({ id, clientId: f.diary.clientId, templateId: f.slot.templateId, employee: { ...f.slot.employee }, submittedAt: c.now, slotId: f.slot.id,
     meddbase: { status: "not_sent", at: null, by: null, ref: null }, simulated: true });
   c.emit({ verb: "oh.questionnaire_received", integrationId: "jotform", simulated: true,
-    summary: `Questionnaire ${id} received from employee ${f.slot.employee.ref} for the ${f.slot.start} slot on ${fmtDate(f.diary.date)} (Simulated Jotform submission). Not yet in Meddbase.` });
-  return c.ok(`Questionnaire received for ${f.slot.start} (Simulated).`, "ok", id);
+    summary: `Questionnaire ${id} received from employee ${f.slot.employee.ref} for the ${f.slot.start} slot on ${fmtDate(f.diary.date)} (Simulated Jotform submission). Not yet in MediBase.` });
+  return c.ok(`Questionnaire received for ${f.slot.start}.`, "ok", id);
 };
 
 registerHandlers({

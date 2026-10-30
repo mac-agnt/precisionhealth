@@ -15,6 +15,7 @@ import { daysAct } from "../Clinics/daysActions";
 import { onbAct } from "../Sales/onbActions";
 import { requestClientPortalProgramme } from "../ClientPortal/data";
 import { ampm, overlayRoot, timeLabel } from "./util";
+import { CompanyLink, ProgrammeLink } from "../links";
 
 type Mode = "view" | "move" | "call" | "history";
 
@@ -72,7 +73,7 @@ export default function EventCard({ ev, anchor, onClose, narrow, canAct }: { ev:
     const st = schedStatusLabel(state, sched);
     const email = SCHED_EMAIL_KINDS.includes(sched.kind);
     if (!st.done || (sched.kind === "leave" && sched.status === "scheduled")) {
-      if (email) add("send", <Button size="sm" variant="primary" icon="send" onClick={() => run(schedAct.sendNow(sched.id))}>Send now <DemoTag /></Button>);
+      if (email) add("send", <Button size="sm" variant="primary" icon="send" onClick={() => run(schedAct.sendNow(sched.id))}>Send now</Button>);
       else if (sched.kind !== "leave" && sched.kind !== "training" && sched.kind !== "flu" && sched.kind !== "oh") add("done", <Button size="sm" variant="primary" icon="check" onClick={() => run(schedAct.done(sched.id))}>Mark done</Button>);
       if (ev.movable) reschedule();
       add("cancel", <Button size="sm" variant="ghost" icon="x" onClick={() => run(schedAct.cancel(sched.id), true)}>Cancel {sched.kind === "leave" ? "leave" : email ? "email" : sched.kind === "task" ? "task" : ""}</Button>);
@@ -87,7 +88,7 @@ export default function EventCard({ ev, anchor, onClose, narrow, canAct }: { ev:
     if (prefix === "lead" && !ev.done) {
       add("call", <Button size="sm" variant="primary" icon="phone" onClick={() => setMode("call")}>Log call</Button>);
     }
-    if (prefix === "rebook" && !ev.done) add("send", <Button size="sm" variant="primary" icon="send" onClick={() => run(onbAct.sendRebooking(rawId))}>Send now <DemoTag /></Button>);
+    if (prefix === "rebook" && !ev.done) add("send", <Button size="sm" variant="primary" icon="send" onClick={() => run(onbAct.sendRebooking(rawId))}>Send now</Button>);
     if (ev.movable && !ev.done) reschedule();
   }
 
@@ -120,7 +121,7 @@ export default function EventCard({ ev, anchor, onClose, narrow, canAct }: { ev:
         <div className="cal-pop-rows">
           <div><Icon name="layers" size={15} /><span>{kind?.label}{group && group.label !== kind?.label ? <span className="ph-faint">{`, ${group.label}`}</span> : null}</span></div>
           {ev.location ? <div><Icon name="pin" size={15} /><span>{ev.location}</span></div> : null}
-          {ev.client && !ev.title.toLowerCase().startsWith(ev.client.toLowerCase()) ? <div><Icon name="users" size={15} /><span>{ev.client}</span></div> : null}
+          {ev.client ? <div><Icon name="users" size={15} /><span><span onClick={onClose}><CompanyLink name={ev.client} /></span>{ev.programmeId ? <>, <span onClick={onClose}><ProgrammeLink id={ev.programmeId} /></span></> : null}</span></div> : null}
           {people.length ? <div><Icon name="user" size={15} /><span>{people.map((s) => s!.name).join(", ")}</span></div> : null}
           {ev.detail ? <div><Icon name="info" size={15} /><span>{ev.detail}</span></div> : null}
           {sched ? <div><Icon name="edit" size={15} /><span>Scheduled by {staffName(state, sched.createdBy)}, {fmtShortDateTime(sched.createdAt)}{sched.history.length > 1 ? <> <button type="button" className="cal-linkbtn" onClick={() => setMode(mode === "history" ? "view" : "history")}>{mode === "history" ? "Hide history" : `History (${sched.history.length})`}</button></> : null}</span></div> : null}

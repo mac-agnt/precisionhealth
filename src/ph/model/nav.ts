@@ -8,7 +8,8 @@ export type PageId =
   | "Results" | "Reporting" | "Work" | "Records" | "Activity" | "Settings"
   | "Sales" | "Flu" | "OccHealth" | "Screening" | "Calendar" | "Clients" | "Portals";
 
-export interface TabDef { id: string; label: string }
+/** hidden: still routes, but not shown in the top bar; under: the visible tab that is highlighted instead. */
+export interface TabDef { id: string; label: string; hidden?: boolean; under?: string }
 export interface PageDef { id: PageId; label: string; icon: string; hint: string; tabs: TabDef[]; /** Side-rail section heading; a labelled divider appears where it changes. */ section?: string }
 
 /* Agents sits directly under Home and Records opens on Ontology: locked layout rules from CLAUDE.md.
@@ -32,14 +33,14 @@ export const PAGES: PageDef[] = [
     { id: "directory", label: "Directory" }, { id: "screening-history", label: "Screening history" }, { id: "communications", label: "Communications" }, { id: "portal-admin", label: "Portal admin" }] },
   { id: "Portals", section: "Deliver screening", label: "Portals", icon: "navPortals", hint: "Client, participant and nurse portals", tabs: [{ id: "all", label: "All portals" }] },
   { id: "Results", section: "Deliver screening", label: "Results", icon: "navResults", hint: "Lab imports and sign-off", tabs: [
-    { id: "inbox", label: "Inbox" }, { id: "imports", label: "Lab imports" }, { id: "review", label: "Review" }, { id: "follow-up", label: "Follow-up" }, { id: "corrections", label: "Corrections" }] },
+    { id: "inbox", label: "Inbox", hidden: true, under: "review" }, { id: "review", label: "Review" }, { id: "imports", label: "Lab imports" }, { id: "follow-up", label: "Follow-up" }, { id: "corrections", label: "Corrections" }] },
   { id: "Screening", section: "Deliver screening", label: "Health Screening", icon: "navScreening", hint: "Ranges and clinical rules", tabs: [
-    { id: "ranges", label: "Ranges" }, { id: "cohorts", label: "Cohorts" }, { id: "calculations", label: "Calculations" },
-    { id: "check", label: "Test run" }, { id: "changes", label: "Changes" }, { id: "impact", label: "Impact" }, { id: "questions", label: "To confirm" }] },
+    { id: "ranges", label: "Ranges" }, { id: "check", label: "Enter results" }, { id: "new", label: "New screening", hidden: true, under: "check" }, { id: "changes", label: "Changes" }, { id: "impact", label: "Results impact", hidden: true, under: "changes" },
+    { id: "cohorts", label: "More" }, { id: "calculations", label: "Calculations", hidden: true, under: "cohorts" }, { id: "questions", label: "To confirm", hidden: true, under: "cohorts" }] },
   { id: "Flu", section: "Services", label: "Flu", icon: "navFlu", hint: "Flu clinics and vaccine stock", tabs: [
     { id: "overview", label: "Overview" }, { id: "bookings", label: "Bookings" }, { id: "stock", label: "Vaccine stock" }, { id: "cold-chain", label: "Cold chain" }, { id: "contacts", label: "Contacts and notes" }] },
-  { id: "OccHealth", section: "Services", label: "Occupational Health", icon: "navOcc", hint: "OH clients, onboarding, Meddbase", tabs: [
-    { id: "clients", label: "Clients and onboarding" }, { id: "questionnaires", label: "Questionnaires" }, { id: "sessions", label: "Meddbase sessions" }, { id: "agreements", label: "Agreements" }] },
+  { id: "OccHealth", section: "Services", label: "Occupational Health", icon: "navOcc", hint: "OH clients, onboarding, MediBase", tabs: [
+    { id: "clients", label: "Clients and onboarding" }, { id: "questionnaires", label: "Questionnaires" }, { id: "sessions", label: "MediBase sessions" }, { id: "agreements", label: "Agreements" }] },
   { id: "Reporting", section: "Run the business", label: "Reporting", icon: "navReporting", hint: "Employer reports", tabs: [
     { id: "overview", label: "Overview" }, { id: "report-builder", label: "Report builder" }, { id: "exports", label: "Exports" }] },
   { id: "Work", section: "Run the business", label: "Work", icon: "navWork", hint: "Tasks and approvals", tabs: [
@@ -74,6 +75,8 @@ export interface NavTarget {
 /* Old tab ids that now open a different tab, so earlier deep links keep working. */
 const TAB_ALIASES: Partial<Record<PageId, Record<string, string>>> = {
   Dashboard: { "clinic-operations": "operations", "clinical-delivery": "operations" },
+  /* #/Sales/retention opens the Retention tab (its id stays "recall"). */
+  Sales: { retention: "recall" },
 };
 /* A page can choose its own default tab, for example by who is signed in. Registered by the page module. */
 const TAB_DEFAULTS: Partial<Record<PageId, () => string | undefined>> = {};

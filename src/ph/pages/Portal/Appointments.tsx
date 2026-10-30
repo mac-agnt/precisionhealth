@@ -357,7 +357,7 @@ function SlotPicker({ d, current, confirmLabel, ready, onConfirm, intro, go }: {
         {pick && pickedSession ? (
           <div className="pp-picked">
             <Icon name="check" size={13} stroke={2.2} />
-            <span><strong>{fmtWeekdayDate(pickedSession.date)}, {pick.start}</strong> selected and held for {holdText} (simulated).</span>
+            <span><strong>{fmtWeekdayDate(pickedSession.date)}, {pick.start}</strong> selected and held for {holdText}.</span>
             <button type="button" className="ph-link" onClick={() => { const b = document.getElementById("pp-confirm"); b?.scrollIntoView({ block: "center" }); b?.focus(); }}>Review and confirm</button>
           </div>
         ) : null}
@@ -402,7 +402,7 @@ function SlotPicker({ d, current, confirmLabel, ready, onConfirm, intro, go }: {
             </div>
           ) : null}
           <p className="pp-small" style={{ margin: "10px 0 0" }}>
-            {current ? "We confirm your new time by email (simulated)." : "We confirm by email and, if you agreed, by text (simulated). You also get a reminder 24 hours before your visit."}
+            {current ? "We confirm your new time by email." : "We confirm by email and, if you agreed, by text. You also get a reminder 24 hours before your visit."}
           </p>
         </Card>
         <div className="pp-banner">

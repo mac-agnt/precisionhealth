@@ -67,12 +67,27 @@ const SRC: Record<FieldSource | "person", { icon: GlyphName; label: string }> = 
   person: { icon: "edit", label: "Set by you" },
 };
 export function SourceNote({ src, why }: { src?: FieldSource | "person"; why?: string }) {
-  if (!src) return null;
+  // Values taken straight from the person's words (or typed by them) need no note: one summary at the top says so.
+  if (!src || src === "said" || src === "person") return null;
   const m = SRC[src];
   return (
     <div className={"sd-src " + src}>
       <Icon name={m.icon} size={12} stroke={2} />
-      <div>{m.label}{why && src !== "person" ? <>: <span>{why}</span></> : null}</div>
+      <div>{m.label}{why ? <>: <span>{why}</span></> : null}</div>
+    </div>
+  );
+}
+
+/** One line for the whole draft: how much came from the person's words, and what to check. */
+function SourceSummary({ sources }: { sources: Sources }) {
+  const v = Object.values(sources);
+  const said = v.filter((x) => x === "said").length, assumed = v.filter((x) => x === "assumed").length, needed = v.filter((x) => x === "needed").length;
+  if (!said && !assumed && !needed) return null;
+  const rest = [assumed ? `${assumed} assumed` : "", needed ? `${needed} ${needed === 1 ? "needs" : "need"} you` : ""].filter(Boolean).join(", ");
+  return (
+    <div className="sd-src-sum" role="status">
+      <Icon name="spark" size={13} />
+      <span><b>Agent's draft.</b> {said ? `${said} ${said === 1 ? "field" : "fields"} filled from your words.` : ""} {rest ? `${rest[0].toUpperCase()}${rest.slice(1)}: marked below.` : "Check it and save."}</span>
     </div>
   );
 }
@@ -148,6 +163,7 @@ export function DayEditor({ form, onChange, sources = {}, why = {}, notes = [], 
   return (
     <div className="sd-editor">
       <div className="sd-fields">
+        <SourceSummary sources={sources} />
         <div>
           <div className="sd-group-title">Who and when</div>
           <div className="sd-grid">

@@ -225,7 +225,7 @@ function Stock() {
       </Card>
       <div style={{ height: 14 }} />
       <Card pad={false}>
-        <div style={{ padding: "16px 16px 0" }}><CardHeader title="Flu Vaccine Order Records" sub="Recording a delivery uses the sample batch label (Simulated)." right={<DemoTag />} /></div>
+        <div style={{ padding: "16px 16px 0" }}><CardHeader title="Flu Vaccine Order Records" sub="Recording a delivery uses the sample batch label." right={<DemoTag />} /></div>
         <DataTable rows={orders} columns={cols} rowKey={(o) => o.id} minWidth={860} empty={<EmptyState title="No orders this season" />} />
       </Card>
     </>

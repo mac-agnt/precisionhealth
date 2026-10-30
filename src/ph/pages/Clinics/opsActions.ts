@@ -139,7 +139,7 @@ registerHandlers({
     ops.briefs.push({ id, target: { kind: a.kind, id: a.id, date: a.date }, staffId: a.staffId, channels: ["email", "whatsapp"], scheduledFor: evening < c.now ? c.now : evening,
       createdAt: c.now, createdBy: me(c), status: "scheduled", subject: String(a.subject || "").slice(0, 200) || `Health Screening brief, ${fmtWeekdayDate(a.date)}` });
     c.emit({ verb: "board.brief", simulated: true, integrationId: "email", summary: `${c.first()} sent the nurse day brief for ${rowLabel(c, a.kind, a.id)}, ${fmtWeekdayDate(a.date)}, to ${staffName(c.s, a.staffId)} by email and WhatsApp. Simulated: nothing left Pulse.` });
-    return c.ok(`Brief ${id} to ${staffName(c.s, a.staffId)} (Simulated). It goes out at 18:00 the evening before.`, "ok", id);
+    return c.ok(`Brief ${id} to ${staffName(c.s, a.staffId)}. It goes out at 18:00 the evening before.`, "ok", id);
   },
 
   "ops/submitEod": (c, a: { input: EodInput }) => {
@@ -219,7 +219,7 @@ registerHandlers({
       if (t) { t.logistics.accommodation = `${e.nights} night${e.nights === 1 ? "" : "s"} from ${fmtWeekdayDate(e.date)}, ${hotel}.`; wrote = " Added to the board row, so the nurse day brief shows it."; }
     }
     c.emit({ verb: "expense.hotel_booked", simulated: true, summary: `${c.first()} booked ${hotel} for ${staffName(c.s, e.staffId)}, ${expenseSummary(e)}, reference ${e.bookingRef}. Simulated booking.${wrote}` });
-    return c.ok(`Hotel booked, reference ${e.bookingRef} (Simulated).${wrote}`, "ok", e.id);
+    return c.ok(`Hotel booked, reference ${e.bookingRef}.${wrote}`, "ok", e.id);
   },
 });
 

@@ -135,7 +135,7 @@ try {
   check("published day on the client portal", !!p19 && p19.room === "Room 3.01, Building C" && p19.poc && p19.start === "09:00" && p19.end === "16:15", JSON.stringify(p19));
   check("publishing the new day too", run({ type: "days/publish", dayId: "SD-0004" }).ok && P.upcomingClinicDays(s, "PRG-IBM-26").some((x) => x.id === "CLN-IBM-20261106-2"));
   check("unpublish takes it off", run({ type: "days/unpublish", dayId: "SD-0004" }).ok && !P.upcomingClinicDays(s, "PRG-IBM-26").some((x) => x.id === "CLN-IBM-20261106-2"));
-  check("portal days carry no names", portal.every((x) => Object.keys(x).every((k) => ["id", "date", "site", "room", "slots", "available", "isToday", "start", "end", "poc"].includes(k))));
+  check("portal days carry no names", portal.every((x) => Object.keys(x).every((k) => ["id", "date", "site", "room", "slots", "available", "isToday", "start", "end", "poc", "added", "isNew"].includes(k))));
 
   /* ---------- client portal counts are live ---------- */
   const tile = (pid, key) => P.programmeFunnel(s, pid).tiles.find((t) => t.key === key).value;

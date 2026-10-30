@@ -7,7 +7,7 @@
    participant to their own released or superseded versions. */
 import { useCallback, useId } from "react";
 import type { CSSProperties, ReactNode } from "react";
-import { BP_SIGNIFICANCE, REPORT_HEADINGS, ageOn, bandCtxFor, bpCategory, fmtDate, ix, localDateOf } from "../model";
+import { BP_SIGNIFICANCE, REPORT_HEADINGS, ageOn, bandCtxFor, bpCategory, fmtDate, ix, localDateOf, screeningSummary } from "../model";
 import type { Band, BandCtx, Id, ReportDocument, ReportRow, ReportSection, ReportSectionContent, ReportSectionKey, SexRecorded } from "../model";
 import { usePhState } from "../store";
 import { DemoTag, Icon, Pill } from "../ui";
@@ -89,6 +89,7 @@ export function DigitalReport({ doc, episodeId, compact, draftAdvice }: DigitalR
     <div className={"dr" + (compact ? " compact" : "")} style={BAND_VARS}>
       <Header doc={doc} />
       <Glance summary={summary} flagged={flagged.map((f) => ({ row: named(f.row), target: sid(sectionTarget[f.section] || f.section) }))} jump={jump} />
+      <ApprovedSummary episodeId={episodeId} />
       <Advice doc={doc} advice={advice} anyFlagged={flagged.length > 0} />
       <KeyTiles doc={doc} ctx={ctx} jump={jump} sid={sid} />
       <Cholesterol id={sid("cholesterol")} doc={doc} ctx={ctx} />
@@ -102,6 +103,20 @@ export function DigitalReport({ doc, episodeId, compact, draftAdvice }: DigitalR
       <Lifestyle id={sid("lifestyle")} doc={doc} sex={ctx.sex} />
       <Footer doc={doc} />
     </div>
+  );
+}
+
+/* The screening summary, once the reviewing doctor has approved the agent's draft. */
+function ApprovedSummary({ episodeId }: { episodeId: string }) {
+  const state = usePhState();
+  const s = screeningSummary(state, episodeId);
+  if (!s || !s.approved) return null;
+  return (
+    <section className="dr-card" aria-label="Your summary">
+      <div className="dr-kicker">Your summary</div>
+      <p style={{ margin: "6px 0 0", lineHeight: 1.6 }}>{s.text}</p>
+      <div className="dr-muted" style={{ marginTop: 8, fontSize: 12 }}>Drafted by the Pulse summary agent from your results. Checked and approved by {s.approved.by}, {fmtDate(s.approved.at)}.</div>
+    </section>
   );
 }
 
@@ -285,7 +300,8 @@ function scaleLabel(name: string, r: ReportRow, range: string): string {
 /** One test: name, value with unit, the flag word, and its range scale. */
 function TestRow({ row, spec, rangeText, rangeLine, hint, children }: { row: ReportRow; spec: ScaleSpec | null; rangeText?: string; rangeLine?: string; hint?: ReactNode; children?: ReactNode }) {
   const v = numericValue(row);
-  const range = rangeText || row.rangeText;
+  /* "0.6-1.7" reads as "0.6 to 1.7" for the participant. */
+  const range = (rangeText || row.rangeText || "").replace(/(\d+(?:\.\d+)?)\s*[-\u2013]\s*(\d+(?:\.\d+)?)/g, "$1 to $2");
   const resulted = row.status === "resulted";
   return (
     <div className={"dr-test" + (resulted ? "" : " missing")}>
@@ -369,7 +385,7 @@ function Cholesterol({ id, doc, ctx }: { id: string; doc: ReportDocument; ctx: B
       </div>
       {ratio ? (
         <div className="dr-tests dr-split">
-          <TestRow row={named(ratio)} spec={ratioSpec} rangeText="less than 4 to 1" />
+          <TestRow row={named(ratio)} spec={ratioSpec} rangeText="below 4.0" />
         </div>
       ) : null}
       <ScaleLegend />

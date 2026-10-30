@@ -108,7 +108,7 @@ export function participantPortalRows(s: PhState): ParticipantPortalRow[] {
 
 export interface NurseDay { date: LocalDate; label: string; kind: "screening" | "flu" | "oh" }
 export interface NursePortalRow { id: StaffId; name: string; title: string; initials: string; tint: string; phone: string | null; added: boolean; days: NurseDay[] }
-/** Nurses and their upcoming clinic days (screening clinics, flu clinics, Meddbase sessions). */
+/** Nurses and their upcoming clinic days (screening clinics, flu clinics, MediBase sessions). */
 export function nursePortalRows(s: PhState): NursePortalRow[] {
   const t = today(s);
   return s.staff.filter((x) => NURSE_ROLE_KEYS.includes(x.role)).map((x) => {

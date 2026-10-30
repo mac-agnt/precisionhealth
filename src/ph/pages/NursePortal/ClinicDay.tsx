@@ -46,14 +46,17 @@ export function ClinicDay({ session, onOpen, receipt, onOpenEpisode }: { session
     if (r.status === "checked_in" || r.status === "in_progress") return <Button variant="primary" icon="edit" onClick={() => onOpen(r.booking.id)}>Continue</Button>;
     return <Button icon="eye" onClick={() => onOpen(r.booking.id)}>View</Button>;
   };
-  const counts: Array<{ label: string; value: number; sub: string; icon: GlyphName }> = [
-    { label: "Booked", value: c.booked, sub: `${c.notArrived} still to arrive`, icon: "calendar" },
-    { label: "Checked in", value: c.checkedIn, sub: c.inProgress ? `${c.inProgress} with the form open` : "With you now", icon: "user" },
-    { label: "Completed", value: c.completed, sub: poc ? (sameDay ? `${sameDay} ready for same-day release` : "Results measured here") : "Awaiting lab after completion", icon: "check" },
-    { label: "Referrals", value: c.referrals, sub: c.referralsPending ? `${c.referralsPending} more on completion` : "To the doctor", icon: "alert" },
-    { label: "ECG reviews", value: c.ecgReviews, sub: c.ecgPending ? `${c.ecgPending} more when saved` : "Photo to the clinical channel", icon: "flag" },
-    { label: "Specimens", value: c.specimens, sub: poc ? "None: results measured here" : "For the Eurofins courier", icon: "flask" },
+  /* Three tiles, each a filter on the list below. Referrals, ECG reviews and specimens show as one line only when there are any. */
+  const counts: Array<{ id: Filter; label: string; value: number; sub: string; icon: GlyphName }> = [
+    { id: "arrive", label: "To arrive", value: count("arrive"), sub: `${c.booked} booked today`, icon: "calendar" },
+    { id: "in", label: "With me", value: count("in"), sub: c.inProgress ? `${c.inProgress} with the form open` : "Checked in", icon: "user" },
+    { id: "done", label: "Done", value: count("done"), sub: poc ? (sameDay ? `${sameDay} ready for same-day release` : "Results measured here") : "Bloods go to the lab", icon: "check" },
   ];
+  const extras = [
+    c.referrals || c.referralsPending ? `${c.referrals + c.referralsPending} doctor ${c.referrals + c.referralsPending === 1 ? "referral" : "referrals"}` : null,
+    c.ecgReviews || c.ecgPending ? `${c.ecgReviews + c.ecgPending} ECG ${c.ecgReviews + c.ecgPending === 1 ? "review" : "reviews"}` : null,
+    !poc && c.specimens ? `${c.specimens} ${c.specimens === 1 ? "specimen" : "specimens"} for the courier` : null,
+  ].filter(Boolean) as string[];
 
   return (
     <>
@@ -61,9 +64,9 @@ export function ClinicDay({ session, onOpen, receipt, onOpenEpisode }: { session
       <div className="np-card">
         <div className="np-sess">
           <div className="ph-grow" style={{ minWidth: 220 }}>
-            <div className="ph-eyebrow">My clinic today</div>
+            <div className="ph-eyebrow">{fmtDateLong(session.date)}</div>
             <h1 className="np-title" style={{ marginTop: 4 }}>{programme ? programme.name : session.programmeId}</h1>
-            <p className="np-lead">{fmtDateLong(session.date)}. {placeLabel(session)}. As of {now} on the demo clock.</p>
+            <p className="np-lead">{placeLabel(session)}. As of {now}.</p>
           </div>
           <div className="ph-wrap" style={{ gap: 6 }}>
             {poc ? <Pill tone="brand" icon="flask">Point of care, same-day results</Pill> : <Pill tone="neutral" icon="flask">Laboratory bloods</Pill>}
@@ -79,15 +82,16 @@ export function ClinicDay({ session, onOpen, receipt, onOpenEpisode }: { session
         </dl>
       </div>
 
-      <div className="np-counts">
+      <div className="np-counts np-counts-3">
         {counts.map((k) => (
-          <div key={k.label} className="np-count">
+          <button key={k.label} type="button" className="np-count" aria-pressed={filter === k.id} onClick={() => setFilter(filter === k.id ? "all" : k.id)} title="Show these in the list">
             <div className="np-count-label"><Icon name={k.icon} size={12} />{k.label}</div>
             <div className="np-count-value">{k.value}</div>
             <div className="np-count-sub">{k.sub}</div>
-          </div>
+          </button>
         ))}
       </div>
+      {extras.length ? <div className="ph-dim" style={{ fontSize: 12.5, margin: "-4px 2px 0" }}>Raised today: {extras.join(", ")}.</div> : null}
 
       <div className="np-card" style={{ padding: 0 }}>
         <div className="ph-row-flex" style={{ padding: "12px 14px", flexWrap: "wrap", gap: 8 }}>
@@ -121,7 +125,6 @@ export function ClinicDay({ session, onOpen, receipt, onOpenEpisode }: { session
                 <span className="np-time" role="cell">{r.booking.slotStart}<small>to {r.slotEnd}</small></span>
                 <span className="np-who" role="cell">
                   <b>{r.person.given} {r.person.family}{isNext ? <Pill tone="info" icon="arrow" style={{ marginLeft: 8, verticalAlign: 1 }}>Next</Pill> : null}</b>
-                  <small>{r.person.id}, {r.booking.id}</small>
                   <span className="np-q-inline"><Pill tone={qOk ? "ok" : "warn"} icon={qOk ? "check" : "alert"}>{qOk ? "Questionnaire submitted" : "Questionnaire to complete"}</Pill></span>
                 </span>
                 <span className="np-col-q" role="cell">

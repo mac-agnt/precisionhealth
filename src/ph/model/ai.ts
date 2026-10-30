@@ -13,6 +13,7 @@ import {
 import { reviewStats, reviewQueue, batchStats, episodeHeldByRow, openFollowUps, QRISK3 } from "./selectors/clinical";
 import { agentEvents, failedReminders, reminderStats } from "./selectors/ops";
 import { employerMetrics } from "./selectors/reporting";
+import { ID_RULE } from "./labCsv";
 import { SALES_HOME_PROMPTS, salesAnswer, salesBriefingLine, salesHomeFor } from "./salesHome";
 
 export interface AnswerAction { label: string; target?: NavTarget; ask?: string; primary?: boolean }
@@ -31,7 +32,7 @@ const WORDS = ["zero", "one", "two", "three", "four", "five", "six", "seven", "e
 const word = (n: number) => (n >= 0 && n < WORDS.length ? WORDS[n] : String(n));
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
-const REASON: Record<string, string> = { dob_mismatch: "Date of birth mismatch", unknown_specimen: "Unknown specimen identifier", multiple_candidates: "Two candidate episodes" };
+const REASON: Record<string, string> = { dob_mismatch: "Date of birth differs", unknown_specimen: "Precision ID not found", multiple_candidates: "Two possible participants" };
 
 function ibmToday(state: PhState) {
   return state.sessions.find((s) => s.programmeId === "PRG-IBM-26" && s.date === today(state));
@@ -93,7 +94,7 @@ export function briefingText(state: PhState): string {
   if (mine.length) {
     const s = mine[0];
     const st = sessionStats(state, s.id);
-    return [open, `You are ${s.nurseId === p.id ? "assigned to" : "supporting"} the ${PROGRAMME_BY_ID[s.programmeId].code} clinic at ${s.siteName}: ${st.booked} of ${st.slots} slots booked, ${st.checkedIn + st.inProgress + st.completed} checked in so far.`, "Confirm identity with two identifiers before any specimen is created."].join(" ");
+    return [open, `You are ${s.nurseId === p.id ? "assigned to" : "supporting"} the ${PROGRAMME_BY_ID[s.programmeId].code} clinic at ${s.siteName}: ${st.booked} of ${st.slots} slots booked, ${st.checkedIn + st.inProgress + st.completed} checked in so far.`, "Confirm identity first: name, date of birth and booking reference."].join(" ");
   }
   return open;
 }
@@ -195,13 +196,13 @@ export function answerQuery(state: PhState, q: string): Answer {
       const b = batchStats(state, "BATCH-20261002-01");
       const rows = state.importRows.filter((r) => r.state === "quarantined");
       const text = rows.length
-        ? `BATCH-20261002-01 has ${b.rows} observation rows across ${b.specimens} specimens. These are rows, not patients: ${b.imported} imported, ${b.duplicates} duplicates skipped, ${b.quarantined} quarantined. Brenda owns identity resolution, due 10:00. Nothing is matched automatically: each row needs a documented two-identifier check, then Neil reviews the episode.`
-        : `All identity exceptions in BATCH-20261002-01 are resolved: ${b.imported} of ${b.rows} rows imported, ${b.duplicates} duplicates skipped. Each resolution kept its reason and audit event.`;
+        ? `${rows.length === 1 ? "One lab result is" : `${rows.length} lab results are`} waiting for a person to match ${rows.length === 1 ? "it" : "them"} to a participant. The rest of the Eurofins file of 2 October went on by itself: ${b.imported} results added, ${b.duplicates} already in Pulse. ${ID_RULE} Pulse never guesses. Brenda matches these by 10:00, then Neil reviews the reports.`
+        : `Every lab result from the Eurofins file of 2 October is matched: ${b.imported} of ${b.rows} added, ${b.duplicates} already in Pulse. Each match kept its reason in the activity log.`;
       return {
         scenario: sc, supported: true, tool: "pulse_imports", effect: "read", text,
-        cols: ["Row", "Reason", "Episode", "Participant"],
-        rows: rows.map((r) => { const ep = episodeHeldByRow(state, r.id); return [r.id.replace("BATCH-20261002-01-", ""), REASON[r.quarantine!.reason], ep ? ep.id : "unmatched", ep ? personName(I.personById.get(ep.personId)) : "Unknown"]; }),
-        actions: [{ label: "Open the held rows", target: { page: "Results", tab: "imports", params: { batch: "BATCH-20261002-01" } }, primary: true }, { label: "Open Work tasks", target: { page: "Work", tab: "tasks" } }],
+        cols: ["Participant", "Why it waits", "Lab line"],
+        rows: rows.map((r) => { const ep = episodeHeldByRow(state, r.id); return [ep ? personName(I.personById.get(ep.personId)) : `${r.nameInFile} (no match yet)`, REASON[r.quarantine!.reason], `Line ${r.line}`]; }),
+        actions: [{ label: "Match them now", target: { page: "Results", tab: "imports", params: { view: "queue" } }, primary: true }, { label: "Open the lab file", target: { page: "Results", tab: "imports", params: { batch: "BATCH-20261002-01" } } }],
       };
     }
     case "aged": {
@@ -253,7 +254,7 @@ export function answerQuery(state: PhState, q: string): Answer {
       const failed = failedReminders(state);
       return {
         scenario: sc, supported: true, tool: "pulse_communications", effect: "read",
-        text: `${r.logical} logical reminders were due for today's clinics: ${r.delivered} delivered and ${r.failed} failed. The ${r.attempts} provider attempts are counted separately and never change the booking counts. Brenda owns the review by 08:45. Retrying one failed reminder moves one logical reminder from failed to delivered and adds an attempt to its history.`,
+        text: `${r.logical} reminders were due for today's clinics: ${r.delivered} delivered and ${r.failed} failed. Brenda owns the review by 08:45. Retrying one failed reminder moves one reminder from failed to delivered and adds an attempt to its history.`,
         cols: ["Reminder", "Participant", "Channel", "Reason"],
         rows: failed.map((m) => [m.logicalId, personName(I.personById.get(m.personId)), m.channel.toUpperCase(), m.attempts[m.attempts.length - 1].reason || ""]),
         actions: [{ label: "Open failed reminders", target: { page: "Participants", tab: "communications", params: { filter: "failed" } }, primary: true }],
@@ -357,11 +358,11 @@ export function agentThread(state: PhState, id: AgentId): ThreadItem[] {
   const stamp = (t: string): ThreadItem => ({ kind: "stamp", text: t });
   const agent = (text: string, lines?: ThreadLine[], links?: ThreadLink[]): ThreadItem => ({ kind: "agent", text, lines, links });
   const open = (label: string, target: NavTarget): ThreadLink => ({ label, target });
-  const sim = "Today 05:32 (simulated)";
+  const sim = "Today 05:32";
   switch (id) {
     case "briefing":
       return [
-        stamp("Today 06:45 (simulated)"), { kind: "routine", text: "Ran routine", routine: "Monday briefing" },
+        stamp("Today 06:45"), { kind: "routine", text: "Ran routine", routine: "Monday briefing" },
         agent(briefingText(state), undefined, toLinks(briefingActions(state))),
         agent("Linked to every queue:", [
           { k: "Imports", v: `${b.quarantined} held rows in ${b.batch.id}`, target: { page: "Results", tab: "imports", params: { batch: b.batch.id } } },
@@ -373,9 +374,9 @@ export function agentThread(state: PhState, id: AgentId): ThreadItem[] {
     case "watchdog": {
       const ibm = ibmToday(state);
       return [
-        stamp("Today 06:15 (simulated)"),
+        stamp("Today 06:15"),
         agent("checked today's three clinics: no nurse or room overlaps. Ian is a support resource, not a second booked nurse.", undefined, [open("Open the nurse rota", { page: "Clinics", tab: "team-resources" })]),
-        agent(`${plural(rem.failed, "reminder")} failed delivery of ${rem.logical} logical reminders. Task opened for Brenda, due 08:45. The ${rem.attempts} provider attempts are counted separately.`, undefined, [open("Open failed reminders", { page: "Participants", tab: "communications", params: { filter: "failed" } }), open("Open Work tasks", { page: "Work", tab: "tasks" })]),
+        agent(`${plural(rem.failed, "reminder")} failed delivery of ${rem.logical} reminders. Task opened for Brenda, due 08:45.`, undefined, [open("Open failed reminders", { page: "Participants", tab: "communications", params: { filter: "failed" } }), open("Open Work tasks", { page: "Work", tab: "tasks" })]),
         agent(`IBM has ${ibm ? sessionStats(state, ibm.id).available : 0} unused slots today. I raised it as available capacity. I do not cancel or move appointments.`, undefined, [open("Open clinics today", { page: "Clinics", tab: "overview" })]),
       ];
     }
@@ -383,7 +384,7 @@ export function agentThread(state: PhState, id: AgentId): ThreadItem[] {
       const d = state.invitationDrafts.find((x) => x.programmeId === "PRG-IBM-26");
       const n = programmeCounts(state, "PRG-IBM-26").drafts;
       return [
-        stamp("Fri 2 Oct, 15:12 (simulated)"),
+        stamp("Fri 2 Oct, 15:12"),
         agent(`drafted the IBM invitation message for Brenda${d ? `: ${d.recipientIds.length} recipients` : ""}. ${plural(n, "invitee")} with an in-progress questionnaire cannot reserve a confirmed slot until it is complete. Draft only, nothing sent.`, undefined, [open("Open invitation draft", { page: "Programmes", tab: "invitations", params: { draft: "INV-IBM-01" } })]),
         agent(d && d.status === "pending_approval" ? "waiting for Stephen to confirm the recipient list. Sending is simulated and needs his yes." : d && d.status === "approved_simulated_sent" ? "approved. a simulated send to the confirmed recipients was recorded." : "no invitation draft is waiting.", undefined, [open("Open approvals", { page: "Work", tab: "approvals" })]),
       ];
@@ -393,7 +394,7 @@ export function agentThread(state: PhState, id: AgentId): ThreadItem[] {
       return [
         stamp(sim),
         agent(`prepared the column mapping for ${b.batch.id}: 7 columns mapped to Pulse fields. Validation: ${b.imported} rows imported, ${b.duplicates} duplicates already seen, ${b.quarantined} quarantined. ${b.rows} rows across ${b.specimens} specimens. Rows are not people.`, undefined, [open("Open the batch", { page: "Results", tab: "imports", params: { batch: b.batch.id } })]),
-        ...rows.map((r) => agent(`row ${r.id.replace("BATCH-20261002-01-", "")} is held: ${REASON[r.quarantine!.reason].toLowerCase()}. I have not matched it. A person must confirm two identifiers.`, undefined, [open(`Open row ${r.id.replace("BATCH-20261002-01-", "")}`, linkFor("row", r.id))])),
+        ...rows.map((r) => agent(`row ${r.id.replace("BATCH-20261002-01-", "")} is held: ${REASON[r.quarantine!.reason].toLowerCase()}. I have not matched it. ${ID_RULE} A person checks and decides.`, undefined, [open(`Open row ${r.id.replace("BATCH-20261002-01-", "")}`, linkFor("row", r.id))])),
         ...(rows.length ? [] : [agent("every held row has been resolved by a person with a documented check.")]),
       ];
     }
@@ -408,7 +409,7 @@ export function agentThread(state: PhState, id: AgentId): ThreadItem[] {
       const er = state.employerReports[0];
       const m = employerMetrics(state, er.programmeId, er.cohort, er.dataAsOf);
       return [
-        stamp("Fri 2 Oct, 15:12 (simulated)"),
+        stamp("Fri 2 Oct, 15:12"),
         agent(`prepared the aggregate snapshot for ${er.id}: ${m.reportEligible} released reports out of ${m.attendedOverall} attended. Small groups are suppressed with complementary suppression.`, undefined, [open("Open the report builder", linkFor("employer_report", er.id))]),
         agent("a filter returning six people (Site B, age 55+) is blocked for employer output. Use the programme-level view. My narrative drafts stay drafts until a clinician approves them.", undefined, [open("Open approvals", { page: "Work", tab: "approvals" })]),
       ];
@@ -416,7 +417,7 @@ export function agentThread(state: PhState, id: AgentId): ThreadItem[] {
     case "quality": {
       const openIssues = state.dqIssues.filter((d) => d.status === "open");
       return [
-        stamp("Today 05:40 (simulated)"),
+        stamp("Today 05:40"),
         ...(clinical
           ? openIssues.map((d) => (d.episodeId && !canViewEpisodeClinical(state, d.episodeId)
             ? agent("one data quality item is open on an episode outside your clinic assignments. Detail is limited to its clinical team.")
