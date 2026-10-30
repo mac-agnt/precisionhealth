@@ -1,5 +1,5 @@
 /* End of day: what happened in this clinic and the specimen manifest for the Eurofins courier.
-   The manifest carries identifiers only (Unique ID and specimen ID), never clinical values. */
+   The manifest carries identifiers only (Precision ID and specimen ID), never clinical values. */
 import type { ReactNode } from "react";
 import type { ClinicSession } from "../../model";
 import { PROGRAMME_BY_ID, fmtDateLong, fmtTime, ix } from "../../model";
@@ -28,12 +28,12 @@ export function ClinicClose({ session, onOpen, onOpenTask, receipt }: { session:
 
   const manifestTable = (
     <table className="np-table">
-      <thead><tr><th>#</th><th>Unique ID</th><th>Specimen ID</th><th>Type</th><th>Collected</th><th>Add-ons</th><th>Label</th></tr></thead>
+      <thead><tr><th>#</th><th>Precision ID</th><th>Specimen ID</th><th>Type</th><th>Collected</th><th>Add-ons</th><th>Label</th></tr></thead>
       <tbody>
         {manifest.map(({ e, s }, i) => (
           <tr key={s.id}>
             <td data-label="#">{i + 1}</td>
-            <td data-label="Unique ID" className="ph-mono">{e.screeningRef}</td>
+            <td data-label="Precision ID" className="ph-mono">{e.screeningRef}</td>
             <td data-label="Specimen ID" className="ph-mono">{s.id}</td>
             <td data-label="Type">{s.type === "serum" ? "Blood, serum" : s.type === "edta" ? "Blood, EDTA" : "Urine"}</td>
             <td data-label="Collected">{fmtTime(s.collectedAt)}</td>
@@ -112,7 +112,7 @@ export function ClinicClose({ session, onOpen, onOpenTask, receipt }: { session:
         <div className="ph-row-flex" style={{ flexWrap: "wrap", gap: 8, alignItems: "flex-start" }}>
           <div className="ph-grow" style={{ minWidth: 220 }}>
             <h2 className="ph-h2">Specimen manifest for the {lab} courier</h2>
-            <div className="ph-faint" style={{ fontSize: 11.5, marginTop: 3 }}>Identifiers only: Unique ID and specimen ID. No names, dates of birth or clinical values. Results come back matched on the Unique ID.</div>
+            <div className="ph-faint" style={{ fontSize: 11.5, marginTop: 3 }}>Identifiers only: Precision ID and specimen ID. No names, dates of birth or clinical values. Results come back matched on the Precision ID.</div>
           </div>
           <DemoTag>Simulated</DemoTag>
           {manifest.length ? <Button size="sm" icon="print" onClick={() => window.print()} title="Local print preview. Nothing is sent to the laboratory.">Print manifest</Button> : null}

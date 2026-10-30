@@ -55,7 +55,7 @@ const banded = (label: string, value: string, band: Band, flag: string, detail: 
   band === "not_tested" ? grey(label, value, flag || "NOT TESTED", detail) : { label, value, tone: band, flag: flag || BAND_LOOK[band].label.toUpperCase(), detail };
 const keyed = (key: string, c: ViewerCell): ViewerCell => ({ ...c, key });
 const gauged = (num: number, range: { lo?: number; hi?: number }, unit: string | undefined, c: ViewerCell, scale?: [number, number]): ViewerCell => ({ ...c, num, range, unit, scale });
-const tf = (v: boolean | null | undefined) => (v === true ? "TRUE" : v === false ? "FALSE" : null);
+const tf = (v: boolean | null | undefined) => (v === true ? "Yes" : v === false ? "No" : null);
 const yesNo = (v: unknown) => (v === true ? "Yes" : v === false ? "No" : typeof v === "string" && v ? v : null);
 
 /** One laboratory row from panelResults. Pending, held and unconfirmed results are grey, never normal. */
@@ -201,7 +201,7 @@ export function buildViewer(state: PhState, b: Bundle): ViewerModel | null {
     val("peakFlow") != null ? plain("PEFR", String(val("peakFlow")), "Peak flow in L/min. Nurse form.") : absent("peakFlow", "PEFR"),
     val("peakFlow") != null ? plain("PEFR Result", "Not graded", "No peak flow rule in the illustrative rule set. Interpret against the predicted value.") : grey("PEFR Result", "N/A", "N/A", "Peak flow not recorded."),
     lab("HBA1c", "HBA1C"),
-    plain("Medical History", condText, "QRISK3 medical conditions answered TRUE on the nurse form.", true),
+    plain("Medical History", condText, "Heart risk conditions answered Yes on the nurse form.", true),
     plain("Smoking History", typeof f.smokingHistory === "string" ? f.smokingHistory : null, NURSE, true),
     plain("Medications", rf.medications, "Nurse form, prefilled from the questionnaire.", true),
     ecg,
@@ -218,7 +218,7 @@ export function buildViewer(state: PhState, b: Bundle): ViewerModel | null {
     plain("Unable to complete?", notDone.length ? notDone.join("; ") : "No", "Measurements not done or declined, from the nurse form.", true),
   ];
   const col3: ViewerCell[] = [
-    plain("Unique ID", ep.screeningRef, `Precision Health unique ID. Episode ${ep.id}.`),
+    plain("Precision ID", ep.screeningRef, `Precision ID on the lab request form. Episode ${ep.id}.`),
     plain("Date of Screen", fmtDate(ep.collectedAt), b.session.siteName + "."),
     lab("Haemoglobin", "HB"),
     lab("White Cell Count", "WCC"),
@@ -297,7 +297,7 @@ const SECTIONS: Array<{ key: SectKey; title: string }> = [
   { key: "history", title: "History and lifestyle" }, { key: "checks", title: "Self-checks" }, { key: "notes", title: "Screening notes" },
 ];
 const SECT_OF: Record<string, SectKey> = {
-  FirstName: "profile", LastName: "profile", Age: "profile", Gender: "profile", "Unique ID": "profile", "Date of Screen": "profile",
+  FirstName: "profile", LastName: "profile", Age: "profile", Gender: "profile", "Precision ID": "profile", "Date of Screen": "profile",
   "BP Systolic": "body", "BP Diastolic": "body", BMI: "body", Waist: "body", PEFR: "body", "PEFR Result": "body", "Muscular/Fit": "body",
   "Qrisk Heart Age": "heart", "Qrisk score": "heart", "Qrisk Rel Risk": "heart", ECG: "heart", "ECG Comments": "heart", "Manual Pulse": "heart",
   "Urine Glucose": "urine", "Urine WCC": "urine", "Urine RCC": "urine", "Urine Protein": "urine", "Menstruating?": "urine",

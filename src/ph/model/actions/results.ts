@@ -59,7 +59,7 @@ function refreshBatchNote(c: Ctx, batchId: string): void {
   const left = c.s.importRows.filter((r) => r.batchId === batchId && r.state === "quarantined").length;
   const head = batch.note.replace(/\s*(\w+ rows? needs? explicit identity resolution\.|Every held row was resolved[^.]*\.)$/, "");
   batch.status = left ? "partial" : "complete";
-  batch.note = `${head} ${left ? `${WORDS[left] || left} ${left === 1 ? "row needs" : "rows need"} explicit identity resolution.` : "Every held row was resolved by a person with a documented two-identifier check."}`.trim();
+  batch.note = `${head} ${left ? `${WORDS[left] || left} ${left === 1 ? "row needs" : "rows need"} explicit identity resolution.` : "Every held row was matched by a person who checked name, date of birth and Precision ID."}`.trim();
 }
 
 handlers["import/resolveRow"] = (c, a: { rowId: string; episodeId: string; checks: string[]; reason: string }) => {
@@ -68,7 +68,7 @@ handlers["import/resolveRow"] = (c, a: { rowId: string; episodeId: string; check
   if (at < 0 || c.s.importRows[at].state !== "quarantined") return c.fail("This row is not held for review. It was already resolved.");
   // Rows are shared with the previous state: change a copy (see workingCopy in reducer.ts).
   const row: ImportRow = { ...c.s.importRows[at] };
-  if (!a.checks || !a.checks.includes("specimen") || !a.checks.includes("dob")) return c.fail("Confirm two identifiers: the specimen identifier and the date of birth from the collection record.");
+  if (!a.checks || !a.checks.includes("specimen") || !a.checks.includes("dob")) return c.fail("Confirm the three identifiers: name, date of birth and Precision ID.");
   if (!(a.reason || "").trim() || a.reason.trim().length < 8) return c.fail("Record a reason for the resolution, at least a short sentence.");
   const held = episodeHeldByRow(c.s, row.id);
   if (!held) return c.fail("No held episode is linked to this row.");
@@ -99,10 +99,10 @@ handlers["import/resolveRow"] = (c, a: { rowId: string; episodeId: string; check
   refreshBatchNote(c, row.batchId);
   const person = c.personName(held.personId);
   c.emit({
-    verb: "import.resolved", summary: `${c.first()} resolved the identity exception for row ${row.id} (${held.id}, ${person}) with a documented two-identifier check. Row committed once.`,
+    verb: "import.resolved", summary: `${c.first()} matched lab row ${row.id} to ${person} (${held.id}) after checking name, date of birth and Precision ID. Added once.`,
     entity: { kind: "row", id: row.id }, programmeId: held.programmeId, personId: held.personId, storyId: "ST-01", integrationId: "eurofins", simulated: true,
   });
-  return c.ok(`Row committed once. ${held.id} is now ${held.reportState === "ready_for_review" ? "ready for review" : "awaiting its remaining results"}.`, "ok", held.id);
+  return c.ok(`Row matched and added once. ${held.id} is now ${held.reportState === "ready_for_review" ? "ready for review" : "awaiting its remaining results"}.`, "ok", held.id);
 };
 
 handlers["import/confirmUnit"] = (c, a: { episodeId: string; reason: string }) => {

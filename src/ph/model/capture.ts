@@ -50,7 +50,7 @@ export function captureMissing(c: ClinicalCapture): MeasureKey[] {
 
 export const measure = (value: number | null, state: Measure["state"] = "recorded", provenance: Measure["provenance"] = "measured"): Measure => ({ value, state, provenance });
 
-export const IDENTITY_HELP = "Confirm two identifiers from the participant. A name match alone is never enough.";
+export const IDENTITY_HELP = "Ask the participant to tell you their name and date of birth, and check their booking reference. A name alone is never enough.";
 
 /** True for a real calendar date in YYYY-MM-DD form. 2026-02-31 is not one. */
 export function isRealDate(iso: string): boolean {
@@ -170,7 +170,7 @@ export const NURSE_FORM_SECTIONS: NurseFormSection[] = [
     f("walkIn", "Walk-in?", "choice", { options: ["No", "Yes"], required: true, prefillFrom: "booking" }),
     f("employer", "Employer", "text", { prefillFrom: "booking" }),
   ] },
-  { key: "cv_risk", title: "Cardiovascular Risk Questionnaire", note: "QRISK3 inputs. Prefilled from the participant questionnaire where answered; the nurse confirms.", fields: [
+  { key: "cv_risk", title: "Cardiovascular Risk Questionnaire", note: "Filled in from the participant's questionnaire where they answered. Check each answer with them and confirm.", fields: [
     f("ethnicity", "Ethnicity", "choice", { options: ["White or not stated", "Indian", "Pakistani", "Bangladeshi", "Other Asian", "Black African", "Black Caribbean", "Chinese", "Other ethnic group"], prefillFrom: "questionnaire" }),
     f("smoking", "Do you smoke", "choice", { options: SMOKING_OPTIONS, required: true, prefillFrom: "questionnaire", help: "Vaping is not smoking." }),
     f("smokingHistory", "Smoking history", "text"),
@@ -446,7 +446,7 @@ export const POC_FORM_NAME = "POC Screen with QRISK";
 export const POC_SCREEN_TYPES = ["Standard Cardiovascular Risk", "Sudden Cardiac Death Risk", "BP BMI Cholesterol", "BP Only", "Other"] as const;
 export type PocScreenType = (typeof POC_SCREEN_TYPES)[number];
 /** Outcome options per test, verbatim from the client's form. */
-export const POC_TEST_OUTCOMES = ["Normal", "Borderline", "Abnormal", "Not done", "No significant abnormality detected", "Other"];
+export const POC_TEST_OUTCOMES = ["Normal", "Borderline", "Abnormal", "Not done", "Other"];
 /** What the point-of-care machine gave for one test. */
 export const POC_READING_STATES = ["Recorded", "Machine error", "Not done"];
 export const POC_MACHINE_ERROR = "Machine error";
@@ -493,8 +493,8 @@ export const POC_FORM_SECTIONS: PocFormSection[] = [
   { key: "registration", title: "Registration", fields: [
     L.appointment, L.firstName, L.lastName, L.email, L.mobile, L.dob, L.sexAtBirth, L.company, L.walkIn, L.employer,
   ] },
-  { key: "cv_risk", title: "Cardiovascular risk (QRISK3 inputs)", showIf: POC_CV,
-    note: "The same QRISK3 inputs as the lab form, prefilled from the participant questionnaire where answered; confirm each one. The 10-year score and heart age come from the licensed QRISK3 engine at review and are never calculated here.", fields: [
+  { key: "cv_risk", title: "Heart risk questions", showIf: POC_CV,
+    note: "Filled in from the participant's questionnaire where they answered. Check each answer with them and confirm. The heart risk score is worked out later, at the doctor's review, not here.", fields: [
       L.ethnicity, L.smoking, L.diabetesType2, L.diabetesType1,
       { ...L.ckd, label: "Chronic kidney disease (stage 3, 4 or 5)" },
       L.atrialFibrillation,

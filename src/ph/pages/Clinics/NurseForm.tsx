@@ -2,9 +2,9 @@
    the staff workspace (Clinics > Appointments) and the nurse portal. The client's section order,
    wording and option lists come from the model schema (NURSE_FORM_SECTIONS); visibility, missing
    fields, bands and the two automations run through the same model rules as the reducer, on the
-   values on screen. Identity is confirmed with two identifiers before any clinical section opens.
+   values on screen. Identity (name, date of birth, booking reference) is confirmed before any clinical section opens.
    Colour is never the only signal: every band, state and selection also carries text or an icon. */
-import { useId, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import type { AnalyteCode, Band, ClinicalCapture, Episode, MeasureKey, NurseFormCtx, NurseFormField, NurseFormValue, NurseSectionKey, NurseShowIf, PocSectionKey } from "../../model";
 import {
@@ -81,7 +81,6 @@ const specOf = (c: ClinicalCapture): FormSpec => (c.variant === "poc" ? POC_SPEC
 /** Sections that are open before the identity check: the booking record and, on a point-of-care day, the screen type. */
 const PRE_IDENTITY: AnySectionKey[] = ["registration", "screen_type"];
 const CV_SUBHEAD: Record<string, string> = { ethnicity: "Background", diabetesType2: "Medical conditions", treatedHypertension: "Medications", famHistoryCvd: "History" };
-const TRUE_FALSE = ["TRUE", "FALSE"];
 const YES_NO = ["Yes", "No"];
 
 function fmtValue(v: NurseFormValue | undefined, words: string[] = YES_NO): string {
@@ -548,7 +547,7 @@ export function NurseCapture({ row, draft, variant, onCompleted, onOpenTask }: N
               <Icon name="shield" size={18} />
               <div>
                 <div style={{ color: "var(--ink)", fontWeight: 600 }}>Confirm identity first</div>
-                <div className="ph-dim" style={{ fontSize: 12.5, marginTop: 3 }}>Two identifiers, date of birth and booking reference, before anything clinical. A name match alone is never enough.</div>
+                <div className="ph-dim" style={{ fontSize: 12.5, marginTop: 3 }}>Name, date of birth and booking reference, before anything clinical. A name alone is never enough.</div>
                 <div style={{ marginTop: 10 }}><Button variant="primary" icon="arrow" onClick={() => go("registration")}>Go to the identity check</Button></div>
               </div>
             </div>
@@ -583,10 +582,11 @@ interface Kit {
 export function LiveChip({ live, compact }: { live: LiveBand | null; compact?: boolean }) {
   if (!live) return null;
   if (live.recordedOnly) return <div className="nf-live muted"><span className="nf-live-text">{live.normalText}</span></div>;
-  const word = live.label && live.label !== "NORMAL" && live.label.toUpperCase() !== live.word.toUpperCase() ? `${live.word} · ${live.label}` : live.word;
+  // One plain band word on the chip; the table's own descriptor (for example HIGH MILD) stays in the tooltip.
+  const detail = live.label && live.label.toUpperCase() !== live.word.toUpperCase() ? ` (${live.label.toLowerCase()})` : "";
   return (
     <div className={"nf-live " + live.band} role="status" aria-live="polite">
-      <BandChip band={live.urgent ? "abnormal" : live.band} word={word} title={`${live.normalText}. ${live.versionText}.`} />
+      <BandChip band={live.urgent ? "abnormal" : live.band} word={live.word} title={`${live.word}${detail}. ${live.normalText}. ${live.versionText}.`} />
       {!compact ? <span className="nf-live-text">{live.normalText}<span className="ph-faint"> · {live.versionText}</span></span> : null}
     </div>
   );
@@ -685,7 +685,7 @@ function Field({ kit, field, sec, after, hideHelp, lock }: { kit: Kit; field: Nu
     const live = k === "pulse" ? liveBand("pulse", numericValue(values, k), kit.who) : null;
     return <MeasureRow field={field} m={values.measures[k]} onChange={(m) => setMeasure(k, m)} disabled={disabled} error={errors[k]} missing={missing} live={live} />;
   }
-  const words = field.type === "boolean" ? (sec.section.key === "cv_risk" ? TRUE_FALSE : YES_NO) : YES_NO;
+  const words = YES_NO;
   const raw: NurseFormValue = field.store === "urine" ? (values.urine[field.urineKey as UrineKey] || null) : field.store === "notes" ? values.notes : (values.form[field.key] ?? null);
   const set = (v: NurseFormValue) => {
     if (field.store === "urine") setUrine(field.urineKey as UrineKey, v === null ? "" : String(v));
@@ -899,7 +899,7 @@ function IdentityPanel({ kit }: { kit: Kit }) {
       <div className="nf-id ok">
         <span className="nf-id-ico"><Icon name="shield" size={16} /></span>
         <div style={{ minWidth: 0 }}>
-          <div style={{ color: "var(--ink)", fontWeight: 600 }}>Identity confirmed with two identifiers</div>
+          <div style={{ color: "var(--ink)", fontWeight: 600 }}>Identity confirmed</div>
           <div className="ph-dim" style={{ fontSize: 12.5, marginTop: 2 }}>{draft.identity.map((x) => `${x.label} ${x.confirmedValue}`).join(", ")}. Read back by the participant and matched to the booking.</div>
         </div>
       </div>
@@ -935,7 +935,7 @@ function IdentityPanel({ kit }: { kit: Kit }) {
               {hint ? <span className="ph-faint" style={{ fontSize: 11.5 }}>Date of birth {fmtNumericDate(row.person.dob)}, booking reference {row.booking.id}.</span> : null}
             </div>
           </>
-        ) : <div className="ph-faint" style={{ fontSize: 12.5, marginTop: 8 }}>Not confirmed yet. The clinic nurse confirms two identifiers before anything clinical.</div>}
+        ) : <div className="ph-faint" style={{ fontSize: 12.5, marginTop: 8 }}>Not confirmed yet. The clinic nurse confirms name, date of birth and booking reference before anything clinical.</div>}
       </div>
     </div>
   );
@@ -995,6 +995,37 @@ function MeasurementsBody({ kit, fields, sec }: { kit: Kit; fields: NurseFormFie
   const LIVE: Partial<Record<MeasureKey, LiveTestId>> = { heightM: "height", weightKg: "weight", waistCm: "waist", bpSys: "bpsys", bpDia: "bpdia", pulse: "pulse" };
   const poc = kit.spec.variant === "poc";
   const out: ReactNode[] = [];
+  /* Demo helper: fills every empty reading in this section with a typical value, so a presenter does
+     not type nine numbers. Readings already typed are kept. Outcomes then follow the ranges. */
+  const female = who.sex === "female";
+  const DEMO: Record<string, string> = {
+    heightM: female ? "1.65" : "1.78", weightKg: female ? "64.5" : "79.0", waistCm: female ? "78" : "90", bpSys: "124", bpDia: "78", pulse: "68", peakFlow: female ? "420" : "520",
+    pocBpSysLeft: "122", pocBpDiaLeft: "76", pocArmSpan: female ? "164" : "179", pocSpo2: "98",
+  };
+  const fillDemo = () => {
+    fields.forEach((fd) => {
+      if (fd.store === "measure") {
+        const k = fd.measureKey as MeasureKey;
+        const m = values.measures[k];
+        if (m && !m.text.trim() && m.mode === "value" && DEMO[k]) setMeasure(k, { ...m, text: DEMO[k] });
+        return;
+      }
+      if (fd.store === "form" && fd.type === "number" && (values.form[fd.key] === undefined || values.form[fd.key] === null || values.form[fd.key] === "")) {
+        const guess = DEMO[fd.key] ?? (fd.min !== undefined && fd.max !== undefined ? String(Math.round((fd.min + fd.max) / 2)) : null);
+        if (guess) kit.setForm(fd.key, guess);
+      }
+    });
+  };
+  const emptyCount = fields.filter((fd) => (fd.store === "measure" && values.measures[fd.measureKey as MeasureKey]?.mode === "value" && !values.measures[fd.measureKey as MeasureKey]?.text.trim())
+    || (fd.store === "form" && fd.type === "number" && (values.form[fd.key] === undefined || values.form[fd.key] === null || values.form[fd.key] === ""))).length;
+  if (kit.editable && emptyCount) {
+    out.push(
+      <div key="demo-fill" className="nf-field wide" style={{ flexDirection: "row", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+        <button type="button" className="nf-chip" disabled={disabled} onClick={fillDemo}>Fill demo readings</button>
+        <span className="ph-faint" style={{ fontSize: 12 }}>Fills the {emptyCount} empty {emptyCount === 1 ? "reading" : "readings"} with typical values. Demo only.</span>
+      </div>,
+    );
+  }
   fields.forEach((fd) => {
     if (fd.store === "calc" && fd.key === "bmi") {
       out.push(
@@ -1030,7 +1061,7 @@ function MeasurementsBody({ kit, fields, sec }: { kit: Kit; fields: NurseFormFie
       if (k === "bpDia") {
         extra = (
           <>
-            {sys !== null && dia !== null && !errors.bp ? <CategoryLine band={bp.band} word={bp.word}>Together {sys}/{dia} mmHg. The higher of the two bands applies.</CategoryLine> : null}
+            {sys !== null && dia !== null && !errors.bp ? <CategoryLine band={bp.band} word={BAND_TEXT[bp.band]}>Together {sys}/{dia} mmHg. The higher of the two readings decides.</CategoryLine> : null}
             {errors.bp ? <div className="ph-err" role="alert">{errors.bp}</div> : null}
             {kit.editable ? <div style={{ marginTop: 8 }}><RepeatReading who={who} disabled={disabled} at={fmtTime(state.clock.nowUtc)} onAdd={(line) => kit.setNotes(values.notes ? `${values.notes}\n${line}` : line)} /></div> : null}
           </>
@@ -1059,13 +1090,31 @@ function MeasurementsBody({ kit, fields, sec }: { kit: Kit; fields: NurseFormFie
   return <div className="nf-grid">{out}</div>;
 }
 
-/** One tap to set the nurse's outcome to what Neil's ranges say. The nurse can still choose another. */
+/**
+ * The outcome follows Neil's ranges by itself: Normal or Borderline is filled in as soon as the value
+ * is typed, and follows the value if it changes. An outside-range value is never filled in silently:
+ * the nurse confirms Abnormal with one tap. The nurse can always choose another outcome.
+ */
 function SuggestOutcome({ kit, fieldKey, suggestion }: { kit: Kit; fieldKey: string; suggestion: string | null }) {
-  const cur = kit.values.form[fieldKey];
-  if (!suggestion || cur === suggestion || !kit.editable) return null;
+  const cur = kit.values.form[fieldKey] ?? null;
+  const auto = useRef<string | null>(null);
+  const { editable, disabled, setForm } = kit;
+  useEffect(() => {
+    if (!editable || disabled) return;
+    const mine = cur === null || cur === "" || (auto.current !== null && cur === auto.current);
+    if (!mine) return;
+    const next = suggestion === "Normal" || suggestion === "Borderline" ? suggestion : null;
+    if (next === cur || (next === null && (cur === null || cur === ""))) return;
+    auto.current = next;
+    setForm(fieldKey, next);
+  }, [suggestion, cur, editable, disabled, fieldKey, setForm]);
+  if (!suggestion || !editable) return null;
+  if (cur === suggestion) return <div className="ph-faint" style={{ fontSize: 11.5, marginTop: 2 }}>Set from the ranges. Choose another outcome if you disagree.</div>;
+  if (suggestion !== "Abnormal") return null;
   return (
-    <div style={{ marginTop: 2 }}>
-      <button type="button" className="nf-chip" disabled={kit.disabled} onClick={() => kit.setForm(fieldKey, suggestion)}>Use {suggestion}, from the ranges</button>
+    <div className="ph-row-flex" style={{ marginTop: 2, gap: 8, flexWrap: "wrap" }}>
+      <span className="ph-faint" style={{ fontSize: 12 }}>Outside the normal range.</span>
+      <button type="button" className="nf-chip" disabled={disabled} onClick={() => setForm(fieldKey, "Abnormal")}>Confirm Abnormal</button>
     </div>
   );
 }
@@ -1213,7 +1262,7 @@ function PocCompletionPanel({ kit }: { kit: Kit }) {
 
   const blockers: Array<{ text: string; go?: AnySectionKey }> = [];
   if (!synth.form?.pocScreenType) blockers.push({ text: "Choose the screen type", go: "screen_type" });
-  if (!identityOk) blockers.push({ text: "Confirm identity with two identifiers", go: "registration" });
+  if (!identityOk) blockers.push({ text: "Confirm their identity", go: "registration" });
   sections.forEach((s) => {
     if (!s.applicable || s.lockedBy === "screen_type") return;
     const n = s.missing.filter((m) => m.key !== "identity").length;
@@ -1258,7 +1307,7 @@ function PocCompletionPanel({ kit }: { kit: Kit }) {
 
       <div className="nf-checks">
         <CheckLine done={!!synth.form?.pocScreenType} text="Screen type chosen" />
-        <CheckLine done={identityOk} text="Identity confirmed with two identifiers" />
+        <CheckLine done={identityOk} text="Identity confirmed" />
         <CheckLine done={!sections.some((s) => s.applicable && !s.locked && s.missing.some((m) => m.key !== "identity"))} text="Every required question answered, or marked not done or declined" />
         <CheckLine done={!Object.keys(errors).length} text="Values within entry limits" note="Abnormal values are kept and flagged for the doctor, never forced into range." />
         <CheckLine done={confirmLeft === 0} text="Questionnaire answers confirmed with the participant" note={`${totalConfirm} confirmed${confirmLeft ? `, ${confirmLeft} left` : ""}`} />
@@ -1317,7 +1366,7 @@ function CompletionPanel({ kit }: { kit: Kit }) {
   const toggle = (key: "specimens" | "labels") => f.runOwn(act.toggleChecklist(row.booking.id, key));
 
   const blockers: Array<{ text: string; go?: AnySectionKey }> = [];
-  if (!identityOk) blockers.push({ text: "Confirm identity with two identifiers", go: "registration" });
+  if (!identityOk) blockers.push({ text: "Confirm their identity", go: "registration" });
   sections.forEach((s) => {
     if (!s.applicable) return;
     const n = s.missing.filter((m) => m.key !== "identity").length;
@@ -1343,7 +1392,7 @@ function CompletionPanel({ kit }: { kit: Kit }) {
     onCompleted?.(row.booking.id);
   };
 
-  const lockReason = "Confirm identity with two identifiers first.";
+  const lockReason = "Confirm their identity first.";
   const totalConfirm = sections.reduce((n, s) => n + (s.applicable ? s.section.fields.filter((fd) => fd.prefillFrom === "questionnaire" && conf.has(fd.key)).length : 0), 0);
   return (
     <div className="nf-complete">
@@ -1373,7 +1422,7 @@ function CompletionPanel({ kit }: { kit: Kit }) {
                 <Button size="sm" variant={labels ? "ghost" : "primary"} icon={labels ? "check" : undefined} disabled={!editable} onClick={() => toggle("labels")}>{labels ? "Label checked. Undo" : "Mark label and request checked"}</Button>
               </div>
             </div>
-          ) : <div className="ph-faint" style={{ fontSize: 12 }}>{lockReason} Labels carry the participant's identifiers.</div>}
+          ) : <div className="ph-faint" style={{ fontSize: 12 }}>{lockReason} Labels carry the participant's name, date of birth and Precision ID.</div>}
           {sheet && identityOk ? <><LabRequestPreview row={row} episode={null} addOns={addOns} /><LabelPrintCopy row={row} episode={null} addOns={addOns} /></> : null}
         </div>
       ) : bloods === "No" ? (
@@ -1383,7 +1432,7 @@ function CompletionPanel({ kit }: { kit: Kit }) {
       )}
 
       <div className="nf-checks">
-        <CheckLine done={identityOk} text="Identity confirmed with two identifiers" />
+        <CheckLine done={identityOk} text="Identity confirmed" />
         <CheckLine done={!sections.some((s) => s.applicable && s.missing.some((m) => m.key !== "identity"))} text="Every required question answered, or marked not done or declined" />
         <CheckLine done={!Object.keys(errors).length} text="Values within entry limits" note="Abnormal values are kept and flagged for the doctor, never forced into range." />
         <CheckLine done={confirmLeft === 0} text="Questionnaire answers confirmed with the participant" note={`${totalConfirm} confirmed${confirmLeft ? `, ${confirmLeft} left` : ""}`} />
@@ -1444,7 +1493,7 @@ function CheckLine({ done, text, note }: { done: boolean; text: string; note?: s
 /* ---------------------------------------------------------------------------------------------
    After completion: what the automations created, and the form read-only
    --------------------------------------------------------------------------------------------- */
-export function AutomationReceipt({ episode: ep, onOpenTask, title }: { episode: Episode; onOpenTask?: (id: string) => void; title?: ReactNode }) {
+export function AutomationReceipt({ episode: ep, onOpenTask, onOpenEpisode, title }: { episode: Episode; onOpenTask?: (id: string) => void; onOpenEpisode?: (episodeId: string) => void; title?: ReactNode }) {
   const state = usePhState();
   const person = ix(state).personById.get(ep.personId);
   const lead = ix(state).staffById.get(PROGRAMME_BY_ID[ep.programmeId].clinicalLeadId);
@@ -1460,9 +1509,12 @@ export function AutomationReceipt({ episode: ep, onOpenTask, title }: { episode:
           <div style={{ color: "var(--ink)", fontWeight: 600 }}>{title || `Completed: ${person ? `${person.given} ${person.family}` : ep.personId}`}</div>
           <div className="ph-faint" style={{ fontSize: 12 }}>{ep.capture.completedAt ? fmtDateTime(ep.capture.completedAt) : ""}. No report was released.</div>
         </div>
+        {onOpenEpisode && ep.reportState === "ready_for_review" ? (
+          <Button variant="primary" icon="arrow" size="sm" style={{ marginLeft: "auto", flex: "none" }} onClick={() => onOpenEpisode(ep.id)}>Review and release now</Button>
+        ) : null}
       </div>
       <ul className="nf-receipt-list">
-        <li><Icon name="file" size={13} /><span>Episode <span className="ph-mono">{ep.id}</span>, Unique ID <span className="ph-mono">{ep.screeningRef}</span>, {ep.expectedTests.length} expected tests{addOns.length ? ` including ${addOns.join(" and ")}` : ""}. Report state: {REPORT_STATE_LABEL[ep.reportState]}.</span></li>
+        <li><Icon name="file" size={13} /><span>Precision ID <span className="ph-mono">{ep.screeningRef}</span>, {ep.expectedTests.length} tests expected{addOns.length ? ` including ${addOns.join(" and ")}` : ""}. Report: {REPORT_STATE_LABEL[ep.reportState].toLowerCase()}{ep.reportState === "ready_for_review" ? ", the doctor can release it today" : ""}.</span></li>
         {specs.map((s) => <li key={s.id}><Icon name="flask" size={13} /><span>Specimen <span className="ph-mono">{s.id}</span> ({s.type}) recorded as collected{s.labelPrinted ? ", label printed" : ""}.</span></li>)}
         {refTask ? <li className="bad"><Icon name="alert" size={13} /><span>Doctor referral: task <TaskLink id={refTask} onOpenTask={onOpenTask} /> for {lead ? lead.displayName : "the clinical lead"}. Routine release is blocked for this episode.</span></li> : null}
         {ecgTask ? <li className="warn"><Icon name="flag" size={13} /><span>ECG review: task <TaskLink id={ecgTask} onOpenTask={onOpenTask} />. ECG photo shared to the clinical channel <DemoTag>Simulated</DemoTag></span></li> : null}

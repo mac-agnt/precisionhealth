@@ -13,6 +13,7 @@ import {
 import { reviewStats, reviewQueue, batchStats, episodeHeldByRow, openFollowUps, QRISK3 } from "./selectors/clinical";
 import { agentEvents, failedReminders, reminderStats } from "./selectors/ops";
 import { employerMetrics } from "./selectors/reporting";
+import { ID_RULE } from "./labCsv";
 import { SALES_HOME_PROMPTS, salesAnswer, salesBriefingLine, salesHomeFor } from "./salesHome";
 
 export interface AnswerAction { label: string; target?: NavTarget; ask?: string; primary?: boolean }
@@ -31,7 +32,7 @@ const WORDS = ["zero", "one", "two", "three", "four", "five", "six", "seven", "e
 const word = (n: number) => (n >= 0 && n < WORDS.length ? WORDS[n] : String(n));
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
-const REASON: Record<string, string> = { dob_mismatch: "Date of birth mismatch", unknown_specimen: "Unknown specimen identifier", multiple_candidates: "Two candidate episodes" };
+const REASON: Record<string, string> = { dob_mismatch: "Date of birth differs", unknown_specimen: "Precision ID not found", multiple_candidates: "Two possible participants" };
 
 function ibmToday(state: PhState) {
   return state.sessions.find((s) => s.programmeId === "PRG-IBM-26" && s.date === today(state));
@@ -93,7 +94,7 @@ export function briefingText(state: PhState): string {
   if (mine.length) {
     const s = mine[0];
     const st = sessionStats(state, s.id);
-    return [open, `You are ${s.nurseId === p.id ? "assigned to" : "supporting"} the ${PROGRAMME_BY_ID[s.programmeId].code} clinic at ${s.siteName}: ${st.booked} of ${st.slots} slots booked, ${st.checkedIn + st.inProgress + st.completed} checked in so far.`, "Confirm identity with two identifiers before any specimen is created."].join(" ");
+    return [open, `You are ${s.nurseId === p.id ? "assigned to" : "supporting"} the ${PROGRAMME_BY_ID[s.programmeId].code} clinic at ${s.siteName}: ${st.booked} of ${st.slots} slots booked, ${st.checkedIn + st.inProgress + st.completed} checked in so far.`, "Confirm identity first: name, date of birth and booking reference."].join(" ");
   }
   return open;
 }
@@ -195,13 +196,13 @@ export function answerQuery(state: PhState, q: string): Answer {
       const b = batchStats(state, "BATCH-20261002-01");
       const rows = state.importRows.filter((r) => r.state === "quarantined");
       const text = rows.length
-        ? `BATCH-20261002-01 has ${b.rows} observation rows across ${b.specimens} specimens. These are rows, not patients: ${b.imported} imported, ${b.duplicates} duplicates skipped, ${b.quarantined} quarantined. Brenda owns identity resolution, due 10:00. Nothing is matched automatically: each row needs a documented two-identifier check, then Neil reviews the episode.`
-        : `All identity exceptions in BATCH-20261002-01 are resolved: ${b.imported} of ${b.rows} rows imported, ${b.duplicates} duplicates skipped. Each resolution kept its reason and audit event.`;
+        ? `${rows.length === 1 ? "One lab result is" : `${rows.length} lab results are`} waiting for a person to match ${rows.length === 1 ? "it" : "them"} to a participant. The rest of the Eurofins file of 2 October went on by itself: ${b.imported} results added, ${b.duplicates} already in Pulse. ${ID_RULE} Pulse never guesses. Brenda matches these by 10:00, then Neil reviews the reports.`
+        : `Every lab result from the Eurofins file of 2 October is matched: ${b.imported} of ${b.rows} added, ${b.duplicates} already in Pulse. Each match kept its reason in the activity log.`;
       return {
         scenario: sc, supported: true, tool: "pulse_imports", effect: "read", text,
-        cols: ["Row", "Reason", "Episode", "Participant"],
-        rows: rows.map((r) => { const ep = episodeHeldByRow(state, r.id); return [r.id.replace("BATCH-20261002-01-", ""), REASON[r.quarantine!.reason], ep ? ep.id : "unmatched", ep ? personName(I.personById.get(ep.personId)) : "Unknown"]; }),
-        actions: [{ label: "Open the held rows", target: { page: "Results", tab: "imports", params: { batch: "BATCH-20261002-01" } }, primary: true }, { label: "Open Work tasks", target: { page: "Work", tab: "tasks" } }],
+        cols: ["Participant", "Why it waits", "Lab line"],
+        rows: rows.map((r) => { const ep = episodeHeldByRow(state, r.id); return [ep ? personName(I.personById.get(ep.personId)) : `${r.nameInFile} (no match yet)`, REASON[r.quarantine!.reason], `Line ${r.line}`]; }),
+        actions: [{ label: "Match them now", target: { page: "Results", tab: "imports", params: { view: "queue" } }, primary: true }, { label: "Open the lab file", target: { page: "Results", tab: "imports", params: { batch: "BATCH-20261002-01" } } }],
       };
     }
     case "aged": {
@@ -393,7 +394,7 @@ export function agentThread(state: PhState, id: AgentId): ThreadItem[] {
       return [
         stamp(sim),
         agent(`prepared the column mapping for ${b.batch.id}: 7 columns mapped to Pulse fields. Validation: ${b.imported} rows imported, ${b.duplicates} duplicates already seen, ${b.quarantined} quarantined. ${b.rows} rows across ${b.specimens} specimens. Rows are not people.`, undefined, [open("Open the batch", { page: "Results", tab: "imports", params: { batch: b.batch.id } })]),
-        ...rows.map((r) => agent(`row ${r.id.replace("BATCH-20261002-01-", "")} is held: ${REASON[r.quarantine!.reason].toLowerCase()}. I have not matched it. A person must confirm two identifiers.`, undefined, [open(`Open row ${r.id.replace("BATCH-20261002-01-", "")}`, linkFor("row", r.id))])),
+        ...rows.map((r) => agent(`row ${r.id.replace("BATCH-20261002-01-", "")} is held: ${REASON[r.quarantine!.reason].toLowerCase()}. I have not matched it. ${ID_RULE} A person checks and decides.`, undefined, [open(`Open row ${r.id.replace("BATCH-20261002-01-", "")}`, linkFor("row", r.id))])),
         ...(rows.length ? [] : [agent("every held row has been resolved by a person with a documented check.")]),
       ];
     }

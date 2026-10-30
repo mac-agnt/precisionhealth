@@ -105,7 +105,7 @@ function PreVisit({ row }: { row: ApptRow }) {
             <CardHeader title="At arrival" />
             <Checklist items={[
               { label: "Check the participant in", done: false },
-              { label: "Confirm identity with two identifiers: date of birth and booking reference", done: false, note: "A name match alone is never enough. Required before anything clinical." },
+              { label: "Confirm identity: name, date of birth and booking reference", done: false, note: "A name match alone is never enough. Required before anything clinical." },
               { label: "Work through the nurse form, confirming the questionnaire answers", done: false, note: "Registration, cardiovascular risk, bowel, PSA, measurements, ECG, urinalysis, close-out." },
               ...(sessionUsesPoc(row.session)
                 ? [
@@ -222,7 +222,7 @@ function CompletedView({ row, episode: ep }: { row: ApptRow; episode: Episode })
         </>}>
         <div className="clx-banner info">
           <Icon name="info" size={14} style={{ color: "var(--accent)", marginTop: 2 }} />
-          <span>Appointment completed {cap.completedAt ? fmtDateTime(cap.completedAt) : ""}. Unique ID <span className="ph-mono">{ep.screeningRef}</span>. Completing an appointment never releases a report. Report state: {REPORT_STATE_LABEL[ep.reportState]}.</span>
+          <span>Appointment completed {cap.completedAt ? fmtDateTime(cap.completedAt) : ""}. Precision ID <span className="ph-mono">{ep.screeningRef}</span>. Completing an appointment never releases a report. Report state: {REPORT_STATE_LABEL[ep.reportState]}.</span>
         </div>
       </WsHeader>
       <ResultsStatusCard episode={ep} onOpenEpisode={(id) => nav.go(linkFor("episode", id))} />
@@ -252,7 +252,7 @@ function CompletedView({ row, episode: ep }: { row: ApptRow; episode: Episode })
             <CardHeader title="Episode" />
             <dl className="clx-kv" style={{ margin: 0, gridTemplateColumns: "repeat(2, minmax(0, 1fr))" }}>
               <div><dt>Episode</dt><dd className="ph-mono">{ep.id}</dd></div>
-              <div><dt>Unique ID</dt><dd className="ph-mono">{ep.screeningRef}</dd></div>
+              <div><dt>Precision ID</dt><dd className="ph-mono">{ep.screeningRef}</dd></div>
               <div><dt>Report state</dt><dd>{REPORT_STATE_LABEL[ep.reportState]}</dd></div>
               <div><dt>Collected</dt><dd>{fmtDateTime(ep.collectedAt)}</dd></div>
               <div><dt>Form snapshot</dt><dd>v{ep.formSnapshot.version}, {Object.keys(ep.formSnapshot.blocks).length} blocks</dd></div>
@@ -263,7 +263,7 @@ function CompletedView({ row, episode: ep }: { row: ApptRow; episode: Episode })
           <Card>
             <CardHeader title="Pre-screening checks" />
             <Checklist items={[
-              { label: "Identity confirmed using two identifiers", done: cap.identity.every((x) => x.confirmed), note: cap.identity.map((x) => `${x.label}: ${x.confirmedValue || "not recorded"}`).join("; ") },
+              { label: "Identity confirmed: name, date of birth and booking reference", done: cap.identity.every((x) => x.confirmed), note: cap.identity.map((x) => `${x.label}: ${x.confirmedValue || "not recorded"}`).join("; ") },
               { label: consentSummary(row.membership, row.booking.consentVersion), done: row.membership?.questionnaire === "complete" && row.membership?.consent === "complete" },
               { label: "Questionnaire reviewed at the appointment", done: !!cap.checklist.questionnaire, note: cap.checklist.questionnaire ? undefined : "Not recorded as reviewed" },
               { label: "All expected results accounted for", done: pending.length === 0, note: pending.length ? `${pending.length} pending: ${pending.map((x) => x.code).join(", ")}` : undefined },

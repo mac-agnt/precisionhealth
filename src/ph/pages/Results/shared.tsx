@@ -42,9 +42,9 @@ export function OverlayPortal({ children }: { children: ReactNode }) {
 /* ---- labels ---- */
 
 export const QUARANTINE_LABEL: Record<QuarantineReason, string> = {
-  dob_mismatch: "Date of birth mismatch",
-  unknown_specimen: "Unknown specimen identifier",
-  multiple_candidates: "Two candidate episodes",
+  dob_mismatch: "Date of birth differs",
+  unknown_specimen: "Precision ID not found",
+  multiple_candidates: "Two possible participants",
 };
 
 const STATE_LOOK: Record<Episode["reportState"], { tone: Tone; icon: GlyphName }> = {
@@ -70,9 +70,10 @@ export function HoldCategoryPill({ category, label }: { category: HoldCategory; 
 
 const ROW_LOOK: Record<ImportRow["state"], { tone: Tone; icon: GlyphName; label: string }> = {
   imported: { tone: "ok", icon: "check", label: "Imported" },
-  resolved: { tone: "ok", icon: "shield", label: "Resolved, committed once" },
-  duplicate: { tone: "neutral", icon: "layers", label: "Duplicate, skipped" },
-  quarantined: { tone: "warn", icon: "alert", label: "Quarantined" },
+  resolved: { tone: "ok", icon: "shield", label: "Matched by a person" },
+  duplicate: { tone: "neutral", icon: "layers", label: "Already in Pulse" },
+  quarantined: { tone: "warn", icon: "alert", label: "Needs matching" },
+  rejected: { tone: "neutral", icon: "x", label: "Rejected" },
 };
 export function RowStatePill({ state }: { state: ImportRow["state"] }) {
   const l = ROW_LOOK[state];

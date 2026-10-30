@@ -6,7 +6,7 @@
 import { useState } from "react";
 import type { ReactNode } from "react";
 import {
-  ANALYTES, STORY_DEFS, act, batchList, batchRows, batchStats, fmtDateTime, fmtNumericDate, fmtShortDateTime, fmtTime, fmtWhen, ix, persona,
+  ANALYTES, ID_RULE, STORY_DEFS, act, batchList, batchRows, batchStats, fmtDateTime, fmtNumericDate, fmtShortDateTime, fmtTime, fmtWhen, ix, persona,
   reuploadPreview, staffName,
 } from "../../model";
 import type { BatchStats, ImportBatch, ImportRow } from "../../model";
@@ -33,7 +33,7 @@ export const BATCH_KIND: Record<NonNullable<ImportBatch["kind"]>, { label: strin
   core: { label: "Core batch: lipids and HbA1c", short: "Core", detail: "Total, HDL and LDL cholesterol, triglycerides and HbA1c." },
   extended: { label: "Extended panel batch", short: "Extended", detail: "Full blood count, kidney, liver, thyroid, iron, vitamins and minerals, PSA and FIT where taken." },
   sample: { label: "Sample delivery", short: "Sample", detail: "Simulated results loaded in this session for one episode." },
-  upload: { label: "Uploaded CSV file", short: "Upload", detail: "A lab CSV dropped into Pulse and matched on name, date of birth and Unique ID." },
+  upload: { label: "Uploaded CSV file", short: "Upload", detail: "A lab CSV dropped into Pulse and matched on name, date of birth and Precision ID." },
 };
 const kindOf = (b: ImportBatch) => BATCH_KIND[b.kind || "core"];
 
@@ -62,7 +62,7 @@ function ImportsWorkspace() {
   if (!batchId) {
     return (
       <div className="ph-page phr">
-        <PageHeader title="Lab imports" sub="Drop the lab's CSV file. Matching rows go straight onto the patient's record; anything that does not match waits below for a person." actions={<DemoTag>Simulated lab feed</DemoTag>} />
+        <PageHeader title="Lab imports" sub="Drop the lab's CSV file. Rows that match go straight onto the participant's record; anything else waits below for a person." actions={<DemoTag>Simulated lab feed</DemoTag>} />
         <LabImportHome />
       </div>
     );
@@ -106,14 +106,14 @@ function BatchWorkspace({ batchId }: { batchId: string }) {
       <KpiStrip>
         <Kpi label="Rows received" value={<Count n={stats.rows} unit="rows" />} sub={`${kindOf(stats.batch).short} batch, ${stats.specimens} specimens. Rows, not people`} icon="list" onClick={() => setFilter("all")} hint="Show every row" />
         <Kpi label="Accepted" value={<Count n={stats.imported} unit="rows" />} sub={stats.resolved ? `Committed, ${stats.resolved} after a documented resolution` : "Committed to episode records"} icon="check" onClick={() => setFilter("imported")} hint="Show the accepted rows" />
-        <Kpi label="Quarantined" value={<Count n={stats.quarantined} unit="rows" />} sub="Identity conflicts, held for a person" icon="alert" onClick={() => setFilter("quarantined")} hint="Show the quarantined rows" />
+        <Kpi label="Needs matching" value={<Count n={stats.quarantined} unit="rows" />} sub="Waiting for a person to check" icon="alert" onClick={() => setFilter("quarantined")} hint="Show the rows that need matching" />
         <Kpi label="Duplicates" value={<Count n={stats.duplicates} unit="rows" />} sub="Excluded from commit, never created twice" icon="layers" onClick={() => setFilter("duplicate")} hint="Show the duplicate rows" />
       </KpiStrip>
 
       {stats.quarantined ? (
         <div style={{ marginTop: 12 }}>
           <Banner tone="warn" icon="alert" action={<Button size="sm" onClick={() => setFilter("quarantined")}>Show held rows</Button>}>
-            <b>{stats.quarantined === 1 ? "1 row needs" : `${stats.quarantined} rows need`} identity resolution.</b> Rows with conflicting identifiers are never attached automatically. Review each against the laboratory source before resolving.
+            <b>{stats.quarantined === 1 ? "1 row needs" : `${stats.quarantined} rows need`} matching by a person.</b> {ID_RULE}
           </Banner>
         </div>
       ) : null}
@@ -183,7 +183,7 @@ function BatchSummary({ s }: { s: BatchStats }) {
         { label: "Imported on arrival", value: v.importedOnArrival, color: "var(--accent)" },
         { label: "Resolved by a person", value: v.resolved, color: "var(--ok)" },
         { label: "Duplicates skipped", value: s.duplicates, color: PALETTE[1] },
-        { label: "Quarantined", value: s.quarantined, color: "var(--warn)" },
+        { label: "Needs matching", value: s.quarantined, color: "var(--warn)" },
       ]} />
       <div className="phr-sub" style={{ marginTop: 8 }}>{s.rows} observation rows across {s.specimens} specimen records. These are rows, not {s.rows} people.</div>
       <div style={{ marginTop: 10 }}>
@@ -382,7 +382,7 @@ function RowsCard({ batchId, filter, setFilter, onOpen, selected }: { batchId: s
     duplicate: rows.filter((r) => r.state === "duplicate").length, quarantined: rows.filter((r) => r.state === "quarantined").length,
     unit: v.unitDiffers.length, dob: v.dob.mismatch,
   };
-  const label: Record<RowFilter, string> = { all: "All", imported: "Imported", resolved: "Resolved", duplicate: "Duplicates", quarantined: "Quarantined", unit: "Unit differs", dob: "DOB mismatch" };
+  const label: Record<RowFilter, string> = { all: "All", imported: "Imported", resolved: "Resolved", duplicate: "Duplicates", quarantined: "Needs matching", unit: "Unit differs", dob: "Date of birth differs" };
   const query = q.trim().toLowerCase();
   const shown = rows.filter((r) => {
     if (filter === "unit" && r.unit === ANALYTES[r.analyteCode].unit) return false;
@@ -419,7 +419,7 @@ function RowsCard({ batchId, filter, setFilter, onOpen, selected }: { batchId: s
         {narrow ? <div style={{ marginTop: 3 }}>{uniqueId(r)}</div> : null}
       </div>
     ), sort: (a, b) => (a.specimenKey < b.specimenKey ? -1 : 1) },
-    ...(narrow ? [] : [{ key: "uid", header: "Unique ID", cell: (r: ImportRow) => uniqueId(r) }]),
+    ...(narrow ? [] : [{ key: "uid", header: "Precision ID", cell: (r: ImportRow) => uniqueId(r) }]),
     { key: "check", header: "Identity check", nowrap: false, cell: (r) => <div><div style={{ fontSize: 12 }}>{r.nameInFile}{r.dobInFile ? `, ${fmtNumericDate(r.dobInFile)}` : ""}</div><div style={{ marginTop: 3 }}>{checkPill(r)}</div></div> },
     ...(narrow ? [] : [{ key: "obs", header: "Observation", nowrap: false, cell: (r: ImportRow) => observation(r) }]),
     { key: "state", header: "Status", cell: (r) => <RowStatePill state={r.state} /> },
@@ -428,14 +428,14 @@ function RowsCard({ batchId, filter, setFilter, onOpen, selected }: { batchId: s
     <Card pad={false}>
       <div ref={ref} style={{ padding: "14px 16px 10px" }}>
         <CardHeader title="Rows" sub={`Every observation row in ${batchId}, exactly as received. Open a row for provenance, checks and its audit trail.`}
-          right={<SearchBox value={q} onChange={setQ} placeholder="Row, Unique ID, specimen, name or test" width={260} />} />
+          right={<SearchBox value={q} onChange={setQ} placeholder="Row, Precision ID, name or test" width={260} />} />
         <div className="phr-row">
           {FILTERS.filter((f) => f === "all" || counts[f] > 0 || f === filter).map((f) => <Chip key={f} on={filter === f} onClick={() => setFilter(f)} count={counts[f]}>{label[f]}</Chip>)}
         </div>
       </div>
       <DataTable rows={shown} columns={cols} rowKey={(r) => r.id} onRowClick={(r) => onOpen(r.id)} selectedKey={selected} pageSize={25}
         empty={<EmptyState title="No rows match" icon="search">Clear the search or choose another filter.</EmptyState>}
-        footerNote={`Matched on the specimen ID and the episode's Unique ID; date of birth and name are cross-checked before anything is attached. Specimen plus test is the duplicate key.${showValues ? "" : " Result values are hidden for this role."}`} />
+        footerNote={`${ID_RULE} The same specimen and test is never added twice.${showValues ? "" : " Result values are hidden for this role."}`} />
     </Card>
   );
 }

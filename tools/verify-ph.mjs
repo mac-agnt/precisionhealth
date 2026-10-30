@@ -897,22 +897,36 @@ try {
     check("rr second superadmin publishes", run(RA.publish(fd.id)).ok && M.classify(T.ferr, R().versions, fem, 155, "2026-10-25").outcome === "normal" && M.classify(T.ferr, R().versions, fem, 155, "2026-10-19").outcome === "high_mild");
     check("rr cannot remove the last superadmin", run(RA.setSuperadmin("neil", false)).ok && !run(RA.setSuperadmin("liz", false)).ok && !R().settings.secondApprover);
     check("rr answer a question", run(RA.answerQuestion("Q-DATE", "Agreed: sample date.")).ok && R().questions["Q-DATE"].status === "answered");
-    run(act.setPersona("brenda"));
     {
-      const n = s.activity.length, persons = s.persons.length, obs = s.observations.length;
-      check("rr test run logged by any staff, nothing saved to a patient", run({ type: "rr/logTestRun", name: "Test Patient B", results: 16, flagged: 9, date: "2026-10-05", versions: ["RRV-TC-1"] }).ok
-        && s.activity.length === n + 1 && s.activity.at(-1).verb === "ranges.test_run" && s.activity.at(-1).simulated && s.persons.length === persons && s.observations.length === obs);
-      check("rr test run needs a result", !run({ type: "rr/logTestRun", name: "x", results: 0, flagged: 0, date: "2026-10-05", versions: [] }).ok);
-    }
-    {
+      /* Enter results (Health Screening): a doctor types lab results onto a real participant's screening. No new episode is created. */
+      const LA = M.labAct;
+      const ep0 = s.episodes.find((e) => e.id === "PH-E-1181");
+      const pend = M.expectedTests(s, ep0).filter((t) => t.status === "pending").map((t) => t.code);
+      run(act.setPersona("brenda"));
+      check("enter results is for the clinical team", !run(LA.enterValues("PH-E-1181", [{ code: "TC", valueText: "4.4" }])).ok);
       run(act.setPersona("neil"));
-      const ready = M.reviewStats(s).ready, eps = s.episodes.length;
-      const r = run({ type: "rr/createTestReport", personId: "PH-P-0501", date: "2026-10-05", measures: { heightM: 1.78, weightKg: 85, bpSys: 150, bpDia: 84 }, lab: { TC: 5.6, HDL: 1.1, LDL: 3.2 } });
-      const ep = s.episodes.find((e) => e.id === r.id);
-      check("rr test report lands in the review queue", r.ok && s.episodes.length === eps + 1 && ep && ep.reportState === "ready_for_review" && M.reviewStats(s).ready === ready + 1);
-      const obs = s.observations.filter((o) => o.episodeId === r.id);
-      eq("rr test report results banded by the ranges", obs.map((o) => [o.code, o.band, o.rangeVersion]), [["TC", "borderline", "RRV-TC-1"], ["HDL", "normal", "RRV-HDL-1"], ["LDL", "borderline", "RRV-LDL-1"]]);
-      check("rr test report needs a participant with a visit", !run({ type: "rr/createTestReport", personId: "nobody", date: "2026-10-05", measures: {}, lab: { TC: 5 } }).ok);
+      const eps = s.episodes.length, obsN = s.observations.length;
+      check("enter results needs a value", !run(LA.enterValues("PH-E-1181", [])).ok);
+      check("enter results rejects text it cannot read", !run(LA.enterValues("PH-E-1181", [{ code: "TC", valueText: "high" }])).ok && s.observations.length === obsN);
+      check("agents cannot enter results", !run({ ...LA.enterValues("PH-E-1181", [{ code: "TC", valueText: "4.4" }]), actor: { kind: "agent", label: "Lab Reconciliation" } }).ok);
+      const r1 = run(LA.enterValues("PH-E-1181", [{ code: "TC", valueText: "5.6" }, { code: "HDL", valueText: "1.1" }]));
+      const o1 = s.observations.filter((o) => o.episodeId === "PH-E-1181" && (o.code === "TC" || o.code === "HDL") && o.source.kind === "batch").map((o) => [o.code, o.band]);
+      check("enter results saves onto the real episode, banded", r1.ok && s.episodes.length === eps && JSON.stringify(o1) === JSON.stringify([["TC", "borderline"], ["HDL", "normal"]]), JSON.stringify([r1, o1]));
+      check("a saved value is not entered twice", !run(LA.enterValues("PH-E-1181", [{ code: "TC", valueText: "5.6" }])).ok);
+      const rest = M.expectedTests(s, s.episodes.find((e) => e.id === "PH-E-1181")).filter((t) => t.status === "pending").map((t) => ({ code: t.code, valueText: M.ANALYTES[t.code].qualitative ? "Negative" : "5" }));
+      const r2 = run(LA.enterValues("PH-E-1181", rest));
+      check("all results entered: ready for review in Results", pend.length > 2 && r2.ok && s.episodes.find((e) => e.id === "PH-E-1181").reportState === "ready_for_review" && M.reviewQueue(s).some((i) => i.episode.id === "PH-E-1181"));
+      check("entered results are logged with who", s.activity.some((x) => x.verb === "results.entered" && /Neil/.test(x.summary)));
+      check("released reports cannot be typed over", !run(LA.enterValues("PH-E-0201", [{ code: "TC", valueText: "4" }])).ok);
+      /* New screening, step 6: the summary agent drafts, only the reviewing doctor approves. */
+      const sum = M.screeningSummary(s, "PH-E-0201");
+      check("summary drafted from the banded results", !!sum && sum.text.length > 40 && sum.next.length > 0 && !sum.approved);
+      check("agents cannot approve a summary", !run({ ...M.summaryAct.approve("PH-E-0201"), actor: { kind: "agent", label: "Summary agent" } }).ok);
+      run(act.setPersona("brenda"));
+      check("operations cannot approve a summary", !run(M.summaryAct.approve("PH-E-0201")).ok);
+      run(act.setPersona("neil"));
+      check("doctor approves the summary once, logged with name", run(M.summaryAct.approve("PH-E-0201")).ok && M.screeningSummary(s, "PH-E-0201").approved && /Neil/.test(M.screeningSummary(s, "PH-E-0201").approved.by) && !run(M.summaryAct.approve("PH-E-0201")).ok);
+      check("approved summary visible once released", M.summaryVisible(s, "PH-E-0201"));
       s = createInitialState();
     }
     run(act.setPersona("participant"));

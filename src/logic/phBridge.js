@@ -37,7 +37,8 @@ export function phContext(logic, page, seg, contextNav, contextHint, searchHint)
   if (!def.tabs.length) {
     return { contextNav: [seg(def.label, true, () => {})], contextHint: "CHAT FIRST · DEMO", searchHint: "Search everything you can see" };
   }
-  const tabs = def.tabs.map(t => seg(t.label, t.id === tab, () => logic.phGo({ page, tab: t.id }), tabCount(state, page, t.id)));
+  const shownTab = (def.tabs.find(t => t.id === tab) || {}).under || tab;
+  const tabs = def.tabs.filter(t => !t.hidden).map(t => seg(t.label, t.id === shownTab, () => logic.phGo({ page, tab: t.id }), tabCount(state, page, t.id)));
   const label = tabLabel(page, tab);
   return {
     contextNav: tabs,

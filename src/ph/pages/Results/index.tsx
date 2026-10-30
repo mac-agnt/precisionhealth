@@ -5,14 +5,15 @@ import "./results.css";
 import "./actions";
 import { usePersona } from "../../store";
 import { PageHeader, RestrictedNotice } from "../../ui";
-import Inbox from "./Inbox";
 import Imports from "./Imports";
-import Review from "./Review";
+import Review, { filterFromInbox } from "./Review";
+import { useNav } from "../../nav-context";
 import FollowUp from "./FollowUp";
 import Corrections from "./Corrections";
 
 export default function ResultsPage({ tab }: { tab: string }) {
   const p = usePersona();
+  const nav = useNav();
   if (p.isParticipant) {
     // While the participant preview is open the demo acts as the participant: no staff data at all.
     return (
@@ -29,6 +30,7 @@ export default function ResultsPage({ tab }: { tab: string }) {
     case "review": return <Review />;
     case "follow-up": return <FollowUp />;
     case "corrections": return <Corrections />;
-    default: return <Inbox />;
+    // The Inbox is now a filter in Review; #/Results/inbox?queue=held still opens the same list.
+    default: return <Review initial={filterFromInbox(nav.params.queue)} />;
   }
 }
