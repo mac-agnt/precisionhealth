@@ -133,9 +133,9 @@ export const FLU_SEASON_ARCHIVE: FluSeason = 2025;
 export const FLU_SAFE_MIN_C = 2;
 export const FLU_SAFE_MAX_C = 8;
 /** Who manages flu: bookings, staffing, stock and the cold chain. */
-export const FLU_MANAGERS: readonly StaffId[] = ["stephen", "martina", "brenda"];
-/** Read-only across every flu clinic: the Medical Director and the Director of Nursing. */
-export const FLU_VIEW_ALL: readonly StaffId[] = ["neil", "liz"];
+export const FLU_MANAGERS: readonly StaffId[] = ["stephen", "martina", "brenda", "neil"];
+/** Read-only across every flu clinic: the Director of Nursing. Neil manages flu from his control panel. */
+export const FLU_VIEW_ALL: readonly StaffId[] = ["liz"];
 /** Vaccinators among the demo profiles. Ian is a wellness advisor and goes as support. */
 export const FLU_VACCINATORS: readonly StaffId[] = ["liz", "fiona", "anita"];
 export const FLU_SUPPORT: readonly StaffId[] = ["ian"];

@@ -702,7 +702,7 @@ try {
     check("oh fully completed means all four steps done", O().clients.every((c) => (M.ohGroupOf(c) === "fully_completed") === M.OH_STEPS.every((st) => c.steps[st.step].status === "done")));
     check("oh Ian diary 07:30 to 16:30 in 15-minute slots", O().diaries[0].clinicianName === "Ian Murtagh" && O().diaries[0].slots[0].start === "07:30" && O().diaries[0].slots.length === 36);
     check("oh participant blocked", (oh(act.setPersona("participant")), !oh({ type: "oh/completeStep", clientId: "OHC-13", step: "xero" }).ok));
-    check("oh clinical role view only", (oh(act.setPersona("neil")), !oh({ type: "oh/completeStep", clientId: "OHC-13", step: "xero" }).ok) && M.ohAccess(o) === "view");
+    check("oh clinical role view only", (oh(act.setPersona("liz")), !oh({ type: "oh/completeStep", clientId: "OHC-13", step: "xero" }).ok) && M.ohAccess(o) === "view");
     oh(act.setPersona("brenda"));
     const form = { ...M.ohSampleForm() };
     check("oh invalid form rejected", !oh({ type: "oh/submitOnboarding", form: { ...form, contactEmail: "nope" } }).ok);

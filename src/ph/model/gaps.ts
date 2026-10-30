@@ -117,7 +117,7 @@ export const MEAL_LABEL: Record<Meal, string> = { breakfast: "Breakfast", lunch:
 export const MEAL_RATE: Record<Meal, number> = { breakfast: 12, lunch: 18, dinner: 30 };
 export const SUBSISTENCE_NOTE = "Illustrative rates, to confirm with Precision Health. Not a payroll calculation.";
 /** Who approves claims and hotel requests. */
-export const EXPENSE_APPROVERS: readonly StaffId[] = ["stephen", "martina", "brenda", "liz"];
+export const EXPENSE_APPROVERS: readonly StaffId[] = ["stephen", "martina", "brenda", "liz", "neil"];
 
 export interface ExpenseRequest {
   id: string; // EXP-0001

@@ -127,7 +127,7 @@ try {
 
   /* ---------- copy ---------- */
   const dir = "src/ph/pages/Dashboard";
-  for (const f of readdirSync(dir)) {
+  for (const f of readdirSync(dir, { recursive: true }).filter((x) => /\.(ts|tsx)$/.test(x))) {
     const text = readFileSync(`${dir}/${f}`, "utf8");
     check(`no em or en dashes in ${f}`, !/[–—]/.test(text));
   }

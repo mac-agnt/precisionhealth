@@ -20,7 +20,7 @@ export const PAGES: PageDef[] = [
   { id: "Calendar", label: "Calendar", icon: "navCalendar", hint: "Everything with a date, in one place", tabs: [{ id: "all", label: "Everything" }] },
   { id: "Clients", label: "Clients", icon: "navClients", hint: "Every client, start to finish", tabs: [{ id: "journey", label: "Start to finish" }] },
   { id: "Dashboard", label: "Dashboard", icon: "navDash", hint: "Sales and operations", tabs: [
-    { id: "sales", label: "Sales" }, { id: "operations", label: "Operations" }, { id: "executive", label: "Executive" }] },
+    { id: "sales", label: "Sales" }, { id: "operations", label: "Control panel" }, { id: "executive", label: "Executive" }] },
   { id: "Sales", section: "Sell", label: "Sales", icon: "navSales", hint: "Leads, proposals, onboarding, retention", tabs: [
     { id: "pipeline", label: "Pipeline" }, { id: "proposals", label: "Proposals" }, { id: "price-list", label: "Price list" }, { id: "onboarding", label: "Onboarding" },
     { id: "recall", label: "Retention" }, { id: "partners", label: "Irish Life Health" }, { id: "tenders", label: "Tenders" }] },

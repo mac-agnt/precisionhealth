@@ -43,7 +43,7 @@ export const OH_STEPS: OhOwnerDef[] = [
 export const OH_STEP_BY_ID: Record<OhStepId, OhOwnerDef> = Object.fromEntries(OH_STEPS.map((s) => [s.step, s])) as Record<OhStepId, OhOwnerDef>;
 
 /** Who manages occupational health in this demo. Clinical roles view; the participant preview sees nothing. */
-export const OH_MANAGERS: StaffId[] = ["stephen", "fiona", "martina", "brenda"];
+export const OH_MANAGERS: StaffId[] = ["stephen", "fiona", "martina", "brenda", "neil"];
 export type OhAccess = "manage" | "view" | "none";
 export function ohAccess(state: PhState): OhAccess {
   const id = state.session.personaId;

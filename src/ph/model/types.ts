@@ -1059,4 +1059,6 @@ export interface PhState {
   scheduled: import("./scheduledActions").ScheduledState;
   /** Client portals created on the Portals page, nurses added there and people invited there. */
   portalsHub: import("./portalsHub").PortalsHubState;
+  /** Control panel (Dashboard): End of Day reminders sent from it. Created on first use. */
+  control?: { chased: Record<string, { at: string; by: string }> };
 }
