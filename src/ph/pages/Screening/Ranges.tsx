@@ -20,9 +20,14 @@ type Filter = "all" | "issues" | "confirm" | "notset" | "drafts";
 export default function Ranges() {
   const s = usePhState();
   const nav = useNav();
-  const [q, setQ] = useState("");
-  const [group, setGroup] = useState<RrGroup | "all">("all");
-  const [filter, setFilter] = useState<Filter>("all");
+  /* Filters live in the URL: #/Screening/ranges?status=issues&group=Cholesterol&q=hdl */
+  const setP = (k: string, v: string) => { const x: Record<string, string> = { ...nav.params, [k]: v }; delete x.test; Object.keys(x).forEach((key) => { if (!x[key] || x[key] === "all") delete x[key]; }); nav.setParams(x); };
+  const q = nav.params.q || "";
+  const setQ = (v: string) => setP("q", v);
+  const group = ((RR_GROUPS as readonly string[]).includes(nav.params.group || "") ? nav.params.group : "all") as RrGroup | "all";
+  const setGroup = (g: RrGroup | "all") => setP("group", g);
+  const filter: Filter = (["all", "issues", "confirm", "notset", "drafts"] as Filter[]).find((f) => f === nav.params.status) || "all";
+  const setFilter = (f: Filter) => setP("status", f);
   const rows = useMemo(() => RR_TESTS.map((t) => ({ t, st: testStatus(s, t) })), [s]);
   const counts: Record<Filter, number> = {
     all: rows.length,
@@ -40,7 +45,7 @@ export default function Ranges() {
 
   return (
     <>
-      <PageHeader title="Reference ranges"
+      <PageHeader title="Reference ranges" actions={<Button variant="primary" icon="plus" onClick={() => nav.go({ page: "Screening", tab: "new" })}>New screening</Button>}
         sub={<>The normal and abnormal ranges Pulse uses to judge every result. Open a test to see its history or change a number. Only {admins || "superadmins"} can change them.</>} />
       <Card>
         <div className="scr-filters">
@@ -57,9 +62,9 @@ export default function Ranges() {
             <SearchBox value={q} onChange={setQ} placeholder="Search tests" />
           </div>
         </div>
-        <RangesTable rows={shown} onOpen={(id) => nav.setParams({ test: id })} />
+        <RangesTable rows={shown} onOpen={(id) => nav.setParams({ ...nav.params, test: id })} />
       </Card>
-      {openId && RR_TEST_BY_ID[openId] ? <TestDrawer test={RR_TEST_BY_ID[openId]} onClose={() => nav.setParams({})} /> : null}
+      {openId && RR_TEST_BY_ID[openId] ? <TestDrawer test={RR_TEST_BY_ID[openId]} onClose={() => { const x = { ...nav.params }; delete x.test; nav.setParams(x); }} /> : null}
     </>
   );
 }
@@ -73,7 +78,7 @@ function StatusPills({ st }: { st: ReturnType<typeof testStatus> }) {
   return out.length ? <div className="ph-row-flex ph-wrap" style={{ gap: 4, marginTop: 4 }}>{out}</div> : null;
 }
 
-export function TestDrawer({ test, onClose }: { test: RrTest; onClose: () => void }) {
+export function TestDrawer({ test, onClose, fromDate }: { test: RrTest; onClose: () => void; fromDate?: string }) {
   const s = usePhState();
   const p = usePersona();
   const su = isSuperadmin(s, p.id);
@@ -94,7 +99,7 @@ export function TestDrawer({ test, onClose }: { test: RrTest; onClose: () => voi
         {v && test.kind === "numeric" ? <Button variant="primary" icon="edit" disabled={!!st.draft} onClick={() => setQuick(true)} title={st.draft ? "Publish or reject the open draft first" : undefined}>Change a number</Button> : null}
       </> : <span className="ph-faint" style={{ fontSize: 12 }}>Read only. Only superadmins ({s.referenceRanges.settings.superadmins.map((id) => staffNameOf(s, id)).join(", ")}) change ranges.</span>}>
       <div className="ph-stack" style={{ gap: 16 }}>
-        {quick && v ? <QuickChange test={test} base={v} onDone={() => setQuick(false)} /> : null}
+        {quick && v ? <QuickChange test={test} base={v} fromDate={fromDate} onDone={() => setQuick(false)} /> : null}
         {st.draft ? <DraftPanel draft={st.draft} test={test} /> : null}
         {st.scheduled.map((x) => <Callout key={x.id} tone="info" icon="calendar"><strong>Version {x.version} takes effect on {fmtDate(x.effectiveFrom)}.</strong> Results with a sample date from then use it; earlier results keep version {v ? v.version : "1"}. {x.reason}</Callout>)}
 
@@ -202,7 +207,7 @@ function DraftPanel({ draft, test }: { draft: RrVersion; test: RrTest }) {
  * Moving a limit moves the band on both sides of it, so there are never gaps. Publishes straight
  * away (both steps are logged) unless second approval is on, when it waits as a draft.
  */
-function QuickChange({ test, base, onDone }: { test: RrTest; base: RrVersion; onDone: () => void }) {
+function QuickChange({ test, base, onDone, fromDate }: { test: RrTest; base: RrVersion; onDone: () => void; fromDate?: string }) {
   const s = usePhState();
   const rows = base.rows.filter((r) => r.status === "set" && r.bands.length);
   const [ri, setRi] = useState(0);
@@ -215,7 +220,7 @@ function QuickChange({ test, base, onDone }: { test: RrTest; base: RrVersion; on
   const [which, setWhich] = useState<number | null>(limits[0] ?? null);
   const [to, setTo] = useState("");
   const [why, setWhy] = useState("");
-  const [from, setFrom] = useState(today(s));
+  const [from, setFrom] = useState(fromDate && fromDate < today(s) ? fromDate : today(s));
   const n = Number(to);
   const valid = which !== null && to.trim() !== "" && Number.isFinite(n) && n !== which && why.trim().length >= 10;
   const preview = useMemo(() => {

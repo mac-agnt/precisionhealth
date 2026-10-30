@@ -918,6 +918,15 @@ try {
       check("all results entered: ready for review in Results", pend.length > 2 && r2.ok && s.episodes.find((e) => e.id === "PH-E-1181").reportState === "ready_for_review" && M.reviewQueue(s).some((i) => i.episode.id === "PH-E-1181"));
       check("entered results are logged with who", s.activity.some((x) => x.verb === "results.entered" && /Neil/.test(x.summary)));
       check("released reports cannot be typed over", !run(LA.enterValues("PH-E-0201", [{ code: "TC", valueText: "4" }])).ok);
+      /* New screening, step 6: the summary agent drafts, only the reviewing doctor approves. */
+      const sum = M.screeningSummary(s, "PH-E-0201");
+      check("summary drafted from the banded results", !!sum && sum.text.length > 40 && sum.next.length > 0 && !sum.approved);
+      check("agents cannot approve a summary", !run({ ...M.summaryAct.approve("PH-E-0201"), actor: { kind: "agent", label: "Summary agent" } }).ok);
+      run(act.setPersona("brenda"));
+      check("operations cannot approve a summary", !run(M.summaryAct.approve("PH-E-0201")).ok);
+      run(act.setPersona("neil"));
+      check("doctor approves the summary once, logged with name", run(M.summaryAct.approve("PH-E-0201")).ok && M.screeningSummary(s, "PH-E-0201").approved && /Neil/.test(M.screeningSummary(s, "PH-E-0201").approved.by) && !run(M.summaryAct.approve("PH-E-0201")).ok);
+      check("approved summary visible once released", M.summaryVisible(s, "PH-E-0201"));
       s = createInitialState();
     }
     run(act.setPersona("participant"));

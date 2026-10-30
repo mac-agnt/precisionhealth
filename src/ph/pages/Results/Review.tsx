@@ -11,7 +11,7 @@ import {
 import type { Episode, HoldItem, PhState, ReviewItem } from "../../model";
 import { usePhState } from "../../store";
 import { useNav } from "../../nav-context";
-import { Button, Card, Chip, EmptyState, PageHeader, Pill, RestrictedNotice, SearchBox } from "../../ui";
+import { Button, Card, Chip, EmptyState, PageHeader, Pill, RestrictedNotice, SearchBox, Select } from "../../ui";
 import { AnswersCard, EpisodeHeader, EpisodeHistory, NurseFormCard, ResultsTable, StateBanner } from "./EpisodePanels";
 import type { Bundle } from "./EpisodePanels";
 import { AdviceEditor, FlagsCard, PreviewCard, ReleaseCard, ReleaseUnavailableCard, ReleasedCard } from "./ReleasePanel";
@@ -77,15 +77,19 @@ function ReviewWorkspace({ initial }: { initial?: QueueFilter }) {
   const awaiting = state.episodes.filter((e) => e.reportState === "awaiting_results");
   const released = releasedEpisodes(state);
   const filter: QueueFilter = FILTERS.find((f) => f === nav.params.filter) || initial || (nav.params.view === "approved" || nav.params.view === "amended" ? nav.params.view : "all");
-  const setFilter = (f: QueueFilter) => { const next: Record<string, string> = { filter: f }; if (nav.params.reporter) next.reporter = nav.params.reporter; nav.setParams(next); };
+  const setFilter = (f: QueueFilter) => { const next: Record<string, string> = { filter: f }; for (const k of ["reporter", "programme", "q"]) if (nav.params[k]) next[k] = nav.params[k]; nav.setParams(next); };
   const [reporter, setReporter] = useState<ReporterFilter>(nav.params.reporter === "liz" || nav.params.reporter === "neil" ? nav.params.reporter : "all");
-  const [q, setQ] = useState("");
+  const q = nav.params.q || "";
+  const setQ = (v: string) => { const x: Record<string, string> = { ...nav.params, q: v }; if (!v) delete x.q; nav.setParams(x); };
+  const prog = nav.params.programme || "";
+  const setProg = (v: string) => { const x: Record<string, string> = { ...nav.params, programme: v }; if (!v) delete x.programme; delete x.episode; nav.setParams(x); };
   const [seen, setSeen] = useState<Record<string, true>>({});
   const [previewFor, setPreviewFor] = useState<string | null>(null);
   // Advice as typed in the NEW ADVICE box, so the preview shows it before the draft save lands.
   const [typed, setTyped] = useState<Record<string, string>>({});
   const query = q.trim().toLowerCase();
   const hit = (e: Episode) => {
+    if (prog && e.programmeId !== prog) return false;
     if (!query) return true;
     const per = I.personById.get(e.personId);
     return `${per?.given} ${per?.family} ${e.id} ${e.screeningRef}`.toLowerCase().includes(query);
@@ -121,7 +125,8 @@ function ReviewWorkspace({ initial }: { initial?: QueueFilter }) {
 
   return (
     <div className="ph-page phr">
-      <PageHeader title="Review" sub="Pick a report, read the results, write the advice and release it. One report at a time." />
+      <PageHeader title="Review" sub="Pick a report, read the results, write the advice and release it. One report at a time."
+        actions={<Button variant="primary" icon="plus" onClick={() => nav.go({ page: "Screening", tab: "new" })}>New screening</Button>} />
       <div className="phr-chips" role="group" aria-label="Show">
         {FILTERS.filter((f) => f !== "amended" || counts.amended > 0).map((f) => <Chip key={f} on={filter === f} onClick={() => setFilter(f)} count={counts[f]}>{LABEL[f]}</Chip>)}
       </div>
@@ -149,6 +154,10 @@ function ReviewWorkspace({ initial }: { initial?: QueueFilter }) {
           <div className="phr-gap" style={{ gap: 6, marginBottom: 8 }}>
             {isReady ? <ReporterTabs value={reporter} onChange={setReporter} /> : null}
             <SearchBox value={q} onChange={setQ} placeholder="Name or Precision ID" width="100%" />
+            <Select value={prog} onChange={(ev) => setProg(ev.target.value)} aria-label="Client">
+              <option value="">All clients</option>
+              {state.programmes.map((pg) => <option key={pg.id} value={pg.id}>{pg.clientName}</option>)}
+            </Select>
           </div>
           {filter === "approved" || filter === "amended" ? <ReleasedList view={filter} selectedId={selectedId} onSelect={select} query={query} /> : rows.length ? (
             <div className="phr-list">

@@ -35,7 +35,7 @@ export const PAGES: PageDef[] = [
   { id: "Results", section: "Deliver screening", label: "Results", icon: "navResults", hint: "Lab imports and sign-off", tabs: [
     { id: "inbox", label: "Inbox", hidden: true, under: "review" }, { id: "review", label: "Review" }, { id: "imports", label: "Lab imports" }, { id: "follow-up", label: "Follow-up" }, { id: "corrections", label: "Corrections" }] },
   { id: "Screening", section: "Deliver screening", label: "Health Screening", icon: "navScreening", hint: "Ranges and clinical rules", tabs: [
-    { id: "ranges", label: "Ranges" }, { id: "check", label: "Enter results" }, { id: "changes", label: "Changes" }, { id: "impact", label: "Results impact", hidden: true, under: "changes" },
+    { id: "ranges", label: "Ranges" }, { id: "check", label: "Enter results" }, { id: "new", label: "New screening", hidden: true, under: "check" }, { id: "changes", label: "Changes" }, { id: "impact", label: "Results impact", hidden: true, under: "changes" },
     { id: "cohorts", label: "More" }, { id: "calculations", label: "Calculations", hidden: true, under: "cohorts" }, { id: "questions", label: "To confirm", hidden: true, under: "cohorts" }] },
   { id: "Flu", section: "Services", label: "Flu", icon: "navFlu", hint: "Flu clinics and vaccine stock", tabs: [
     { id: "overview", label: "Overview" }, { id: "bookings", label: "Bookings" }, { id: "stock", label: "Vaccine stock" }, { id: "cold-chain", label: "Cold chain" }, { id: "contacts", label: "Contacts and notes" }] },

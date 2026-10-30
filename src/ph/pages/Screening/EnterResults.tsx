@@ -13,7 +13,7 @@ import {
 import type { AnalyteCode, Band, BandCtx, Episode, PhState } from "../../model";
 import { dispatch, usePhState } from "../../store";
 import { useNav } from "../../nav-context";
-import { Button, Card, CardHeader, EntityLink, Icon, PageHeader, Pill, RestrictedNotice, SearchBox, TextInput } from "../../ui";
+import { Button, Card, CardHeader, EntityLink, Icon, PageHeader, Pill, RestrictedNotice, SearchBox, Select, TextInput } from "../../ui";
 import type { Tone } from "../../ui";
 import { LabDropZone } from "../Results/LabImport";
 import { Callout } from "./shared";
@@ -50,19 +50,27 @@ export default function EnterResults() {
   }
   return (
     <>
-      <PageHeader title="Enter results" sub="Pick a participant, type the results from the lab report and save them to their record. Each value is checked against your ranges as you type." />
-      {id ? <Participant episodeId={id} onChange={() => nav.setParams({})} /> : <Chooser onPick={(eid) => nav.setParams({ episode: eid })} />}
+      <PageHeader title="Enter results" actions={<Button variant="primary" icon="plus" onClick={() => nav.go({ page: "Screening", tab: "new" })}>New screening</Button>} sub="Pick a participant, type the results from the lab report and save them to their record. Each value is checked against your ranges as you type." />
+      {id ? <Participant episodeId={id} onChange={() => { const x = { ...nav.params }; delete x.episode; nav.setParams(x); }} /> : <Chooser onPick={(eid) => nav.setParams({ ...nav.params, episode: eid })} />}
     </>
   );
 }
 
 function Chooser({ onPick }: { onPick: (episodeId: string) => void }) {
   const s = usePhState();
-  const [q, setQ] = useState("");
-  const groups = useMemo(() => inProgress(s), [s]);
+  const nav = useNav();
+  /* Filters live in the URL: #/Screening/check?q=murphy&programme=PRG-IBM-26&show=awaiting */
+  const setP = (k: string, v: string) => { const x: Record<string, string> = { ...nav.params, [k]: v }; Object.keys(x).forEach((key) => { if (!x[key]) delete x[key]; }); nav.setParams(x); };
+  const q = nav.params.q || "";
+  const setQ = (v: string) => setP("q", v);
+  const prog = nav.params.programme || "";
+  const show = nav.params.show || "";
+  const all = useMemo(() => inProgress(s), [s]);
+  const byProg = (xs: Pick[]) => (prog ? xs.filter((x) => x.e.programmeId === prog) : xs);
+  const groups = { matching: show && show !== "matching" ? [] : byProg(all.matching), awaiting: show && show !== "awaiting" ? [] : byProg(all.awaiting), ready: show && show !== "ready" ? [] : byProg(all.ready) };
   const I = ix(s);
   const query = q.trim().toLowerCase();
-  const found: Pick[] = query.length >= 2 ? s.episodes.filter((e) => e.reportState !== "released").filter((e) => {
+  const found: Pick[] = query.length >= 2 ? s.episodes.filter((e) => e.reportState !== "released" && (!prog || e.programmeId === prog)).filter((e) => {
     const per = I.personById.get(e.personId)!;
     return `${per.given} ${per.family} ${e.screeningRef}`.toLowerCase().includes(query);
   }).slice(0, 12).map((e) => {
@@ -79,7 +87,18 @@ function Chooser({ onPick }: { onPick: (episodeId: string) => void }) {
   return (
     <Card>
       <CardHeader title="Who are you entering results for?" sub="Search by name or Precision ID, or pick from the screenings waiting for results." />
-      <SearchBox value={q} onChange={setQ} placeholder="Name or Precision ID" width="100%" />
+      <div className="scr-filters" style={{ marginBottom: 0 }}>
+        <div className="ph-grow" style={{ minWidth: 200 }}><SearchBox value={q} onChange={setQ} placeholder="Name or Precision ID" width="100%" /></div>
+        <div className="scr-tools">
+          <Select value={prog} onChange={(ev) => setP("programme", ev.target.value)} aria-label="Client">
+            <option value="">All clients</option>
+            {s.programmes.map((pg) => <option key={pg.id} value={pg.id}>{pg.clientName}</option>)}
+          </Select>
+          <Select value={show} onChange={(ev) => setP("show", ev.target.value)} aria-label="Status">
+            <option value="">Every status</option><option value="matching">Lab rows to match</option><option value="awaiting">Waiting for lab results</option><option value="ready">Measured at the clinic</option>
+          </Select>
+        </div>
+      </div>
       {query.length >= 2 ? (
         <div className="er-group" style={{ marginTop: 12 }}>
           {found.length ? found.map((r) => <PickRow key={r.e.id} r={r} onPick={onPick} />) : <div className="ph-faint" style={{ padding: 10 }}>Nobody with a screening in progress matches "{q}".</div>}
@@ -107,9 +126,10 @@ function PickRow({ r, onPick }: { r: Pick; onPick: (episodeId: string) => void }
 
 interface Line { code: AnalyteCode; name: string; unit: string; onRecord: string | null; typed: string; value: number | null; band: Band; word: string; limit: string; invalid: boolean }
 
-function Participant({ episodeId, onChange }: { episodeId: string; onChange: () => void }) {
+/** Everything one screening needs on screen: who, the lines to enter, the calculations with their working and the flags.
+    Values on record are banded live against the ranges in force on the sample date, so a range change shows at once. */
+export function useScreening(episodeId: string, typed: Record<string, string> = {}) {
   const s = usePhState();
-  const nav = useNav();
   const I = ix(s);
   const e = I.episodeById.get(episodeId)!;
   const person = I.personById.get(e.personId)!;
@@ -118,9 +138,6 @@ function Participant({ episodeId, onChange }: { episodeId: string; onChange: () 
   const on = localDateOf(e.collectedAt);
   const eth = typeof e.capture.form?.ethnicity === "string" ? e.capture.form.ethnicity : null;
   const ctx: BandCtx = { ...bandCtxFor(person, e.collectedAt), ethnicity: eth };
-  const [typed, setTyped] = useState<Record<string, string>>({});
-  const [showFile, setShowFile] = useState(false);
-  const [msg, setMsg] = useState<string | null>(null);
   const onRecord = new Map(latestObservations(s, e.id).map((o) => [o.code, o]));
   const tests = expectedTests(s, e).filter((t) => !CALCULATED_ANALYTES.includes(t.code));
   const queued = labQueue(s).some((q) => q.candidate && q.candidate.id === e.id);
@@ -157,6 +174,15 @@ function Participant({ episodeId, onChange }: { episodeId: string; onChange: () 
   const flags = [...lines.filter((l) => l.value !== null && (l.band === "borderline" || l.band === "abnormal")).map((l) => `${l.name} ${l.onRecord || l.typed} ${l.unit}`),
     ...calcs.filter((c) => c.band === "borderline" || c.band === "abnormal").map((c) => `${c.name} ${c.value}`)];
 
+  return { s, e, person, programme, session, on, ctx, eth, lines, calcs, flags, toSave, invalid, pendingCount, queued };
+}
+
+export function Participant({ episodeId, onChange, onDone, doneLabel }: { episodeId: string; onChange: () => void; onDone?: () => void; doneLabel?: string }) {
+  const nav = useNav();
+  const [typed, setTyped] = useState<Record<string, string>>({});
+  const [showFile, setShowFile] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+  const { e, person, programme, session, on, lines, calcs, flags, toSave, invalid, pendingCount, queued } = useScreening(episodeId, typed);
   const save = () => {
     const r = dispatch(labAct.enterValues(e.id, toSave.map((l) => ({ code: l.code, valueText: l.typed.trim() }))));
     setMsg(r.ok ? null : r.message || "Not saved.");
@@ -231,7 +257,7 @@ function Participant({ episodeId, onChange }: { episodeId: string; onChange: () 
           {toSave.length ? (
             <Button variant="primary" icon="check" className="er-big" disabled={!!invalid.length} onClick={save}>Save {toSave.length} {toSave.length === 1 ? "result" : "results"} to their record</Button>
           ) : ready || released ? (
-            <Button variant="primary" icon="arrow" className="er-big" onClick={() => nav.go({ page: "Results", tab: "review", params: { episode: e.id } })}>{released ? "Open the released report" : "Review and release"}</Button>
+            <Button variant="primary" icon="arrow" className="er-big" onClick={() => (onDone ? onDone() : nav.go({ page: "Results", tab: "review", params: { episode: e.id } }))}>{onDone ? doneLabel || "Continue" : released ? "Open the released report" : "Review and release"}</Button>
           ) : (
             <Button variant="primary" icon="check" className="er-big" disabled>Save to their record</Button>
           )}

@@ -9,6 +9,7 @@ import { useNav } from "../../nav-context";
 import { PageHeader, RestrictedNotice, Segmented } from "../../ui";
 import Ranges from "./Ranges";
 import EnterResults from "./EnterResults";
+import NewScreening from "./NewScreening";
 import Changes from "./Changes";
 import { Calculations, Cohorts, Impact, Questions } from "./Reference";
 
@@ -33,7 +34,7 @@ export default function Screening({ tab }: { tab: string }) {
   return (
     <div className="ph-page scr">
       <SubNav tab={tab} />
-      {tab === "check" ? <EnterResults /> : tab === "changes" ? <Changes /> : tab === "impact" ? <Impact /> : tab === "calculations" ? <Calculations />
+      {tab === "new" ? <NewScreening /> : tab === "check" ? <EnterResults /> : tab === "changes" ? <Changes /> : tab === "impact" ? <Impact /> : tab === "calculations" ? <Calculations />
         : tab === "cohorts" ? <Cohorts /> : tab === "questions" ? <Questions /> : <Ranges />}
     </div>
   );
