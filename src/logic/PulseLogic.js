@@ -2525,11 +2525,11 @@ export default class PulseLogic extends DCLogic {
         const id = "a" + Date.now();
         return {builderOpen:false, agentId:id,
           agents: [{id, name, initials:prev.agentSpec.initials, bg:prev.agentSpec.bg, role:prev.agentSpec.persona || prev.agentSpec.personality + " · " + prev.agentSpec.answer.toLowerCase(),
-            when:"now", preview:"ready when you are.",
+            when:"now", preview:"Ready when you are.",
             thread:[{kind:"stamp", text:"Just now"},
               {kind:"agent", text: prev.trained
-                ? "trained and ready. i read the ontology and wrote my own prompt from it. what should i pick up first?"
-                : "created. i have no context yet — train me from the ontology and i'll be useful."}]}].concat(prev.agents)};
+                ? "Trained and ready. I read the ontology and wrote my own prompt from it. What should I pick up first?"
+                : "Created. I have no context yet. Train me from the ontology and I will be useful."}]}].concat(prev.agents)};
       }),
       
       
