@@ -2,7 +2,7 @@
    from the shared selectors (programmeCounts, sessionStats, the employer report snapshot), so it
    matches the Dashboard and Reporting. Small groups are suppressed with the same rule and threshold
    as employer reporting. No participant name, row or result ever reaches this module's output. */
-import { CONTACTS, PROGRAMME_BY_ID, PROGRAMME_ORDER, addDays, fmtDayMonth, fmtInt, localDateOf, programmeCounts, rate, sessionStats, startOfWeek, suppressCells, today } from "../../model";
+import { CONTACTS, PROGRAMME_BY_ID, PROGRAMME_ORDER, addDays, fmtDayMonth, fmtInt, localDateOf, programmeCounts, rate, sessionStats, sessionUsesPoc, startOfWeek, suppressCells, today } from "../../model";
 import type { Contact, EmployerMetrics, EmployerReport, LocalDate, PhState, ProgrammeId } from "../../model";
 
 export type ClientView = "overview" | "share" | "reports" | "support";
@@ -59,19 +59,29 @@ export function bookingUptake(state: PhState, programmeId: ProgrammeId): { weeks
   return { weeks: out, total: bookings.length, max: Math.max(1, ...out.map((w) => w.count || 0)), anySuppressed: out.some((w) => w.suppressed) };
 }
 
-export interface ClinicDay { id: string; date: LocalDate; site: string; room: string; slots: number; available: number; isToday: boolean }
-/** Upcoming clinic days with free capacity per site. Capacity only: who booked is never part of it. */
+export interface ClinicDay { id: string; date: LocalDate; site: string; room: string; slots: number; available: number; isToday: boolean; start: string; end: string; poc: boolean }
+/**
+ * Upcoming clinic days with free capacity per site. Capacity only: who booked is never part of it.
+ * A screening day still in draft (Clinics, Screening days) is never shown; it appears once published.
+ */
 export function upcomingClinicDays(state: PhState, programmeId: ProgrammeId): ClinicDay[] {
   const t = today(state);
+  const drafts = new Set((state.screeningDays?.days || []).filter((d) => d.status !== "published").map((d) => d.sessionId));
   return state.sessions
-    .filter((s) => s.programmeId === programmeId && s.status === "scheduled" && s.date >= t)
-    .sort((a, b) => (a.date === b.date ? (a.siteName < b.siteName ? -1 : 1) : a.date < b.date ? -1 : 1))
+    .filter((s) => s.programmeId === programmeId && s.status === "scheduled" && s.date >= t && !drafts.has(s.id))
+    .sort((a, b) => (a.date === b.date ? (a.start === b.start ? (a.siteName < b.siteName ? -1 : 1) : a.start < b.start ? -1 : 1) : a.date < b.date ? -1 : 1))
     .map((s) => {
       const st = sessionStats(state, s.id);
       const parts = s.siteName.split(", ");
-      return { id: s.id, date: s.date, site: parts[0], room: s.siteName.includes(s.room) ? parts.slice(1).join(", ") || s.room : s.room, slots: st.slots, available: st.available, isToday: st.isToday };
+      return { id: s.id, date: s.date, site: parts[0], room: s.siteName.includes(s.room) ? parts.slice(1).join(", ") || s.room : s.room, slots: st.slots, available: st.available, isToday: st.isToday,
+        start: s.start, end: s.end, poc: sessionUsesPoc(s) };
     });
 }
+
+/* The Screening days page asks the preview to open on a given client. Read once when the preview opens. */
+let requested: ProgrammeId | null = null;
+export function requestClientPortalProgramme(id: ProgrammeId): void { requested = id; }
+export function takeRequestedProgramme(): ProgrammeId | null { const p = requested; requested = null; return p; }
 
 export const isApprovedReport = (r: EmployerReport) => !!r.snapshot && (r.status === "approved" || r.status === "exported");
 

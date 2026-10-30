@@ -6,7 +6,7 @@ export type { Hhmm, Iso, LocalDate } from "./time";
 export type Id = string;
 
 export type ProgrammeId = "PRG-SISK-26" | "PRG-SF-26" | "PRG-IBM-26";
-export type StaffId = "neil" | "stephen" | "liz" | "fiona" | "anita" | "ian" | "martina" | "brenda";
+export type StaffId = "neil" | "stephen" | "liz" | "fiona" | "anita" | "ian" | "martina" | "brenda" | "aisling" | "ciara";
 export type PersonaId = StaffId | "participant";
 export type TeamId = "programme-operations" | "nursing" | "clinical-review" | "client-programmes";
 export type RoleKey =
@@ -142,6 +142,8 @@ export interface ClinicSession {
   note: string;
   /** Bookings board columns (screening type, status, blood code, address, contact on the day, links). See nurseOps.ts. */
   logistics?: import("./nurseOps").SessionLogistics;
+  /** Appointments offered when fewer than the times that fit (Screening days). Absent means every time that fits. */
+  maxSlots?: number;
 }
 
 export interface Slot {
@@ -1040,4 +1042,6 @@ export interface PhState {
   adviceLibrary: import("./adviceLibrary").AdviceLibraryState;
   /** Health Screening reference ranges: versioned, superadmin-controlled (Health Screening module). */
   referenceRanges: import("./referenceRanges").ReferenceRangesState;
+  /** Screening day setup (Clinics, Screening days): drafts and published days, each backed by a clinic session. */
+  screeningDays: import("./screeningDays").ScreeningDaysState;
 }

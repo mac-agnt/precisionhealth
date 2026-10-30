@@ -19,7 +19,7 @@ import "./client.css";
 import type { ClientView } from "./data";
 import { ThemeToggle } from "../../shell/ThemeToggle";
 import {
-  CLIENT_PROGRAMMES, CLIENT_VIEWS, announcementText, bookingUptake, clientContact, isApprovedReport, precisionContacts, programmeFunnel, suppressionNotices, upcomingClinicDays,
+  CLIENT_PROGRAMMES, CLIENT_VIEWS, announcementText, bookingUptake, clientContact, isApprovedReport, precisionContacts, programmeFunnel, suppressionNotices, takeRequestedProgramme, upcomingClinicDays,
 } from "./data";
 
 type DeviceId = "desktop" | "tablet" | "phone";
@@ -41,6 +41,7 @@ export function ClientPortalPreview({ open, onClose }: { open: boolean; onClose:
   const setOverlay = useCallback((el: HTMLDivElement | null) => { overlayEl.current = el; measureOverlay(el); }, [measureOverlay]);
 
   useEffect(() => { if (open) overlayEl.current?.focus(); }, [open]);
+  useEffect(() => { if (open) { const p = takeRequestedProgramme(); if (p) setProgrammeId(p); } }, [open]);
   useEffect(() => {
     if (!open) return;
     const h = (e: KeyboardEvent) => {
@@ -224,8 +225,8 @@ function OverviewPage({ programmeId, go }: { programmeId: ProgrammeId; go: (v: C
           {up.anySuppressed ? <p className="pp-small" style={{ margin: "10px 0 0" }}>Weeks with fewer than {threshold} bookings are hidden. * Also hidden so the hidden week cannot be worked out from the total.</p> : null}
         </Card>
         <Card>
-          <h2 className="pp-h3" style={{ fontSize: 15 }}>Upcoming clinic days</h2>
-          <p className="pp-small" style={{ marginTop: 0 }}>Free capacity per site. Who has booked is never shown.</p>
+          <h2 className="pp-h3" style={{ fontSize: 15 }}>Upcoming screening dates</h2>
+          <p className="pp-small" style={{ marginTop: 0 }}>Dates Precision Health has confirmed with you, with the room and free places. Who has booked is never shown.</p>
           {days.length ? (
             <ul className="cp-days">
               {days.map((x) => {
@@ -234,9 +235,10 @@ function OverviewPage({ programmeId, go }: { programmeId: ProgrammeId; go: (v: C
                   <li key={x.id} className="cp-day">
                     <div className="pp-row" style={{ flexWrap: "wrap", gap: 6 }}>
                       <span className="ph-grow" style={{ color: "var(--ink)", fontWeight: 600 }}>{fmtWeekdayDate(x.date)}{x.isToday ? " (today)" : ""}</span>
-                      <span className="pp-small"><strong style={{ color: "var(--ink)" }}>{x.available}</strong> of {x.slots} free</span>
+                      <Pill tone={x.poc ? "info" : "neutral"} icon={x.poc ? "heart" : "flask"}>{x.poc ? "Point of care" : "Lab bloods"}</Pill>
                     </div>
-                    <div className="pp-small">{x.site}{x.room ? ` · ${x.room}` : ""}</div>
+                    <div className="pp-small"><strong style={{ color: "var(--ink)" }}>{x.start.replace(/^0/, "")} to {x.end.replace(/^0/, "")}</strong> · {x.room && x.room !== "To be confirmed" ? `${x.room}, ${x.site}` : `${x.site}, room to be confirmed`}</div>
+                    <div className="pp-small"><strong style={{ color: "var(--ink)" }}>{x.available}</strong> of {x.slots} places free</div>
                     <div className="cp-cap" role="img" aria-label={`${pct}% of times taken, ${x.available} free`}><span style={{ width: `${pct}%` }} /></div>
                   </li>
                 );
