@@ -430,7 +430,7 @@ export function calSort(a: CalEvent, b: CalEvent): number {
   return a.title < b.title ? -1 : a.title > b.title ? 1 : 0;
 }
 
-export type CalView = "month" | "week" | "day" | "agenda" | "people";
+export type CalView = "month" | "week" | "day" | "agenda" | "people" | "timeline";
 
 /* Ready-made calendar views. Each is a set of calendar URL filters (types, view, people, mine, ...).
    "Save this view" stores the same shape under a name (state.scheduled.views). */
@@ -482,6 +482,7 @@ export function calMatches(e: CalEvent, f: CalFilter, except?: CalDim): boolean 
 /** First and last date a view shows around a date. Month view shows whole weeks (Monday first). */
 export function calRange(view: CalView, date: LocalDate): { from: LocalDate; to: LocalDate } {
   if (view === "day" || view === "people") return { from: date, to: date };
+  if (view === "timeline") { const s = startOfWeek(date); return { from: s, to: addDays(s, 27) }; }
   if (view === "week") { const s = startOfWeek(date); return { from: s, to: addDays(s, 6) }; }
   const first = date.slice(0, 8) + "01";
   const last = addDays(addMonths(first, 1), -1);
@@ -506,6 +507,7 @@ export function addMonths(d: LocalDate, n: number): LocalDate {
 /** Where previous and next go from a date in a view. */
 export function calStep(view: CalView, date: LocalDate, dir: 1 | -1): LocalDate {
   if (view === "day" || view === "people") return addDays(date, dir);
+  if (view === "timeline") return addDays(date, 14 * dir);
   if (view === "week") return addDays(date, 7 * dir);
   return addMonths(date, dir);
 }

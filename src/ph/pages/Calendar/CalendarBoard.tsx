@@ -19,12 +19,16 @@ import { schedAct } from "./schedActions";
 import ScheduleDialog from "./ScheduleDialog";
 import { ViewsBlock } from "./ViewsBlock";
 import { PeopleGrid } from "./PeopleGrid";
+import { TimelineView } from "./TimelineView";
+import { CalFilterRow } from "./CalFilterRow";
+import { calSpanLanes, calSpans, calTimelineRange } from "../../model/calTimeline";
+import type { CalSpan } from "../../model/calTimeline";
 import EventCard from "./EventCard";
 import { ampm, overlayRoot, timeLabel } from "./util";
 import "./calendar.css";
 
 const VIEWS: Array<{ id: CalView; label: string }> = [
-  { id: "day", label: "Day" }, { id: "week", label: "Week" }, { id: "month", label: "Month" }, { id: "agenda", label: "Agenda" }, { id: "people", label: "People" },
+  { id: "day", label: "Day" }, { id: "week", label: "Week" }, { id: "month", label: "Month" }, { id: "agenda", label: "Agenda" }, { id: "people", label: "People" }, { id: "timeline", label: "Programmes" },
 ];
 const MONTHS_LONG = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -33,7 +37,12 @@ const isDate = (v: string | undefined): v is LocalDate => !!v && /^\d{4}-\d{2}-\
 const list = (v: string | undefined) => (v ? v.split(",").map((x) => x.trim()).filter(Boolean) : []);
 const dayNum = (d: LocalDate) => Number(d.slice(8, 10));
 const monthTitle = (d: LocalDate) => `${MONTHS_LONG[Number(d.slice(5, 7)) - 1]} ${d.slice(0, 4)}`;
-function rangeTitle(view: CalView, date: LocalDate): string {
+function rangeTitle(view: CalView, date: LocalDate, weeks = 4): string {
+  if (view === "timeline") {
+    const r = calTimelineRange(date, weeks);
+    const a = `${dayNum(r.from)} ${MONTHS[Number(r.from.slice(5, 7)) - 1]}`, b = `${dayNum(r.to)} ${MONTHS[Number(r.to.slice(5, 7)) - 1]} ${r.to.slice(0, 4)}`;
+    return `${a} to ${b}`;
+  }
   if (view === "day" || view === "people") return fmtDateLong(date);
   if (view === "week") {
     const s = startOfWeek(date), e = addDays(s, 6);
@@ -112,6 +121,7 @@ export default function CalendarBoard({ scope, defaultView = "week", onEventClic
 
   const view: CalView = (VIEWS.find((v) => v.id === P.view)?.id) || (P.view === "list" ? "agenda" : narrow ? "agenda" : defaultView);
   const date: LocalDate = isDate(P.date) ? P.date : t;
+  const zoom = [2, 4, 8].includes(Number(P.zoom)) ? Number(P.zoom) : 4;
   const groupsAll = scope ? CAL_GROUPS.filter((g) => scope.includes(g.id)) : CAL_GROUPS;
   const groups = P.types !== undefined ? [...new Set(list(P.types).map(calGroupFromParam))].filter((g): g is string => !!g && groupsAll.some((x) => x.id === g)) : groupsAll.filter((g) => !CAL_DEFAULT_OFF.includes(g.id)).map((g) => g.id);
   const status = P.status === "todo" || P.status === "done" ? P.status : null;
@@ -125,7 +135,7 @@ export default function CalendarBoard({ scope, defaultView = "week", onEventClic
 
   const all = calendarEvents(state);
   const scoped = useMemo(() => (scope ? all.filter((e) => scope.includes(calGroupOf(e.kind))) : all), [all, scope]);
-  const range = calRange(view, date);
+  const range = view === "timeline" ? calTimelineRange(date, zoom) : calRange(view, date);
   const inRange = useMemo(() => scoped.filter((e) => e.date >= range.from && e.date <= range.to), [scoped, range.from, range.to]);
   const shown = useMemo(() => inRange.filter((e) => calMatches(e, f)), [inRange, f.groups.join(), f.clients.join(), f.people.join(), f.q, f.mine, f.byMe, f.status]); // eslint-disable-line react-hooks/exhaustive-deps
   /* Counts cover the month itself in Month view (not the edge days of the grid), so Month and Agenda agree. */
@@ -173,7 +183,7 @@ export default function CalendarBoard({ scope, defaultView = "week", onEventClic
             <button type="button" className="cal-today" onClick={() => set({ date: t, ev: null })}>Today</button>
             <button type="button" className="cal-iconbtn lg" aria-label="Previous" onClick={() => set({ date: calStep(view, date, -1), ev: null })}><Icon name="chevronLeft" size={18} /></button>
             <button type="button" className="cal-iconbtn lg" aria-label="Next" onClick={() => set({ date: calStep(view, date, 1), ev: null })}><Icon name="chevronRight" size={18} /></button>
-            <h2 className="cal-title">{narrow ? (view === "day" || view === "people" ? fmtWeekdayDate(date) : rangeTitle(view, date).replace(/^(\w{3})\w* /, "$1 ")) : rangeTitle(view, date)}</h2>
+            <h2 className="cal-title">{narrow ? (view === "day" || view === "people" ? fmtWeekdayDate(date) : view === "timeline" ? rangeTitle(view, date, zoom) : rangeTitle(view, date).replace(/^(\w{3})\w* /, "$1 ")) : rangeTitle(view, date, zoom)}</h2>
             {narrow ? <button type="button" className="cal-iconbtn lg cal-filterbtn" onClick={() => setSheet(true)} aria-expanded={sheet} aria-label="Filters"><Icon name="filter" size={17} />{activeFilters ? <span className="cal-badge">{activeFilters}</span> : null}</button> : null}
           </div>
           <div className="cal-tools">
@@ -181,12 +191,14 @@ export default function CalendarBoard({ scope, defaultView = "week", onEventClic
             <Segmented value={view} options={VIEWS} onChange={(v) => set({ view: v, ev: null })} label="Calendar view" />
           </div>
         </div>
-        {view === "month" ? <MonthView date={date} today={t} events={shown} onPick={pick} onDay={goDay} selectedId={selectedId || selected?.id} compact={narrow} onCreate={createAt} onMove={onMove} /> : null}
+        {narrow ? null : <CalFilterRow f={f} groupsAll={groupsAll} inRange={inCount} scoped={scoped} set={set} narrow={narrow} />}
+        {view === "timeline" ? <TimelineView date={date} today={t} weeks={zoom} onZoom={(w) => set({ zoom: w === 4 ? null : String(w) })} groups={f.groups} clients={f.clients} q={f.q} /> : null}
+        {view === "month" ? <MonthView spans={calSpans(state, shown, { groups: f.groups, clients: f.clients })} date={date} today={t} events={shown} onPick={pick} onDay={goDay} selectedId={selectedId || selected?.id} compact={narrow} onCreate={createAt} onMove={onMove} /> : null}
         {view === "week" ? <TimeGrid days={Array.from({ length: 7 }, (_, i) => addDays(startOfWeek(date), i))} today={t} now={state.clock.nowUtc} events={shown} onPick={pick} onDay={goDay} selectedId={selectedId || selected?.id} onCreate={createAt} onMove={onMove} narrow={narrow} /> : null}
         {view === "day" ? <TimeGrid days={[date]} today={t} now={state.clock.nowUtc} events={shown} onPick={pick} onDay={goDay} selectedId={selectedId || selected?.id} wide onCreate={createAt} onMove={onMove} narrow={narrow} /> : null}
         {view === "people" ? <PeopleGrid date={date} today={t} now={state.clock.nowUtc} events={shown} onPick={pick} selectedId={selectedId || selected?.id} onCreate={createAt} /> : null}
         {view === "agenda" ? <AgendaView events={shown} today={t} onPick={pick} selectedId={selectedId || selected?.id} onNext={() => set({ date: calStep("agenda", date, 1) })} /> : null}
-        {!shown.length && view !== "agenda" ? <div className="cal-none">Nothing {view === "day" || view === "people" ? "on this day" : view === "week" ? "this week" : "this month"} with these filters.{activeFilters ? <> <button type="button" className="cal-linkbtn" onClick={resetFilters}>Clear filters</button></> : null}</div> : null}
+        {!shown.length && view !== "agenda" && view !== "timeline" ? <div className="cal-none">Nothing {view === "day" || view === "people" ? "on this day" : view === "week" ? "this week" : "this month"} with these filters.{activeFilters ? <> <button type="button" className="cal-linkbtn" onClick={resetFilters}>Clear filters</button></> : null}</div> : null}
       </section>
       {narrow && sheet ? <Sheet title="Filters" onClose={() => setSheet(false)}>{side}</Sheet> : null}
       {narrow && canSchedule ? <button type="button" className="cal-fab" aria-label="Schedule" onClick={() => setCreating({ date: date < t ? t : date, time: null })}><Icon name="plus" size={24} stroke={2.2} /></button> : null}
@@ -370,8 +382,8 @@ function Chip({ e, onPick, selected, showTime = true, draggable }: { e: CalEvent
   );
 }
 
-function MonthView({ date, today: t, events, onPick, onDay, selectedId, compact, onCreate, onMove }: {
-  date: LocalDate; today: LocalDate; events: CalEvent[]; onPick: (e: CalEvent, el: HTMLElement) => void; onDay: (d: LocalDate) => void; selectedId?: string; compact?: boolean;
+function MonthView({ spans = [], date, today: t, events, onPick, onDay, selectedId, compact, onCreate, onMove }: {
+  spans?: CalSpan[]; date: LocalDate; today: LocalDate; events: CalEvent[]; onPick: (e: CalEvent, el: HTMLElement) => void; onDay: (d: LocalDate) => void; selectedId?: string; compact?: boolean;
   onCreate?: (d: LocalDate, time: string | null) => void; onMove?: (d: LocalDate, start?: string | null) => void;
 }) {
   const r = calRange("month", date);
@@ -380,13 +392,32 @@ function MonthView({ date, today: t, events, onPick, onDay, selectedId, compact,
   const byDay = new Map<string, CalEvent[]>();
   for (const e of events) { const a = byDay.get(e.date) || []; a.push(e); byDay.set(e.date, a); }
   const [over, setOver] = useState<string | null>(null);
-  const MAX = 4;
+  const nav = useNav();
+  /* Multi-day items (programme windows, leave) are drawn as one continuous bar across the days. Each
+     gets a lane so a bar sits at the same height in every cell it crosses. Leave days drawn as a bar
+     are left out of the single-day chips. */
+  const inGrid = spans.filter((sp) => sp.to >= r.from && sp.from <= r.to);
+  const lanes = calSpanLanes(inGrid);
+  const laneCount = inGrid.length ? Math.max(...[...lanes.values()]) + 1 : 0;
+  const spanned = new Set(inGrid.filter((sp) => sp.id.startsWith("leave:")).map((sp) => sp.id.slice(6)));
+  const MAX = Math.max(2, 4 - laneCount);
   return (
     <div className="cal-month" role="grid" aria-label={monthTitle(date)}>
       {DOW.map((d) => <div key={d} className="cal-month-dow" role="columnheader">{d}</div>)}
       {days.map((d) => {
-        const evs = byDay.get(d) || [];
+        const evs = (byDay.get(d) || []).filter((e) => !(e.kind === "sched_leave" && e.schedId && spanned.has(e.schedId)));
         const out = d.slice(0, 7) !== date.slice(0, 7);
+        const wd = (weekdayOf(d) + 6) % 7;
+        const laneRow = !compact && laneCount ? Array.from({ length: laneCount }, (_, lane) => {
+          const sp = inGrid.find((x) => lanes.get(x.id) === lane && x.from <= d && x.to >= d);
+          if (!sp) return <span key={lane} className="cal-span-gap" />;
+          const start = sp.from === d, end = sp.to === d;
+          const label = start || wd === 0;
+          return (
+            <button key={lane} type="button" className={"cal-span" + (start ? " start" : "") + (end ? " end" : "") + (label ? "" : " mid")} style={{ "--c": sp.color } as CSSProperties}
+              title={`${sp.label}, ${fmtDateLong(sp.from)} to ${fmtDateLong(sp.to)}`} onClick={(ev) => { ev.stopPropagation(); nav.go(sp.link); }}>{label ? sp.label : "\u00a0"}</button>
+          );
+        }) : null;
         const more = evs.length - MAX;
         return (
           <div key={d} role="gridcell" className={"cal-cell" + (out ? " out" : "") + (d === t ? " today" : "") + (over === d ? " over" : "") + (onCreate ? " can-create" : "")}
@@ -402,6 +433,7 @@ function MonthView({ date, today: t, events, onPick, onDay, selectedId, compact,
                 </button>
               ) : null
             ) : <div className="cal-cell-evs">
+              {laneRow}
               {evs.slice(0, more > 0 ? MAX - 1 : MAX).map((e) => <Chip key={e.id} e={e} onPick={onPick} selected={selectedId === e.id} draggable={!!onMove} />)}
               {more > 0 ? <button type="button" className="cal-more" onClick={(ev) => { ev.stopPropagation(); onDay(d); }}>{more + 1} more</button> : null}
             </div>}

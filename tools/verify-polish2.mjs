@@ -91,6 +91,24 @@ try {
   check("rename", run({ type: "calview/rename", id: sv.id, name: "Clinic week" }).ok && s.scheduled.views[0].name === "Clinic week");
   check("presets cannot be deleted", !run({ type: "calview/delete", id: "everything" }).ok);
   check("delete", run({ type: "calview/delete", id: sv.id }).ok && s.scheduled.views.length === 0);
+  /* Programmes view and month spans */
+  const TL = await server.ssrLoadModule("/src/ph/model/calTimeline.ts");
+  const fresh = createInitialState();
+  eq("timeline range is whole weeks from Monday", TL.calTimelineRange("2026-10-07", 4), { from: "2026-10-05", to: "2026-11-01" });
+  const rows = TL.calTimelineRows(fresh, "2026-10-05", "2026-11-01", { groups: ["clinics"], clients: [], q: "" });
+  check("three programme rows", rows.length >= 3 && rows.every((r) => r.kind === "programme"), JSON.stringify(rows.map((r) => r.label)));
+  check("each row links to its programme", rows.every((r) => r.link.page === "Programmes" && r.link.params.programme === r.id));
+  check("screening days sit inside the bar", rows.every((r) => r.days.every((d) => d.date >= r.from && d.date <= r.to)));
+  const loadMap = TL.calTimelineLoad(rows, "2026-10-05", "2026-11-01");
+  eq("5 Oct has all three programmes on", loadMap.get("2026-10-05"), 3);
+  check("client filter narrows rows", TL.calTimelineRows(fresh, "2026-10-05", "2026-11-01", { groups: ["clinics"], clients: ["IBM"], q: "" }).every((r) => r.client === "IBM"));
+  check("flu rows when flu is on", TL.calTimelineRows(fresh, "2026-10-05", "2026-11-01", { groups: ["flu"], clients: [], q: "" }).every((r) => r.kind === "flu"));
+  const spans = TL.calSpans(fresh, M.calendarEvents(fresh), { groups: ["clinics", "team"], clients: [] });
+  check("programme windows are month spans", spans.filter((x) => x.id.startsWith("prog:")).length >= 3);
+  const ln = TL.calSpanLanes(spans);
+  check("overlapping spans get different lanes", spans.every((a) => spans.every((b) => a === b || a.to < b.from || b.to < a.from || ln.get(a.id) !== ln.get(b.id))));
+  eq("timeline steps two weeks", M.calStep("timeline", "2026-10-05", 1), "2026-10-19");
+
   run(act.setPersona("participant"));
   check("participant cannot save views", !run({ type: "calview/save", name: "Mine", params: {} }).ok);
 } catch (e) {
