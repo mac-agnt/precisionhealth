@@ -15,10 +15,13 @@ import { initialFluState } from "../flu";
 import { initialOccHealthState } from "../occHealth";
 import { initialOnboardingState } from "../onboarding";
 import { initialNurseOpsState } from "../nurseOps";
+import { initialGapsState } from "../gaps";
 import { initialAdviceLibraryState } from "../adviceLibrary";
 import { initialReferenceRangesState, setActiveRangeVersions } from "../referenceRangesData";
 import { initialLabCsvState } from "../labCsv";
 import { seedScreeningDays } from "../screeningDays";
+import { initialScheduledState } from "../scheduledActions";
+import { initialPortalsHubState } from "../portalsHub";
 
 export function createInitialState(): PhState {
   /* Band every seeded result against the seeded reference ranges (Health Screening). */
@@ -99,12 +102,15 @@ export function createInitialState(): PhState {
     flu: initialFluState(),
     occHealth: initialOccHealthState(),
     nurseOps: initialNurseOpsState(),
+    gaps: initialGapsState(),
     adviceLibrary: initialAdviceLibraryState(),
     referenceRanges: ranges,
     labCsv: initialLabCsvState(),
     salesFlow: initialSalesFlowState(),
     screeningDays: days.state,
     onboarding: initialOnboardingState(),
+    scheduled: initialScheduledState(),
+    portalsHub: initialPortalsHubState(),
   };
   state.portal = buildPortalBaseline(state);
   seedSalesFlow(state);

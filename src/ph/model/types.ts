@@ -1040,6 +1040,7 @@ export interface PhState {
   flu: import("./flu").FluState;
   occHealth: import("./occHealth").OccHealthState;
   nurseOps: import("./nurseOps").NurseOpsState;
+  gaps: import("./gaps").GapsState;
   adviceLibrary: import("./adviceLibrary").AdviceLibraryState;
   /** Health Screening reference ranges: versioned, superadmin-controlled (Health Screening module). */
   referenceRanges: import("./referenceRanges").ReferenceRangesState;
@@ -1051,4 +1052,8 @@ export interface PhState {
   screeningDays: import("./screeningDays").ScreeningDaysState;
   /** Client onboarding and retention (Sales, Onboarding and Retention). */
   onboarding: import("./onboarding").OnboardingState;
+  /** Things scheduled from the Calendar with "+ Schedule" (meetings, emails, training, leave). */
+  scheduled: import("./scheduledActions").ScheduledState;
+  /** Client portals created on the Portals page, nurses added there and people invited there. */
+  portalsHub: import("./portalsHub").PortalsHubState;
 }

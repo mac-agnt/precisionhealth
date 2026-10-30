@@ -82,20 +82,32 @@ Fields: date; company/client location; **job completed** (type of work; pay rate
 
 Help Scout, Perplexity, Monday.com (CRM, rota, bookings, flu, onboarding), Jotform (forms and Tables), Gmail, WhatsApp, DocuSign, Xero, Meddbase, Slack (ECG photos), Google Drive.
 
-## Coverage check (23 Oct 2026, corrected after a full audit)
+## Coverage check (30 Oct 2026, every row checked on screen)
 
-| Stephen asked for | Status |
+Every item Stephen showed now has a working screen with actions. Persona: Stephen Kelly for Sales, Clinics boards, End of day and approvals; Dr Neil Reddy for Results, Review; a nurse (Fiona or Anita) for the nurse portal.
+
+| Stephen asked for | Where it is on screen |
 | --- | --- |
-| Help Scout enquiries, lead research, proposals from the price list | On screen: Sales, Pipeline and Proposals |
-| Recall on the anniversary, lapsed clients | On screen: Sales, Recall & repeat (lapsed is a flag, not its own list) |
-| Tender Watchdog | Data only, no screen yet |
-| Bookings Pending board columns (screening type, status, blood code, Eircode, parking, contact on the day, staff email) and the nurse day brief | Data only (nurseOps.ts), no screen yet; staff email not modelled |
-| POC Screen with QRISK nurse form (screen type, bilateral BP, arm span for Marfan, O2 sats, POC bloods with outcomes, ECG codes, POC unique ID) | Data only (POC_FORM_SECTIONS), the nurse portal always shows the LAB form |
-| End of Day and mileage form | Data only (nurseOps.ts), no form on screen |
-| Subsistence and hotel booking forms | Not built |
-| One unique ID per person, used to log on to the portal | On screen: Precision ID sign-in |
-| Cheat codes, AI draft with clinician review, Liz reporting some screens | On screen: Results, Review (named reporter views not built) |
-| OH onboarding (Aidan, Fiona, Sinead), SLA and DSA, questionnaires to Meddbase | On screen: Occupational Health (Meddbase simulated; videos are written guides) |
-| Irish Life bookings, invoice number, payment status, Xero draft | On screen: Sales, Irish Life Health (web-app intake not on screen) |
-| Flu by week, projected vs actual, stock vs allocated | On screen: Flu (contacts and notes boards not built) |
-| Finance reporting ("to come later") | Not built |
+| Help Scout enquiries, lead research, proposals from the price list | Sales, Pipeline (`#/Sales/pipeline`), Proposals (`#/Sales/proposals`), Price list (`#/Sales/price-list`) |
+| Invoice name, invoice email and company details on each lead | Sales, Pipeline, open a lead, Invoicing card with Edit (`#/Sales/pipeline?lead=LD-0001`) |
+| Recall on the anniversary, repeat business | Sales, Retention: rebooking rate and rebooking reminders (`#/Sales/recall`) |
+| Lapsed Clients: re-engagement board | Sales, Retention, Lapsed clients list with Reach out (drafts a win-back email) (`#/Sales/recall`) |
+| Tender Watchdog | Sales, Tenders: deadline, status, Make it a lead, Not for us, Bid submitted (`#/Sales/tenders`) |
+| Bookings Pending board: screening type, status, start time, staff onsite, staff email, service, blood code, address, Eircode, parking, room, contact on the day and phone, proposal, attendance and screening links | Clinics, Bookings board: grouped by status, status changed in place, Edit opens every column, staff onsite assignable (`#/Clinics/board`, `#/Clinics/board?edit=board:BRD-0003`) |
+| Nurse day brief (email from Stephen), with accommodation | Clinics, Bookings board, Day brief: field for field, Print day brief, Send to nurse (simulated) (`#/Clinics/board?brief=board:BRD-0004`) |
+| POC Screen with QRISK nurse form (screen type, bilateral BP, arm span for Marfan, O2 sats, POC bloods with outcomes, ECG codes) | Nurse portal on a point-of-care day (Anita, Salesforce, today) and Clinics, Appointments workspace |
+| One unique ID per person, used to log on to the portal | Participant portal sign-in with the Precision ID |
+| End of Day and Mileage form (nurses not paid until it is in) | Nurse portal, Clinic close, End of Day form; Clinics, End of day: missing forms, submitted forms, mileage and pay by nurse (`#/Clinics/end-of-day`, `#/Clinics/end-of-day?eod=EOD-0014`) |
+| Subsistence form and Hotel booking form | Nurse portal, Clinic close (Claim subsistence, Request a hotel); Clinics, End of day; approved in Work, Approvals (`#/Work/approvals`); a booked hotel is written to the board and the day brief |
+| Cheat codes, AI draft with clinician review | Results, Review (advice codes and Prepare draft; nothing is released without the clinician) (`#/Results/review`) |
+| Views per reporter (Neil Reporting, Liz's views) and review states | Results, Review: reporter chips (All, Neil, Liz), Assign to Liz or Neil, each report shows Not started, Draft, AI draft or Amendment draft; Approved and Amended lists (`#/Results/review?reporter=liz`, `#/Results/review?view=amended`) |
+| OH onboarding (Aidan, Fiona, Sinead), SLA and DSA, questionnaires to Meddbase, Meddbase diaries | Occupational Health tabs (`#/OccHealth/clients`); Meddbase is simulated and the videos are written guides |
+| Irish Life bookings, requested screening, invoice number, payment status, Xero draft | Sales, Irish Life Health: Bookings pending 2026 (`#/Sales/partners`) |
+| Irish Life Health booking form and ILH Flu booking form (web-app intake) | Sales, Irish Life Health, Web app intake with Accept into bookings (`#/Sales/partners`) |
+| Lifestyle Checkpoint weekly group | Sales, Irish Life Health, Lifestyle Checkpoint (weekly) table (`#/Sales/partners`) |
+| Flu by week, projected vs actual, stock vs allocated, Flu Vaccine Order Records | Flu, Bookings by week (`#/Flu/bookings`), Vaccine stock with order records (`#/Flu/stock`), Cold chain (`#/Flu/cold-chain`) |
+| Flu contacts and Flu 2026 notes boards | Flu, Contacts & notes: add and edit contacts, add, edit and pin notes (`#/Flu/contacts`) |
+| Duty rota, calendar view | Clinics, Team & Resources (assignments across the window) and Calendar (`#/Calendar/all`) |
+| Finance reporting ("to come later") | Reporting, Overview: Finance reporting tile marked Phase 2 (`#/Reporting/overview`) |
+
+Not built as screens (named here so nothing is hidden): the Monday document boards "Brochures", "Sample occ health reports" and "Marketing material" (files, not workflows; brochures are attached in the lead's first reply), and Monday's map and timeline views (Calendar covers dates; there is no map).

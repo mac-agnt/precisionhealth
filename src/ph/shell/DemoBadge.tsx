@@ -47,9 +47,10 @@ export function DemoBadge() {
   useEffect(() => { if (!narrow) setOpen(false); }, [narrow]);
 
   const links: Array<{ id: string; label: string; sub: string; icon: GlyphName; open: (() => void) | undefined }> = [
-    { id: "participant", label: "Participant portal", sub: "Booking, questionnaire and own report", icon: "user", open: () => nav.openPortal(PORTAL_EXAMPLE_PERSON) },
     { id: "nurse", label: "Nurse portal", sub: "The clinic day on a tablet", icon: "heart", open: nav.openNursePortal },
     { id: "client", label: "Client portal", sub: "The employer's view", icon: "users", open: nav.openClientPortal },
+    { id: "participant", label: "Employee portal", sub: "Booking, questionnaire and own report", icon: "user", open: () => nav.openPortal(PORTAL_EXAMPLE_PERSON) },
+    { id: "all", label: "All portals", sub: "Every portal and what each one shows", icon: "layers", open: () => nav.go({ page: "Portals", tab: "all" }) },
   ];
   const clock = `${fmtDateLong(now).replace(/^(\w{3})\w*/, "$1")} ${fmtTime(now)} Dublin${baseline ? "" : " (clock moved)"}`;
 

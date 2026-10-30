@@ -2,7 +2,7 @@
    session, so the Clinics schedule, appointments and the client portal all read the same record.
    Every change is logged on the day (who, when, what changed) and in the activity feed. A failed
    check leaves the state untouched. The agent only proposes: these handlers run when a person confirms. */
-import { PROGRAMME_BY_ID, activeBookings, dayErrors, diffForms, fmtDate, fmtHm, formOf, publishBlockers, registerHandlers, sessionFromDay, sessionIdForDay, sessionSlots, today } from "../../model";
+import { PROGRAMME_BY_ID, schedStaffBlock, activeBookings, dayErrors, diffForms, fmtDate, fmtHm, formOf, publishBlockers, registerHandlers, sessionFromDay, sessionIdForDay, sessionSlots, today } from "../../model";
 import type { ActionResult, Ctx, DayChange, DayForm, DayHistoryEntry, ProgrammeId, ScreeningDay, StaffId } from "../../model";
 
 type Via = "agent" | "form" | "hr_email";
@@ -34,7 +34,7 @@ registerHandlers({
     const existing = a.dayId ? c.s.screeningDays.days.find((d) => d.id === a.dayId) : undefined;
     if (a.dayId && !existing) return c.fail("That screening day no longer exists.");
     const errs = dayErrors(f, { today: today(c.s), sessions: c.s.sessions, ownSessionId: existing?.sessionId ?? null, staff: c.s.staff });
-    const first = Object.values(errs)[0];
+    const first = Object.values(errs)[0] || schedStaffBlock(c.s, f.nurseId, f.date);
     if (first) return c.fail(first);
     const who = c.persona().name;
 

@@ -17,6 +17,7 @@ import type { NavTarget } from "./nav";
 import { SALES_ILH_REQUESTED_LABEL, SALES_RECALL_STATUS_LABEL, SALES_SERVICE_LABEL, SALES_TENDER_STATUS_LABEL, salesRecalls } from "./sales";
 import { salesFollowSequence } from "./salesFlow";
 import { sessionStats, today, visibleTasks } from "./selectors";
+import { schedDays, schedForCalId, schedItems, schedStatusLabel, schedTemplate } from "./scheduledActions";
 
 /* ================================================================================================
    Shape
@@ -60,6 +61,11 @@ export interface CalEvent {
   tentative?: boolean;
   /** Finished items are drawn quieter. */
   done?: boolean;
+  /** Set when the item was scheduled from the Calendar ("+ Schedule"): its SA- id and who scheduled it. */
+  schedId?: string;
+  scheduledBy?: StaffId;
+  /** True when the event can be dragged to another day or time. */
+  movable?: boolean;
 }
 
 export interface CalGroup { id: string; label: string; color: string; hint: string }
@@ -77,6 +83,7 @@ export const CAL_GROUPS: CalGroup[] = [
   { id: "retention", label: "Retention", color: "#EB7F3C", hint: "Recall and rebooking dates" },
   { id: "tasks", label: "Tasks", color: "#7E8FA3", hint: "Work tasks with a due date" },
   { id: "reporting", label: "Report deadlines", color: "#5F7FE0", hint: "Employer report drafts due" },
+  { id: "team", label: "Team, training and leave", color: "#7A6FD0", hint: "Staff training and leave. Leave blocks that person from clinics." },
   { id: "automations", label: "Automations", color: "#8F9A96", hint: "Scheduled reminders, imports and checkpoints" },
 ];
 /** Groups hidden until someone ticks them. */
@@ -171,7 +178,7 @@ export const CAL_SOURCES: CalSource[] = [
         title: `${c.company} flu clinic`, client: c.company, staffIds: c.staffIds, location: c.address,
         status: c.status === "completed" ? "Completed" : "Scheduled", tone: c.status === "completed" ? "ok" : "neutral",
         detail: c.actual !== null ? `${c.actual} vaccinated of ${c.projected} expected` : `${c.projected} expected${c.channel === "ilh" ? ", Irish Life Health" : ""}`,
-        link: { page: "Flu", tab: "bookings", params: { clinic: c.id } }, openLabel: "Open flu bookings", done: c.status === "completed",
+        link: { page: "Flu", tab: "bookings", params: { clinic: c.id } }, openLabel: "Open flu bookings", done: c.status === "completed", movable: c.status === "scheduled",
       } as CalEvent));
       const orders = state.flu.orders.map((o) => {
         const on = o.deliveredOn || o.expectedOn;
@@ -196,7 +203,7 @@ export const CAL_SOURCES: CalSource[] = [
         id: `oh:${d.id}`, kind: "oh_session", ...timed(d.date, d.start, d.end), title: `${client}: occupational health`, client,
         staffIds: d.clinicianStaffId ? [d.clinicianStaffId] : [], location: d.location,
         status: d.date < today(state) ? "Completed" : "Scheduled", tone: "neutral", detail: `${booked} booked, ${open} free, with ${d.clinicianName}`,
-        link: { page: "OccHealth", tab: "sessions", params: { diary: d.id } }, openLabel: "Open Meddbase session", done: d.date < today(state),
+        link: { page: "OccHealth", tab: "sessions", params: { diary: d.id } }, openLabel: "Open Meddbase session", done: d.date < today(state), movable: d.date >= today(state),
       } as CalEvent;
     }),
   },
@@ -231,7 +238,7 @@ export const CAL_SOURCES: CalSource[] = [
           id: `lead:${l.id}`, kind: meeting ? "sales_meeting" : "sales_action", ...timed(l.nextActionOn, null), title: `${l.company}: ${l.nextAction}`,
           client: l.company, staffIds: [l.ownerId], status: l.stage === "won" ? "Won" : overdue ? "Overdue" : l.stage === "proposal_sent" ? "Proposal sent" : "New lead",
           tone: l.stage === "won" ? "ok" : overdue ? "warn" : "neutral", detail: l.services.map((x) => SALES_SERVICE_LABEL[x]).join(", "),
-          link: { page: "Sales", tab: "pipeline", params: { lead: l.id } }, openLabel: "Open lead",
+          link: { page: "Sales", tab: "pipeline", params: { lead: l.id } }, openLabel: "Open lead", movable: l.stage !== "won",
         });
         const seq = salesFollowSequence(state, l.id);
         if (seq && !seq.stopped) {
@@ -305,9 +312,54 @@ export const CAL_SOURCES: CalSource[] = [
         id: `task:${v.task.id}`, kind: "task", ...dueAt(at.date, at.time), title: v.title, staffIds: [v.task.ownerId],
         status: v.statusLabel, tone: v.status === "done" ? "ok" : v.overdue ? "warn" : v.status === "blocked" ? "bad" : "neutral",
         detail: `Owner ${v.ownerName}, ${v.task.priority} priority`, link: { page: "Work", tab: "tasks", params: { task: v.task.id } }, openLabel: "Open task",
-        done: v.status === "done",
+        done: v.status === "done", movable: v.status !== "done",
       } as CalEvent;
     }),
+  },
+  /* Things scheduled from the Calendar with "+ Schedule" that live nowhere else: client meetings and calls,
+     follow up emails, results out and rebooking emails, staff training and leave (one event per day of leave).
+     Tasks, flu clinics and Meddbase sessions created there show through their own sources above. */
+  {
+    id: "scheduled",
+    kinds: [
+      { id: "sched_meeting", label: "Client meeting or call", group: "sales", color: "#2E8B57" },
+      { id: "sched_email", label: "Scheduled follow up email", group: "sales", color: "#5BAF7A" },
+      { id: "sched_retention", label: "Results out or rebooking email", group: "retention", color: "#D86A2B" },
+      { id: "sched_training", label: "Staff training", group: "team", color: "#7A6FD0" },
+      { id: "sched_leave", label: "Leave or holiday", group: "team", color: "#A86FA6" },
+    ],
+    collect: (state) => {
+      const out: CalEvent[] = [];
+      for (const x of schedItems(state)) {
+        if (x.status === "cancelled" || x.ref) continue;
+        const st = schedStatusLabel(state, x);
+        const lead = x.leadId ? state.sales.leads.find((l) => l.id === x.leadId) : undefined;
+        const company = x.client ? state.companies.find((c) => c.name.toLowerCase() === x.client!.toLowerCase()) : undefined;
+        const clientLink: NavTarget = lead ? { page: "Sales", tab: "pipeline", params: { lead: lead.id } } : company ? { page: "Records", tab: "companies", params: { company: company.id } } : { page: "Calendar", tab: "all", params: { view: "week", date: x.date, ev: `sched:${x.id}` } };
+        const staffLink = (): NavTarget => (x.staffIds[0] ? { page: "Records", tab: "staff", params: { staff: x.staffIds[0] } } : { page: "Calendar", tab: "all", params: { view: "week", date: x.date } });
+        const common = { client: x.client || undefined, staffIds: x.staffIds, status: st.label, tone: st.tone, done: st.done, schedId: x.id, scheduledBy: x.createdBy, movable: !st.done || x.kind === "leave" };
+        if (x.kind === "meeting" || x.kind === "call") {
+          out.push({ ...common, id: `sched:${x.id}`, kind: "sched_meeting", ...timed(x.date, x.start, x.end), title: `${x.client}: ${x.kind === "call" ? "call" : "meeting"}${x.contact ? ` with ${x.contact}` : ""}`,
+            location: x.kind === "call" ? "Phone or video call" : undefined, detail: x.notes || undefined, link: clientLink, openLabel: lead ? "Open lead" : company ? "Open client" : "Show in calendar" });
+        } else if (x.kind === "follow_up") {
+          const tpl = schedTemplate(x.template);
+          out.push({ ...common, id: `sched:${x.id}`, kind: "sched_email", ...timed(x.date, x.start, x.start ? addMins(x.start, 30) : null), title: `${x.client}: follow up email`,
+            detail: `"${tpl.subject}" to ${x.contact || "the contact"}${x.contactEmail ? ` <${x.contactEmail}>` : ""}. Simulated.`, link: clientLink, openLabel: lead ? "Open lead" : company ? "Open client" : "Show in calendar" });
+        } else if (x.kind === "results_out" || x.kind === "rebooking") {
+          out.push({ ...common, id: `sched:${x.id}`, kind: "sched_retention", ...timed(x.date, x.start, x.start ? addMins(x.start, 30) : null),
+            title: `${x.client}: ${x.kind === "results_out" ? "results are out email" : "rebooking reminder"}`, detail: `To ${x.contact || "the HR contact"}${x.contactEmail ? ` <${x.contactEmail}>` : ""}. Simulated.`,
+            link: { page: "Sales", tab: "recall", params: { sched: x.id } }, openLabel: "Open Retention" });
+        } else if (x.kind === "training") {
+          out.push({ ...common, id: `sched:${x.id}`, kind: "sched_training", ...timed(x.date, x.start, x.end), title: x.title, detail: x.notes || undefined, link: staffLink(), openLabel: "Open staff" });
+        } else if (x.kind === "leave") {
+          const days = schedDays(x);
+          days.forEach((d, i) => out.push({ ...common, id: `sched:${x.id}:${d}`, kind: "sched_leave", ...timed(d, null), allDay: true,
+            title: `${x.staffIds.map((id) => state.staff.find((s) => s.id === id)?.name.split(" ")[0] || id).join(", ")}: ${x.title.toLowerCase()}${days.length > 1 ? ` (day ${i + 1} of ${days.length})` : ""}`,
+            detail: `${fmtDate(x.date)}${days.length > 1 ? ` to ${fmtDate(days[days.length - 1])}` : ""}. Blocks clinics on these days.${x.notes ? ` ${x.notes}` : ""}`, link: staffLink(), openLabel: "Open staff" }));
+        }
+      }
+      return out;
+    },
   },
   /* Scheduled jobs: employer report drafts due are deadlines; the rest are automations (off by default). */
   {
@@ -340,7 +392,7 @@ export const calKindColor = (kind: string) => CAL_KIND_BY_ID[kind]?.color || "#8
 export const calGroupOf = (kind: string) => CAL_KIND_BY_ID[kind]?.group || "tasks";
 const GROUP_ALIAS: Record<string, string> = {
   clinic: "clinics", clinics: "clinics", sessions: "clinics", days: "clinics", screening: "clinics", occhealth: "oh", occupational: "oh", irishlife: "ilh",
-  lead: "sales", leads: "sales", recall: "retention", rebooking: "retention", task: "tasks", report: "reporting", reports: "reporting", jobs: "automations",
+  lead: "sales", leads: "sales", leave: "team", training: "team", staff: "team", holiday: "team", recall: "retention", rebooking: "retention", task: "tasks", report: "reporting", reports: "reporting", jobs: "automations",
 };
 /** A group id from a URL word: a group id, a kind id (task, flu_clinic) or a friendly alias (clinic, recall). Null when unknown. */
 export function calGroupFromParam(x: string): string | null {
@@ -360,6 +412,12 @@ export function calendarEvents(state: PhState): CalEvent[] {
   const hit = cache.get(state);
   if (hit) return hit;
   const all = CAL_SOURCES.flatMap((s) => s.collect(state)).sort(calSort);
+  /* Tasks, flu clinics and Meddbase sessions created with "+ Schedule" carry who scheduled them. */
+  for (const e of all) {
+    if (e.schedId || !/^(task|flu|oh):/.test(e.id)) continue;
+    const x = schedForCalId(state, e.id);
+    if (x) { e.schedId = x.id; e.scheduledBy = x.createdBy; }
+  }
   cache.set(state, all);
   return all;
 }
@@ -381,6 +439,10 @@ export interface CalFilter {
   q: string;
   /** Only events that include this staff id (the current persona). */
   mine: string | null;
+  /** Only things this staff id scheduled from the Calendar. */
+  byMe?: string | null;
+  /** To do (not finished) or done. */
+  status?: "todo" | "done" | null;
 }
 export type CalDim = "groups" | "clients" | "people";
 
@@ -389,6 +451,9 @@ export function calMatches(e: CalEvent, f: CalFilter, except?: CalDim): boolean 
   if (except !== "clients" && f.clients.length && !(e.client && f.clients.includes(e.client))) return false;
   if (except !== "people" && f.people.length && !e.staffIds.some((id) => f.people.includes(id))) return false;
   if (f.mine && !e.staffIds.includes(f.mine as StaffId)) return false;
+  if (f.byMe && e.scheduledBy !== f.byMe) return false;
+  if (f.status === "todo" && e.done) return false;
+  if (f.status === "done" && !e.done) return false;
   if (f.q.trim()) {
     const q = f.q.trim().toLowerCase();
     const hay = [e.title, e.client, e.location, e.status, e.detail, CAL_KIND_BY_ID[e.kind]?.label].filter(Boolean).join(" ").toLowerCase();

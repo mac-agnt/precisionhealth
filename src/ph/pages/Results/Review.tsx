@@ -19,6 +19,9 @@ import { PreviewModal } from "./ReportPreview";
 import { ClinicalAlerts, ReviewSheet } from "./Sheet";
 import { Count } from "./shared";
 import { AgentGuardNote } from "./LabImport";
+import { ReleasedList, ReporterCard, ReporterTabs, ReportStatePill, ViewTabs } from "./ReporterViews";
+import type { ReporterFilter, ReviewView } from "./ReporterViews";
+import { byReporter, reporterOf } from "./libraryModel";
 
 type QueueFilter = "all" | "routine" | "flagged" | "aged";
 
@@ -62,6 +65,8 @@ function ReviewWorkspace() {
   const queue = reviewQueue(state);
   const initialFilter = (["routine", "flagged", "aged"] as const).find((f) => f === nav.params.filter) || "all";
   const [filter, setFilter] = useState<QueueFilter>(initialFilter);
+  const [reporter, setReporter] = useState<ReporterFilter>(nav.params.reporter === "liz" || nav.params.reporter === "neil" ? nav.params.reporter : "all");
+  const [view, setView] = useState<ReviewView>(nav.params.view === "approved" || nav.params.view === "amended" ? nav.params.view : "queue");
   const [q, setQ] = useState("");
   const [seen, setSeen] = useState<Record<string, true>>({});
   const [previewFor, setPreviewFor] = useState<string | null>(null);
@@ -70,7 +75,7 @@ function ReviewWorkspace() {
 
   const routineOf = (i: ReviewItem) => i.routine;
   const query = q.trim().toLowerCase();
-  const filtered = queue.filter((i) => {
+  const filtered = byReporter(state, queue, reporter).filter((i) => {
     if (filter === "routine" && !routineOf(i)) return false;
     if (filter === "flagged" && !i.flagged) return false;
     if (filter === "aged" && !i.aged) return false;
@@ -78,7 +83,7 @@ function ReviewWorkspace() {
     return `${i.person.given} ${i.person.family} ${i.episode.id} ${i.episode.screeningRef} ${i.person.id} ${i.programme.code}`.toLowerCase().includes(query);
   });
   const paramId = nav.params.episode && ix(state).episodeById.has(nav.params.episode) ? nav.params.episode : null;
-  const selectedId = paramId || (filtered[0] || queue[0])?.episode.id || null;
+  const selectedId = paramId || (view === "queue" ? (filtered[0] || queue[0])?.episode.id : null) || (filtered[0] || queue[0])?.episode.id || null;
   const select = (id: string) => nav.setParams({ ...nav.params, episode: id });
   const b = selectedId ? episodeBundle(state, selectedId) : null;
   const inQueue = !!selectedId && queue.some((i) => i.episode.id === selectedId);
@@ -100,24 +105,26 @@ function ReviewWorkspace() {
       <div className="phr-rv" style={{ marginTop: 12 }}>
         <aside className="phr-rv-pane phr-rv-queue ph-card ph-pad-sm" aria-label="Review queue">
           <div className="phr-row" style={{ justifyContent: "space-between", marginBottom: 8 }}>
-            <span style={{ fontSize: 12.5, fontWeight: 600, color: "var(--ink)" }}>Assigned queue</span>
-            <span className="phr-sub ph-num">{filtered.length} of {queue.length}</span>
+            <span style={{ fontSize: 12.5, fontWeight: 600, color: "var(--ink)" }}>{view === "queue" ? "Reporter views" : view === "approved" ? "Approved reports" : "Amended reports"}</span>
+            {view === "queue" ? <span className="phr-sub ph-num">{filtered.length} of {queue.length}</span> : null}
           </div>
           <div className="phr-gap" style={{ gap: 6, marginBottom: 8 }}>
-            <Select value={filter} onChange={(e) => setFilter(e.target.value as QueueFilter)} aria-label="Filter the queue">
+            <ViewTabs value={view} onChange={setView} />
+            {view === "queue" ? <ReporterTabs value={reporter} onChange={setReporter} /> : null}
+            {view === "queue" ? <Select value={filter} onChange={(e) => setFilter(e.target.value as QueueFilter)} aria-label="Filter the queue">
               <option value="all">All ready ({stats.ready})</option>
               <option value="routine">Routine eligible ({stats.routine})</option>
               <option value="flagged">Individually flagged ({stats.flagged})</option>
               <option value="aged">Over 48 hours ({stats.aged})</option>
-            </Select>
+            </Select> : null}
             <SearchBox value={q} onChange={setQ} placeholder="Name or Unique ID" width="100%" />
           </div>
-          {filtered.length ? (
+          {view !== "queue" ? <ReleasedList view={view} selectedId={selectedId} onSelect={select} query={query} /> : filtered.length ? (
             <div className="phr-list">
               {filtered.map((i) => <QueueItem key={i.episode.id} i={i} selected={i.episode.id === selectedId} routine={routineOf(i)} onSelect={() => select(i.episode.id)} />)}
             </div>
           ) : (
-            <div className="phr-sub" style={{ padding: "10px 4px" }}>{queue.length ? "No episode matches this filter." : "The review queue is clear."}</div>
+            <div className="phr-sub" style={{ padding: "10px 4px" }}>{queue.length ? (reporter !== "all" && !filtered.length && !query && filter === "all" ? `Nothing assigned to ${reporter === "liz" ? "Liz" : "Neil"} right now.` : "No episode matches this filter.") : "The review queue is clear."}</div>
           )}
         </aside>
 
@@ -179,6 +186,10 @@ function QueueItem({ i, selected, routine, onSelect }: { i: ReviewItem; selected
           : routine ? <Pill tone="info" icon="check">Routine eligible</Pill>
           : <Pill tone="neutral" icon="eye">Individual review</Pill>}
         {i.aged ? <Pill tone="warn" icon="clock">Over 48h</Pill> : null}
+      </div>
+      <div className="phr-row" style={{ gap: 4, marginTop: 4 }}>
+        <ReportStatePill episodeId={i.episode.id} />
+        <span className="phr-sub" title="Reporter">{reporterOf(state, i.episode) === "liz" ? "Liz reports" : "Neil reports"}</span>
       </div>
     </button>
   );
@@ -253,6 +264,7 @@ function Actions({ b, canReview, previewSeen, onOpenPreview, onNext }: { b: Bund
   }
   return (
     <>
+      <ReporterCard b={b} />
       <ReleaseCard b={b} mode="review" canAct previewSeen={previewSeen || !!b.draft?.checklist.preview} />
       <FlagsCard b={b} canAct />
       <PreviewCard b={b} onOpen={onOpenPreview} seen={previewSeen} mode="review" />

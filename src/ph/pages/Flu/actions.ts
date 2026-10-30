@@ -5,7 +5,7 @@
 import {
   FLU_ILH_SAMPLES, FLU_PRECISION_SAMPLES, FLU_SEASON_CURRENT, FLU_SUPPLY_OWNER, FLU_SUPPORT, FLU_VACCINATORS, FLU_FOLLOWUP_ACTIONS,
   fluAccessFor, fluBatchLabel, fluBatchUse, fluColdChainRows, fluExcursionsOf, fluNextId, fluStock, fmtInt, fmtWeekdayDate, plural, registerHandlers,
-  startOfWeek, today, weekdayOf,
+  schedStaffBlock, startOfWeek, today, weekdayOf,
 } from "../../model";
 import type { ActionResult, Ctx, FluClinic, FluColdChain, FluFollowUpAction, LocalDate, PhState, StaffId } from "../../model";
 
@@ -42,6 +42,7 @@ export function fluStaffClashes(s: PhState, date: LocalDate, ids: StaffId[], exc
     if (flu) out.push(`${name(id)} is already on the ${flu.company} flu clinic that day`);
     const ses = s.sessions.find((x) => x.date === date && x.status !== "cancelled" && (x.nurseId === id || x.supportIds.includes(id)));
     if (ses) out.push(`${name(id)} is on a screening clinic at ${ses.siteName} that day`);
+    const away = schedStaffBlock(s, id, date); if (away) out.push(away.replace(/\.$/, ""));
   }
   return out;
 }
