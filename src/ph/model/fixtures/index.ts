@@ -15,6 +15,7 @@ import { initialOccHealthState } from "../occHealth";
 import { initialNurseOpsState } from "../nurseOps";
 import { initialAdviceLibraryState } from "../adviceLibrary";
 import { initialReferenceRangesState, setActiveRangeVersions } from "../referenceRangesData";
+import { initialLabCsvState } from "../labCsv";
 
 export function createInitialState(): PhState {
   /* Band every seeded result against the seeded reference ranges (Health Screening). */
@@ -95,6 +96,7 @@ export function createInitialState(): PhState {
     nurseOps: initialNurseOpsState(),
     adviceLibrary: initialAdviceLibraryState(),
     referenceRanges: ranges,
+    labCsv: initialLabCsvState(),
   };
   state.portal = buildPortalBaseline(state);
   return state;

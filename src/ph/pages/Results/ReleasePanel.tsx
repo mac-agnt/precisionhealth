@@ -18,6 +18,7 @@ import { buildViewer } from "./Sheet";
 import type { ViewerModel } from "./Sheet";
 import { AdviceBox, ConfirmReplace, LibrarySelect, SourcePill, SuggestedCodes, TraceList, notInsertableText } from "./AdviceCodes";
 import { libAct } from "./libraryActions";
+import { releasedLine } from "./LabImport";
 import { snippetSuggestions } from "./libraryModel";
 
 /* ---- checklist ---- */
@@ -122,7 +123,7 @@ export function ReleaseCard({ b, mode, canAct, previewSeen }: { b: Bundle; mode:
           <Button variant="primary" icon="send" disabled={!ready}
             title={ready ? undefined : open.length ? "Open items: " + open.map((x) => x.label).join("; ") : "Not ready for release"}
             onClick={() => dispatch(mode === "review" ? act.releaseReport(id) : act.releaseCorrection(id))}>
-            {mode === "review" ? `Finalise and release v${nextVersion}` : `Release corrected v${nextVersion}`}
+            {mode === "review" ? `Approve and release v${nextVersion}` : `Approve and release corrected v${nextVersion}`}
           </Button>
           {!ready ? <div className="phr-sub">{stateOk ? `Complete the open items first: ${open.map((x) => x.label.toLowerCase()).join("; ")}.` : mode === "review" ? "Only an episode that is ready for review can be released." : "Start a correction with a reason first."}</div> : null}
           {mode === "review" ? <RoutineShortcut id={id} ok={routineOk} blockers={blockers} urgent={urgent ? b.episode.followUpIds.join(", ") : null} /> : null}
@@ -408,6 +409,7 @@ export function ReleasedCard({ b, onNext }: { b: Bundle; onNext?: () => void }) 
     <Card pad="sm">
       <SecTitle right={<Pill tone="ok" icon="check">Released</Pill>}>Report released</SecTitle>
       <div className="phr-gap">
+        <div className="lab-released"><Icon name="shield" size={14} /> {releasedLine(state, v)}</div>
         <div className="phr-note">
           v{v.version} released {fmtWhen(v.releasedAt!, state.clock.nowUtc)} by {staffName(state, v.releasedBy)}, {v.releaseMode === "routine" ? "as a routine report with no review flags" : "after individual review of flagged values"}.
           {v.flagAcknowledged ? " Review flags were acknowledged individually." : ""} The participant can now open it in the portal.

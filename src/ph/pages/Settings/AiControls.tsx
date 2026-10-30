@@ -2,7 +2,7 @@
    permitted data scope and the prohibited actions. Demo content, no model connected: no AI API is
    called. Turning the preview off leaves manual advice and manual employer narrative fully
    usable, and the live counts below show where manual authoring already happens. */
-import { AGENT_DEFS, act, activityFeed, linkFor } from "../../model";
+import { AGENT_DEFS, AGENT_RESULTS_RULE, act, activityFeed, linkFor } from "../../model";
 import type { ReportVersion } from "../../model";
 import { dispatch, usePersona, usePhState } from "../../store";
 import { useNav } from "../../nav-context";
@@ -102,6 +102,10 @@ export default function AiControls() {
           }
           side={
             <>
+              <Card>
+                <CardHeader title="Results are changed only by people" sub={AGENT_RESULTS_RULE} right={<Pill tone="ok" icon="shield">Enforced</Pill>} />
+                <div className="phs-small ph-dim" style={{ lineHeight: 1.5 }}>Importing lab files, matching lab rows, confirming units, correcting values and approving and releasing reports are refused for any agent, even when the AI preview is on. The refusal is checked in the system itself, not only hidden on screen.</div>
+              </Card>
               <Card>
                 <CardHeader title="The manual workflow stays complete" sub={on ? "With the preview on or off, these manual paths are always available." : "The preview is off. These manual paths are unaffected."} />
                 <ul className="phs-list">

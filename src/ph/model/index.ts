@@ -26,3 +26,6 @@ export { Ctx } from "./actions/ctx";
 export { CLOCK_PRESETS } from "./actions/core";
 /* Portal admin registers its handlers with registerHandlers when this module loads. */
 export { portalAct } from "./actions/portalAdmin";
+/* Lab CSV import and the results integrity guard register their handlers when this module loads. */
+export * from "./labCsv";
+export { labAct, AGENT_RESULTS_RULE, RESULT_EDIT_ACTIONS, agentActor } from "./labCsvActions";

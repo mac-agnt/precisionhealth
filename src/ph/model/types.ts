@@ -518,7 +518,7 @@ export interface ImportBatch {
   status: "complete" | "partial";
   note: string;
   /** Lipids and HbA1c, the extended panel (every other analyte), or one in-session sample delivery. */
-  kind?: "core" | "extended" | "sample";
+  kind?: "core" | "extended" | "sample" | "upload";
 }
 
 export interface ImportPreview {
@@ -1040,4 +1040,6 @@ export interface PhState {
   adviceLibrary: import("./adviceLibrary").AdviceLibraryState;
   /** Health Screening reference ranges: versioned, superadmin-controlled (Health Screening module). */
   referenceRanges: import("./referenceRanges").ReferenceRangesState;
+  /** Lab CSV uploads and the rows waiting for a person to match them (Results, Imports). */
+  labCsv: import("./labCsv").LabCsvState;
 }

@@ -14,6 +14,7 @@ import {
   Banner, EventList, FlagPill, HoldCategoryPill, Kv, ReportStatePill, SecTitle, TestStatusPill, fmtValue, useWidth,
 } from "./shared";
 import { episodeEventIds, eventsFor, observationChain, openUnitIssues, rowIndex } from "./select";
+import { LabAware } from "./LabImport";
 
 export type Bundle = NonNullable<ReturnType<typeof episodeBundle>>;
 
@@ -33,7 +34,7 @@ export function EpisodeHeader({ b, right, compact }: { b: Bundle; right?: ReactN
         <div className="ph-grow" style={{ minWidth: 180 }}>
           <div className="phr-row" style={{ gap: 8 }}>
             <h2 className="ph-h1" style={{ fontSize: 18 }}>{b.name}</h2>
-            <ReportStatePill state={b.episode.reportState} />
+            <LabAware state={state} ep={b.episode}><ReportStatePill state={b.episode.reportState} /></LabAware>
             {idOk ? <Pill tone="ok" icon="shield">Identity verified</Pill> : <Pill tone="warn" icon="alert">Identity not verified</Pill>}
             <Pill tone="neutral" icon={null}>{b.programme.code}</Pill>
             <span className="phr-mono" style={{ color: "var(--ink)" }} title="Precision Health unique ID">{b.episode.screeningRef}</span>
