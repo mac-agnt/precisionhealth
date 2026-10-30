@@ -6,7 +6,7 @@
 import { useState } from "react";
 import type { ReactNode } from "react";
 import type { ClinicalCapture, Episode, NavTarget } from "../../model";
-import { REPORT_STATE_LABEL, act, ageOn, expectedTests, fmtDateLong, fmtDateTime, fmtNumericDate, linkFor, staffName } from "../../model";
+import { POC_FORM_NAME, REPORT_STATE_LABEL, act, ageOn, expectedTests, fmtDateLong, fmtDateTime, fmtNumericDate, linkFor, sessionUsesPoc, staffName } from "../../model";
 import { dispatch, getState, usePhState } from "../../store";
 import { useNav } from "../../nav-context";
 import { Button, Card, CardHeader, Checklist, DemoTag, EntityLink, Icon, Pill } from "../../ui";
@@ -18,6 +18,7 @@ import { QuestionnaireReview, consentSummary } from "./Questionnaire";
 import { LabelPreviewModal } from "./LabelPreview";
 import { AutomationReceipt, NurseCapture, NurseFormReadOnly } from "./NurseForm";
 import { requestNursePortalNurse } from "../NursePortal/data";
+import { ResultsPill, ResultsStatusCard, isPocEpisode } from "../NursePortal/results";
 
 const SEX: Record<string, string> = { female: "Female", male: "Male", not_recorded: "Not recorded" };
 
@@ -67,7 +68,7 @@ function WsHeader({ row, episodeLabel, dobConfirmed, pills, actions, children }:
         <div><dt>Programme</dt><dd>{programme.name}</dd></div>
         <div><dt>Date of birth</dt><dd>{dobConfirmed ? `${fmtNumericDate(person.dob)} (age ${ageOn(person.dob, s.date)})` : "Shown after the identity check"}</dd></div>
         <div><dt>Sex recorded</dt><dd>{SEX[person.sex] || person.sex}</dd></div>
-        <div><dt>Nurse form</dt><dd>{template ? template.name : b.formTemplateId} v{b.formVersion}</dd></div>
+        <div><dt>Nurse form</dt><dd>{sessionUsesPoc(s) ? `${POC_FORM_NAME} (point of care, same-day results)` : `${template ? template.name : b.formTemplateId} v${b.formVersion}`}</dd></div>
         <div><dt>Consent</dt><dd>{b.consentVersion}, before booking</dd></div>
       </dl>
       {children ? <div className="ph-stack" style={{ gap: 10, marginTop: 12 }}>{children}</div> : null}
@@ -106,8 +107,15 @@ function PreVisit({ row }: { row: ApptRow }) {
               { label: "Check the participant in", done: false },
               { label: "Confirm identity with two identifiers: date of birth and booking reference", done: false, note: "A name match alone is never enough. Required before anything clinical." },
               { label: "Work through the nurse form, confirming the questionnaire answers", done: false, note: "Registration, cardiovascular risk, bowel, PSA, measurements, ECG, urinalysis, close-out." },
-              { label: "Record the blood specimen and check the label and lab request", done: false },
-              { label: "Complete the appointment", done: false, note: "Creates the episode awaiting results. It never releases a report." },
+              ...(sessionUsesPoc(row.session)
+                ? [
+                  { label: "Enter cholesterol, HDL and HbA1c from the point-of-care machine", done: false, note: "Each value is banded live against Neil's reference ranges." },
+                  { label: "Complete the appointment", done: false, note: "Creates the episode ready for review, so the doctor can release the report the same day. Completing never releases it." },
+                ]
+                : [
+                  { label: "Record the blood specimen and check the label and lab request", done: false },
+                  { label: "Complete the appointment", done: false, note: "Creates the episode awaiting the laboratory. It never releases a report." },
+                ]),
             ]} />
           </Card>
         </div>
@@ -204,12 +212,12 @@ function CompletedView({ row, episode: ep }: { row: ApptRow; episode: Episode })
       <WsHeader row={row} dobConfirmed={cap.identity.every((x) => x.confirmed)}
         episodeLabel={<EntityLink kind="episode" id={ep.id} />}
         pills={<>
-          <Pill tone={STATE_TONE[ep.reportState]} icon={ep.reportState === "released" ? "check" : ep.reportState === "on_hold" ? "alert" : "clock"}>{REPORT_STATE_LABEL[ep.reportState]}</Pill>
+          <ResultsPill episode={ep} />
           {ep.nurseReferral ? <Pill tone="bad" icon="alert">Nurse referral</Pill> : null}
           {cap.ecgReview ? <Pill tone="warn" icon="flag">ECG review</Pill> : null}
         </>}
         actions={<>
-          <Button icon="print" onClick={() => setLabelOpen(true)}>Label and request</Button>
+          {specs.length ? <Button icon="print" onClick={() => setLabelOpen(true)}>Label and request</Button> : null}
           <Button variant="primary" icon="arrow" onClick={() => nav.go(resultsTarget(ep))}>Open in Results</Button>
         </>}>
         <div className="clx-banner info">
@@ -217,11 +225,12 @@ function CompletedView({ row, episode: ep }: { row: ApptRow; episode: Episode })
           <span>Appointment completed {cap.completedAt ? fmtDateTime(cap.completedAt) : ""}. Unique ID <span className="ph-mono">{ep.screeningRef}</span>. Completing an appointment never releases a report. Report state: {REPORT_STATE_LABEL[ep.reportState]}.</span>
         </div>
       </WsHeader>
+      <ResultsStatusCard episode={ep} onOpenEpisode={(id) => nav.go(linkFor("episode", id))} />
       {ep.nurseReferral || cap.ecgReview ? <AutomationReceipt episode={ep} title="Raised from the nurse form at this appointment" /> : null}
       <div className="clx-ws">
         <div className="ph-stack">
           <Card>
-            <CardHeader title="Nurse form as recorded" sub="SISK Comprehensive (LAB) Screen V2, in the client's section order. Values are kept as entered; bands are for clinician review." right={<DemoTag>Sample data</DemoTag>} />
+            <CardHeader title="Nurse form as recorded" sub={`${isPocEpisode(ep) ? "POC Screen with QRISK" : "SISK Comprehensive (LAB) Screen V2"}, in the client's section order. Values are kept as entered; bands are for clinician review.`} right={<DemoTag>Sample data</DemoTag>} />
             <NurseFormReadOnly episode={ep} />
           </Card>
           <Card>

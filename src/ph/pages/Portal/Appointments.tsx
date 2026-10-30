@@ -81,6 +81,7 @@ export function AppointmentsView({ d, go }: { d: PortalData; go: (v: PortalView)
           <div className="pp-row" style={{ marginBottom: 8 }}><Pill tone="ok" icon="check">Attended</Pill></div>
           <h2 className="pp-h3">Your screening appointment is done</h2>
           <p className="pp-small" style={{ margin: 0 }}>There is nothing more to book on this programme. Your report appears in My results once a doctor has reviewed and released it.</p>
+          <AttendedWhere b={d.attended[d.attended.length - 1]} />
           <div style={{ marginTop: 12 }}><Button icon="file" onClick={() => go("results")}>My results</Button></div>
         </Card>
       ) : (
@@ -115,6 +116,14 @@ function BeforeYouArrive() {
 
 const roomOf = (s: ClinicSession) => (s.siteName.includes(s.room) ? s.siteName.split(", ").slice(-1)[0] : s.room);
 const placeOf = (s: ClinicSession) => s.siteName.split(", ")[0];
+
+/** Where an attended appointment took place: date, time, location and room, from the clinic session. */
+function AttendedWhere({ b }: { b: Booking | undefined }) {
+  const state = usePhState();
+  const s = b ? ix(state).sessionById.get(b.sessionId) : undefined;
+  if (!b || !s) return null;
+  return <KeyValues rows={[["Date", `${fmtDateLong(s.date)}, ${b.slotStart}`], ["Location", placeOf(s)], ["Room", roomOf(s)], ["Booking reference", b.id]]} />;
+}
 
 function ConfirmationCard({ d, b, fresh, mode, onReschedule, onCancel }: { d: PortalData; b: Booking; fresh: boolean; mode: string; onReschedule: () => void; onCancel: () => void }) {
   const state = usePhState();
@@ -212,7 +221,7 @@ function PastRow({ b }: { b: Booking }) {
       <span className="pp-msg-icon"><Icon name={b.status === "cancelled" ? "x" : "check"} size={13} /></span>
       <span>
         <span style={{ color: "var(--ink)", fontWeight: 500 }}>{fmtDate(s.date)}, {b.slotStart}</span>
-        <span className="pp-small" style={{ display: "block" }}>{status}. {placeOf(s)}. Reference {b.id}.</span>
+        <span className="pp-small" style={{ display: "block" }}>{status}. {placeOf(s)}, {roomOf(s)}. Reference {b.id}.</span>
       </span>
     </div>
   );

@@ -8,8 +8,8 @@ import {
   qriskScoreBand, rangeTextFor, reportFlagWord, waistCategory,
 } from "../constants";
 import type { BandCtx, ReportFlagWord } from "../constants";
-import { NURSE_FORM_SECTIONS, ecgBand, nurseFieldValue, nurseFieldVisible, nurseSectionVisible, urineBand } from "../capture";
-import type { NurseSectionKey } from "../capture";
+import { NURSE_FORM_SECTIONS, POC_FORM_SECTIONS, ecgBand, nurseFieldValue, nurseFieldVisible, nurseSectionVisible, pocArmSpan, pocFieldVisible, pocSectionVisible, urineBand } from "../capture";
+import type { NurseSectionKey, PocSectionKey } from "../capture";
 import { bandCtxFor, bmiFromCapture } from "../interpret";
 import { answerSummary, lifestyleRows } from "../questionnaire";
 import type { AnswerSummary, Answers } from "../questionnaire";
@@ -129,7 +129,7 @@ function summaryFor(c: ClinicalCapture, a: Answers): RiskFactorSummary {
 }
 
 /** The nurse form for read-only display: visible sections and fields with their values as text. */
-export interface NurseFormRow { section: NurseSectionKey; sectionTitle: string; key: string; label: string; value: string; answered: boolean; prefillFrom: "booking" | "questionnaire" | null }
+export interface NurseFormRow { section: NurseSectionKey | PocSectionKey; sectionTitle: string; key: string; label: string; value: string; answered: boolean; prefillFrom: "booking" | "questionnaire" | null }
 export function nurseFormRows(state: PhState, episodeId: Id): NurseFormRow[] | null {
   const ep = ix(state).episodeById.get(episodeId);
   if (!ep || !canViewEpisodeClinical(state, episodeId) || persona(state).isParticipant) return null;
@@ -137,12 +137,16 @@ export function nurseFormRows(state: PhState, episodeId: Id): NurseFormRow[] | n
   const booking = ix(state).bookingById.get(ep.bookingId);
   const ctx = ctxFor(state, ep);
   const out: NurseFormRow[] = [];
-  for (const s of NURSE_FORM_SECTIONS) {
-    if (!nurseSectionVisible(s, ep.capture, ctx)) continue;
+  // A point-of-care episode was recorded on the POC Screen with QRISK form: read it back in that form's order.
+  const poc = ep.capture.variant === "poc";
+  const sections = poc ? POC_FORM_SECTIONS : NURSE_FORM_SECTIONS;
+  for (const s of sections) {
+    if (poc ? !pocSectionVisible(s as (typeof POC_FORM_SECTIONS)[number], ep.capture, ctx) : !nurseSectionVisible(s as (typeof NURSE_FORM_SECTIONS)[number], ep.capture, ctx)) continue;
     for (const f of s.fields) {
-      if (!nurseFieldVisible(f, ep.capture, ctx)) continue;
+      if (poc ? !pocFieldVisible(f, ep.capture, ctx) : !nurseFieldVisible(f, ep.capture, ctx)) continue;
       let value: string;
       if (f.store === "record") value = recordValue(person, booking ? booking.slotStart : "", ep.collectedAt, f.recordKey!);
+      else if (f.store === "calc" && f.key === "pocArmSpanGtHeight") { const a = pocArmSpan(ep.capture); value = a.exceeds === null ? "" : a.exceeds ? "TRUE" : "FALSE"; }
       else if (f.store === "calc") { const b = bmiFromCapture(ep.capture); value = b == null ? "" : b.toFixed(1); }
       else if (f.store === "measure") { const m = ep.capture.measures[f.measureKey!]; value = m.state === "recorded" && m.value != null ? `${m.value} ${f.unit || ""}`.trim() : m.state === "not_done" ? "Not done" : m.state === "declined" ? "Declined" : ""; }
       else { const v = nurseFieldValue(ep.capture, f); value = v === null ? "" : typeof v === "boolean" ? (v ? "TRUE" : "FALSE") : String(v); }

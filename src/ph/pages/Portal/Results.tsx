@@ -14,6 +14,7 @@ import { Button, Card, EmptyState, Icon, Pill } from "../../ui";
 import type { PortalData, PortalView, ReportDelivery } from "./data";
 import { DELIVERY_LABEL, SUPPORT_EMAIL, participantVersions } from "./data";
 import { UrgentCareCard, usePrintOnly } from "./parts";
+import { RangesCard, RangesLine } from "./Ranges";
 
 export function ResultsView({ d, compact, delivery, go }: { d: PortalData; compact: boolean; delivery: ReportDelivery; go: (v: PortalView) => void }) {
   const state = usePhState();
@@ -130,6 +131,7 @@ function ReportView({ d, ep, v, versions, compact, delivery, go, onBack, onVersi
       ) : null}
       <div className="pp-grid pp-grid-main">
         <div className="pp-grid">
+          {doc ? <RangesLine ep={ep} /> : null}
           {doc ? (
             <div role="region" style={{ minWidth: 0 }} aria-label={`Screening report, version ${v.version}`}>
               <DigitalReport doc={doc} episodeId={ep.id} compact={compact} />
@@ -140,6 +142,7 @@ function ReportView({ d, ep, v, versions, compact, delivery, go, onBack, onVersi
           <div className="pp-banner"><Icon name="info" size={14} style={{ marginTop: 2 }} /><span>A screening result is not a diagnosis. Results are one part of your health picture. Take your report to your GP to discuss it.</span></div>
         </div>
         <div className="pp-grid">
+          {doc ? <RangesCard ep={ep} v={v} /> : null}
           <VersionHistory versions={versions} openId={v.id} onVersion={onVersion} />
           <DeliveryNote delivery={delivery} go={go} />
           <Card>
