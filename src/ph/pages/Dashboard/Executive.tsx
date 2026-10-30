@@ -1,44 +1,45 @@
-/* Executive dashboard: programme funnel, programme comparison, utilisation (programme capacity
-   versus today), review ageing and operational exceptions. Every figure comes from a selector and
-   every rate states its denominator. Potential capacity means unfilled slots, never revenue. */
+/* Executive dashboard: an overview of both sides of the business for whoever runs it. Four headline
+   numbers (two sales, two delivery), the programme funnel and the open story threads. The detail
+   lives on the Sales and Operations tabs; nothing here repeats a number shown twice on this page. */
 import {
-  PROGRAMME_BY_ID, PROGRAMME_ORDER, fmtDayMonth, fmtWhen, holdCounts, programmeCounts, rate, reminderStats, reviewStats, sessionStats, storyViews, todaySessions, todayStats,
+  PROGRAMME_BY_ID, PROGRAMME_ORDER, fmtWhen, holdCounts, programmeCounts, rate, reminderStats, storyViews, todayStats,
 } from "../../model";
 import type { Counts, ProgrammeId, StoryView } from "../../model";
 import { useNav } from "../../nav-context";
 import { usePersona, usePhState } from "../../store";
-import { Card, CardHeader, Chip, Donut, EntityLink, Funnel, HBars, Icon, PALETTE, Pill, ProgressBar, Split } from "../../ui";
+import { Button, Card, CardHeader, Chip, EntityLink, Icon, PALETTE, Pill, Split } from "../../ui";
 import type { Tone } from "../../ui";
 import { KpiBand } from "./KpiBand";
 import type { BandKpi } from "./KpiBand";
-import { AsOf, GoButton, Note, PROGRAMME_COLOR } from "./shared";
+import { eur, pipelineByStage, revenueStats } from "./select";
+import { AsOf, BarRow, DASH_CSS, GoButton, Note, PROGRAMME_COLOR } from "./shared";
 
 export default function Executive() {
   const s = usePhState();
   const nav = useNav();
   const T = programmeCounts(s);
   const D = todayStats(s);
-  const RS = reviewStats(s);
-  const unfilled = Math.max(0, T.capacity - T.booked);
-
+  const open = pipelineByStage(s).find((r) => r.stage === "proposal_sent")!;
+  const V = revenueStats(s);
   const items: BandKpi[] = [
-    { key: "capacity", label: "Programme capacity booked", value: rate(T.booked, T.capacity), icon: "calendar",
-      sub: `${T.booked} of ${T.capacity} slots across all ${PROGRAMME_ORDER.length} programme windows` },
-    { key: "today", label: "Today's utilisation", value: rate(D.booked, D.capacity), icon: "clock", onClick: () => nav.setTab("clinic-operations"),
-      hint: "Open Clinic operations", sub: `${D.booked} of ${D.capacity} slots at today's ${D.sessions} clinics. A separate measure.` },
-    { key: "released", label: "Reports released", value: T.released, icon: "file",
-      sub: `of ${T.attended} attended episodes (${rate(T.released, T.attended)})` },
-    { key: "potential", label: "Potential capacity", value: unfilled, icon: "layers",
-      sub: `Unfilled programme slots, not revenue. ${D.available} of them are in today's clinics.` },
+    { key: "pipeline", label: "Open pipeline", value: eur(open.value), icon: "send", hint: "Open the Sales dashboard", onClick: () => nav.setTab("sales"),
+      sub: `${open.count} ${open.count === 1 ? "proposal" : "proposals"} waiting for a reply, upper estimate` },
+    { key: "won", label: `Won in ${V.year}`, value: eur(V.wonYear), icon: "check", hint: "Open won leads", onClick: () => nav.go({ page: "Sales", tab: "pipeline", params: { stage: "won" } }),
+      sub: `${V.wonCount} deals from accepted proposals` },
+    { key: "capacity", label: "Programme capacity booked", value: rate(T.booked, T.capacity, 0), icon: "calendar", hint: "Open Programmes", onClick: () => nav.go({ page: "Programmes", tab: "overview" }),
+      sub: `Of the ${T.capacity} appointment slots across ${PROGRAMME_ORDER.length} programmes` },
+    { key: "today", label: "Clinics today", value: D.sessions, icon: "clock", hint: "Open the Operations dashboard", onClick: () => nav.setTab("operations"),
+      sub: `${D.booked} of ${D.capacity} appointments booked today` },
   ];
-
   return (
     <div className="ph-page">
-      <KpiBand eyebrow="Executive view" title="Programme performance" right={<AsOf nowUtc={s.clock.nowUtc} />} items={items} />
+      <KpiBand eyebrow="Executive overview" title="The business at a glance" right={<AsOf nowUtc={s.clock.nowUtc} />} items={items} />
       <div className="ph-stack" style={{ marginTop: 14 }}>
-        <Split main={<FunnelCard total={T} />} side={<UtilisationCard />} />
-        <ComparisonCard />
-        <Split even main={<AgeingCard ready={RS.ready} aged={RS.aged} buckets={RS.buckets} />} side={<ExceptionsCard />} />
+        <Split even main={<FunnelCard total={T} />} side={<ExceptionsCard />} />
+        <div className="ph-wrap" style={{ gap: 10 }}>
+          <Button icon="chart" onClick={() => nav.setTab("sales")}>Sales dashboard</Button>
+          <Button icon="calendar" onClick={() => nav.setTab("operations")}>Operations dashboard</Button>
+        </div>
       </div>
     </div>
   );
@@ -67,156 +68,16 @@ function FunnelCard({ total }: { total: Counts }) {
         <Chip on={sel === "all"} onClick={() => pick("all")}>All programmes</Chip>
         {PROGRAMME_ORDER.map((id) => <Chip key={id} on={sel === id} onClick={() => pick(id)}>{PROGRAMME_BY_ID[id].clientName}</Chip>)}
       </div>
-      <Funnel steps={steps} />
-      <div style={{ marginTop: 12, paddingTop: 10, borderTop: "1px solid var(--border)" }}>
-        <Note>
-          Booked counts every confirmed booking, including completed appointments: {F.attended} attended + {F.upcoming} upcoming{F.noShow ? ` + ${F.noShow} no-show` : ""} = {F.booked}.
-        </Note>
-        <Note>
-          {F.drafts} {F.drafts === 1 ? "invitee has" : "invitees have"} a questionnaire in progress and {F.notStarted} have not started. A draft questionnaire is not a booking.
-        </Note>
-        <Note>
-          Of {F.attended} attended episodes: {F.released} released, {F.ready} ready for review, {F.awaiting} awaiting results, {F.onHold} on hold.
-        </Note>
-      </div>
-    </Card>
-  );
-}
-
-/* ---- utilisation: programme capacity and today are different measures ---- */
-function UtilisationCard() {
-  const s = usePhState();
-  const T = programmeCounts(s);
-  const D = todayStats(s);
-  const sessions = todaySessions(s).map((x) => sessionStats(s, x.id));
-  return (
-    <Card>
-      <CardHeader title="Utilisation" sub="Two different measures with different denominators." />
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: 14 }}>
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8, minWidth: 0 }}>
-          <Donut size={112} center={rate(T.booked, T.capacity)} sub="booked"
-            segments={[{ label: "Booked slots", value: T.booked, color: "var(--accent)" }, { label: "Unfilled slots", value: Math.max(0, T.capacity - T.booked), color: "var(--track)" }]} />
-          <div style={{ textAlign: "center", fontSize: 12, lineHeight: 1.4 }}>
-            <div style={{ color: "var(--ink)", fontWeight: 500 }}>Programme capacity</div>
-            <div className="ph-dim ph-num">{T.booked} of {T.capacity} slots</div>
-          </div>
-        </div>
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8, minWidth: 0 }}>
-          <Donut size={112} center={rate(D.booked, D.capacity)} sub="booked"
-            segments={[{ label: "Booked today", value: D.booked, color: PALETTE[1] }, { label: "Available today", value: D.available, color: "var(--track)" }]} />
-          <div style={{ textAlign: "center", fontSize: 12, lineHeight: 1.4 }}>
-            <div style={{ color: "var(--ink)", fontWeight: 500 }}>Today's utilisation</div>
-            <div className="ph-dim ph-num">{D.booked} of {D.capacity} slots, {D.sessions} clinics</div>
-          </div>
-        </div>
-      </div>
-      <div style={{ marginTop: 14, display: "flex", flexDirection: "column", gap: 7 }}>
-        <div className="ph-eyebrow">Today by clinic</div>
-        {sessions.map((st) => (
-          <div key={st.session.id} className="ph-row-flex" style={{ gap: 8, fontSize: 12 }}>
-            <span className="ph-trunc" style={{ width: 74, flex: "none", color: "var(--body)" }} title={st.programme.name}>{st.programme.clientName}</span>
-            <div className="ph-grow"><ProgressBar value={st.booked} max={st.slots} label={`${st.programme.clientName}: ${st.booked} of ${st.slots} slots booked today`} /></div>
-            <span className="ph-num" style={{ flex: "none", color: "var(--ink)" }}>{st.booked}/{st.slots}</span>
-          </div>
+      <style>{DASH_CSS}</style>
+      <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+        {steps.map((st, i) => (
+          <BarRow key={st.key} label={st.label} value={st.n} max={Math.max(1, steps[0].n)} color={PROGRAMME_COLOR[sel] || PALETTE[0]}
+            aria={`${st.label}: ${st.n}, ${st.rateLabel} ${st.denominatorLabel}. Open the people`}
+            onClick={() => nav.go(i === 3 ? { page: "Results", tab: "inbox" } : { page: "Participants", tab: "directory", params: { ...(sel === "all" ? {} : { programme: sel }), ...(i === 1 ? { stage: "upcoming" } : i === 2 ? { stage: "attended" } : {}) } })}
+            right={<>{st.n}<small>{st.rateLabel} {st.denominatorLabel}</small></>} />
         ))}
       </div>
-      <Note>Programme capacity counts every slot in the {s.sessions.filter((x) => x.status !== "cancelled").length} programme sessions. Today's utilisation counts only today's clinics. Potential capacity means unfilled slots ({Math.max(0, T.capacity - T.booked)} programme, {D.available} today), not revenue.</Note>
-    </Card>
-  );
-}
-
-/* ---- programme comparison ---- */
-function ComparisonCard() {
-  const s = usePhState();
-  const T = programmeCounts(s);
-  const rows = PROGRAMME_ORDER.map((id) => ({ id, prog: PROGRAMME_BY_ID[id], c: programmeCounts(s, id) }));
-  const num = { textAlign: "right" as const };
-  const share = (n: number, d: number, label: string, color?: string) => (
-    <div className="ph-row-flex" style={{ gap: 7 }}>
-      <span className="ph-num" style={{ width: 28, textAlign: "right", color: "var(--ink)" }}>{n}</span>
-      <div style={{ width: 52, flex: "none" }}>
-        <div className="ph-track" role="img" aria-label={`${n} ${label} ${d}, ${rate(n, d)}`}><div className="ph-fill" style={{ width: (d ? Math.min(100, (n / d) * 100) : 0) + "%", background: color || "var(--accent)" }} /></div>
-      </div>
-      <span className="ph-faint ph-num" style={{ fontSize: 11 }}>{rate(n, d)}</span>
-    </div>
-  );
-  return (
-    <Card pad={false}>
-      <div style={{ padding: "16px 18px 4px" }}>
-        <CardHeader title="Programme comparison" sub="Same definitions for every programme. Booked is shown as a share of capacity; released as a share of attended." />
-      </div>
-      <div className="ph-tablewrap">
-        <table className="ph-table" style={{ minWidth: 780, whiteSpace: "nowrap" }}>
-          <caption style={{ position: "absolute", width: 1, height: 1, overflow: "hidden", clip: "rect(0 0 0 0)" }}>Programme comparison: invited, capacity, booked, attended, released and report workflow states per programme</caption>
-          <thead>
-            <tr>
-              <th>Programme</th><th style={num}>Invited</th><th style={num}>Capacity</th><th title="Booked as a share of capacity">Booked</th>
-              <th style={num}>Attended</th><th title="Released as a share of attended">Released</th><th style={num}>Ready</th><th style={num}>Awaiting</th><th style={num}>On hold</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map(({ id, prog, c }) => (
-              <tr key={id}>
-                <td>
-                  <span className="ph-row-flex" style={{ gap: 8, alignItems: "flex-start" }}>
-                    <span aria-hidden="true" style={{ width: 8, height: 8, borderRadius: 3, background: PROGRAMME_COLOR[id], flex: "none", marginTop: 5 }} />
-                    <span>
-                      <EntityLink kind="programme" id={id}>{prog.name}</EntityLink>
-                      <span className="ph-faint" style={{ display: "block", fontSize: 11 }}>{fmtDayMonth(prog.windowStart)} to {fmtDayMonth(prog.windowEnd)}</span>
-                    </span>
-                  </span>
-                </td>
-                <td className="num">{c.invited}</td>
-                <td className="num">{c.capacity}</td>
-                <td>{share(c.booked, c.capacity, "booked of", PROGRAMME_COLOR[id])}</td>
-                <td className="num">{c.attended}</td>
-                <td>{share(c.released, c.attended, "released of", PROGRAMME_COLOR[id])}</td>
-                <td className="num">{c.ready}</td>
-                <td className="num">{c.awaiting}</td>
-                <td className="num">{c.onHold}</td>
-              </tr>
-            ))}
-            <tr style={{ background: "var(--surface-faint)" }}>
-              <td style={{ fontWeight: 600, color: "var(--ink)" }}>All programmes</td>
-              <td className="num" style={{ fontWeight: 600 }}>{T.invited}</td>
-              <td className="num" style={{ fontWeight: 600 }}>{T.capacity}</td>
-              <td>{share(T.booked, T.capacity, "booked of")}</td>
-              <td className="num" style={{ fontWeight: 600 }}>{T.attended}</td>
-              <td>{share(T.released, T.attended, "released of")}</td>
-              <td className="num" style={{ fontWeight: 600 }}>{T.ready}</td>
-              <td className="num" style={{ fontWeight: 600 }}>{T.awaiting}</td>
-              <td className="num" style={{ fontWeight: 600 }}>{T.onHold}</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-      <div style={{ padding: "4px 18px 14px" }}>
-        <Note>Invited counts unique people, so a person on two rosters counts once in the total. Ready, awaiting and on hold are attended episodes whose report is not yet released.</Note>
-      </div>
-    </Card>
-  );
-}
-
-/* ---- review ageing (counts only, safe for every staff role) ---- */
-function AgeingCard({ ready, aged, buckets }: { ready: number; aged: number; buckets: { lt24: number; h24to48: number; h48to72: number; gt72: number } }) {
-  const p = usePersona();
-  const clinical = p.perms.has("clinical.view");
-  const rows = [
-    { key: "lt24", label: "Under 24 hours", value: buckets.lt24, color: "var(--accent)" },
-    { key: "h24to48", label: "24 to 48 hours", value: buckets.h24to48, color: PALETTE[1] },
-    { key: "h48to72", label: "48 to 72 hours", value: buckets.h48to72, color: "var(--warn)" },
-    { key: "gt72", label: "Over 72 hours", value: buckets.gt72, color: "var(--bad)" },
-  ];
-  return (
-    <Card>
-      <CardHeader title="Review ageing" sub={`Time since each of the ${ready} ready reports became ready for review.`}
-        right={clinical ? <GoButton to={{ page: "Dashboard", tab: "clinical-delivery" }}>Clinical delivery</GoButton> : null} />
-      <HBars rows={rows} max={Math.max(1, ready)} valueFmt={(n) => `${n} of ${ready}`} />
-      <div className="ph-row-flex" style={{ marginTop: 14, gap: 8, flexWrap: "wrap" }}>
-        <Pill tone={aged ? "warn" : "ok"}>{aged ? `${aged} waiting over 48 hours` : "None over 48 hours"}</Pill>
-        <span className="ph-faint" style={{ fontSize: 11.5 }}>The {aged} aged reports are part of the {ready}, not an extra queue.</span>
-      </div>
-      {!clinical ? <Note icon="lock">Clinical roles review and release these reports. This view shows counts only.</Note> : null}
+      <Note>Booked counts every confirmed booking, including appointments already completed. A questionnaire in progress is not a booking.</Note>
     </Card>
   );
 }

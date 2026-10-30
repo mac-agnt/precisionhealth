@@ -202,7 +202,7 @@ export function answerQuery(state: PhState, q: string): Answer {
     case "aged": {
       const rv = reviewStats(state);
       if (!p.perms.has("clinical.review") && !p.perms.has("clinical.view")) {
-        return { scenario: sc, supported: true, tool: "pulse_queues", effect: "read", text: `${plural(rv.ready, "report")} ${rv.ready === 1 ? "is" : "are"} ready for clinician review, ${rv.aged} waiting over 48 hours. Individual report content and the review queue are limited to clinical roles.`, actions: [{ label: "Open Dashboard", target: { page: "Dashboard", tab: "executive" } }] };
+        return { scenario: sc, supported: true, tool: "pulse_queues", effect: "read", text: `${plural(rv.ready, "report")} ${rv.ready === 1 ? "is" : "are"} ready for clinician review, ${rv.aged} waiting over 48 hours. Individual report content and the review queue are limited to clinical roles.`, actions: [{ label: "Open Dashboard", target: { page: "Dashboard", tab: "operations" } }] };
       }
       const aged = reviewQueue(state).filter((i) => i.aged);
       const oldest = aged.length ? localDateOf(aged[0].readyAt) : null;
@@ -213,7 +213,7 @@ export function answerQuery(state: PhState, q: string): Answer {
         scenario: sc, supported: true, tool: "pulse_review_queue", effect: "read", text,
         cols: ["Episode", "Programme", "Ready", "Review"],
         rows: aged.map((i) => [i.episode.id, i.programme.code, fmtDayMonth(i.readyAt), i.flagged ? "Review required" : "Routine"]),
-        actions: [{ label: "Open review queue", target: { page: "Results", tab: "review" }, primary: true }, { label: "Open Dashboard, Clinical delivery", target: { page: "Dashboard", tab: "clinical-delivery" } }],
+        actions: [{ label: "Open review queue", target: { page: "Results", tab: "review" }, primary: true }, { label: "Open Dashboard, Operations", target: { page: "Dashboard", tab: "operations" } }],
       };
     }
     case "capacity": {
