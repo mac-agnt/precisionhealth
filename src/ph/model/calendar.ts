@@ -73,6 +73,7 @@ export const CAL_GROUPS: CalGroup[] = [
   { id: "oh", label: "Occupational health", color: "#A06CE0", hint: "Meddbase clinic diaries" },
   { id: "ilh", label: "Irish Life Health", color: "#E0608A", hint: "Partner screenings" },
   { id: "sales", label: "Sales", color: "#4FAE73", hint: "Lead actions, calls, follow ups and tenders" },
+  { id: "onboarding", label: "Onboarding", color: "#2F8FB3", hint: "New clients being onboarded" },
   { id: "retention", label: "Retention", color: "#EB7F3C", hint: "Recall and rebooking dates" },
   { id: "tasks", label: "Tasks", color: "#7E8FA3", hint: "Work tasks with a due date" },
   { id: "reporting", label: "Report deadlines", color: "#5F7FE0", hint: "Employer report drafts due" },
@@ -268,6 +269,31 @@ export const CAL_SOURCES: CalSource[] = [
       link: r.leadId ? { page: "Sales", tab: "pipeline", params: { lead: r.leadId } } : { page: "Sales", tab: "recall", params: { recall: r.id } },
       openLabel: r.leadId ? "Open lead" : "Open Retention",
     } as CalEvent)),
+  },
+  /* Rebooking reminders: the email to the named HR contact three months before the anniversary. */
+  {
+    id: "rebooking",
+    kinds: [{ id: "rebooking_reminder", label: "Rebooking reminder", group: "retention", color: "#EB7F3C" }],
+    collect: (state) => salesRecalls(state).filter((r) => r.status !== "rebooked").map((r) => ({
+      id: `rebook:${r.id}`, kind: "rebooking_reminder", ...timed(r.planFrom, null), title: `${r.company}: send rebooking reminder`, client: r.company, staffIds: ["stephen"],
+      status: state.onboarding.rebookSent[r.id] ? "Sent" : "To send", tone: state.onboarding.rebookSent[r.id] ? "ok" : "info", done: !!state.onboarding.rebookSent[r.id],
+      detail: `Three months before the anniversary on ${fmtDate(r.recallOn)}. Goes to the named HR contact.`,
+      link: { page: "Sales", tab: "recall", params: { recall: r.id } }, openLabel: "Open Retention",
+    } as CalEvent)),
+  },
+  /* Client onboarding: when each started and, once finished, when it was completed. */
+  {
+    id: "onboarding",
+    kinds: [{ id: "onboarding", label: "Onboarding", group: "onboarding", color: "#2F8FB3" }],
+    collect: (state) => state.onboarding.onboardings.flatMap((o) => {
+      const who = o.details.companyName || o.id;
+      const kind = o.kind === "oh" ? "Occupational Health" : "Wellness";
+      const link: NavTarget = { page: "Sales", tab: "onboarding", params: { onb: o.id } };
+      const start = isoParts(o.createdAt);
+      const out: CalEvent[] = [{ id: `onb:${o.id}`, kind: "onboarding", ...timed(start.date, null), title: `${who}: ${kind} onboarding started`, client: who, staffIds: [], status: o.completedAt ? "Complete" : "In progress", tone: o.completedAt ? "ok" : "info", detail: `${o.id}, started by ${o.createdBy}.`, link, openLabel: "Open onboarding", done: !!o.completedAt } as CalEvent];
+      if (o.completedAt) { const end = isoParts(o.completedAt); out.push({ id: `onb-done:${o.id}`, kind: "onboarding", ...timed(end.date, null), title: `${who}: onboarding complete`, client: who, staffIds: [], status: "Complete", tone: "ok", detail: `${kind} client set up.`, link, openLabel: "Open onboarding", done: true } as CalEvent); }
+      return out;
+    }),
   },
   /* Work tasks with a due date. Clinical tasks only for people who may see them (the task list rule). */
   {

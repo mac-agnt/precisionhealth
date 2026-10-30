@@ -33,7 +33,8 @@ const SIGN_OFF: Array<{ title: string; items: Item[] }> = [
   ] },
 ];
 const PLATFORM: Item[] = [
-  { title: "Home", what: "Ask Pulse anything. Answers link to the records behind them.", icon: "home", to: { page: "Home" } },
+  { title: "Calendar", what: "One calendar for the whole business: clinics, screening days, flu, OH, Irish Life, sales, onboarding, rebooking and tasks. Filter by type, client or person.", icon: "calendar", to: { page: "Calendar" }, isNew: true },
+  { title: "Home", what: "Ask Pulse anything, or press the pulse button in the corner of any screen to get something done.", icon: "home", to: { page: "Home" } },
   { title: "Doctor Review: Advice Codes", what: "The clinician viewer and NEW ADVICE box. Type a code like CHOL-HI to insert approved wording.", icon: "edit", to: { page: "Results", tab: "review", params: { episode: "PH-E-1210" } } },
   { title: "Price list", what: "Every package with a quick quote calculator.", icon: "chart", to: { page: "Sales", tab: "price-list" } },
   { title: "Flu", what: "Weekly bookings, vaccine stock against allocations, and the cold chain.", icon: "shield", to: { page: "Flu", tab: "overview" } },
@@ -49,7 +50,7 @@ const PORTALS: Item[] = [
   { title: "Nurse Portal", what: "Clinic day: check in, what they told us, measurements, point of care results and sign-off.", icon: "heart", portal: "nurse" },
   { title: "Client / Employer Portal", what: "HR sees screening dates, rooms and programme figures only. No names, no individual results.", icon: "users", portal: "client" },
 ];
-const ORDER = ["Screening day setup", "Lab CSV import", "Nurse portal (point of care)", "Approve and release", "Client portal", "Participant portal", "Sales and onboarding"];
+const ORDER = ["Calendar", "Screening day setup", "Lab CSV import", "Nurse portal (point of care)", "Approve and release", "Client portal", "Participant portal", "Sales and onboarding"];
 
 export default function Demo() {
   const nav = useNav();

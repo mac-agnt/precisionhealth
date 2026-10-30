@@ -5,7 +5,7 @@
    opens it from anywhere. */
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties } from "react";
-import { PAGE_BY_ID, answerQuery } from "../model";
+import { answerQuery } from "../model";
 import type { NavTarget, PhState } from "../model";
 import { useNav } from "../nav-context";
 import type { PhNav } from "../nav-context";
@@ -30,8 +30,7 @@ const has = (q: string, ...words: string[]) => words.some((w) => new RegExp(`\\b
 const MONTHS = /\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\b/i;
 
 function calendarTarget(): NavTarget {
-  /* The business calendar page when it exists, the clinics schedule otherwise. */
-  return (PAGE_BY_ID as Record<string, unknown>).Calendar ? { page: "Calendar" as NavTarget["page"] } : { page: "Clinics", tab: "schedule" };
+  return { page: "Calendar", tab: "all" };
 }
 
 export function pulseHits(state: PhState, nav: PhNav, raw: string, close: () => void): Hit[] {
