@@ -17,6 +17,7 @@ import {
 } from "./model";
 import { workflowSegments } from "./palette";
 import { WeeklyProgress } from "./Weekly";
+import { JourneyStrip } from "../Journey/JourneyStrip";
 
 const vnum = (v: string) => { const [a, b] = v.split(".").map(Number); return (a || 0) * 1000 + (b || 0); };
 
@@ -304,6 +305,7 @@ export function ProgrammeDetail({ pid }: { pid: ProgrammeId }) {
   if (!p) return null;
   return (
     <>
+      <JourneyStrip programme={pid} at="programme" />
       <Header pid={pid} />
       <div className="prg-split">
         <div>

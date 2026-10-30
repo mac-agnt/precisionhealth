@@ -12,10 +12,12 @@ import type { PhNav } from "../nav-context";
 import { usePhState } from "../store";
 import { Icon } from "../ui";
 import type { GlyphName } from "../ui";
+import { journeyClients, resolveClientKey } from "../pages/Journey/model";
 
 interface Hit { id: string; icon: GlyphName; title: string; sub: string; run: () => void }
 
 const SUGGESTIONS = [
+  "Where is IBM, start to finish?",
   "Set up IBM, 6 November, lab bloods",
   "Import the lab file",
   "Show lab rows that need matching",
@@ -61,6 +63,12 @@ export function pulseHits(state: PhState, nav: PhNav, raw: string, close: () => 
   if (has(q, "form", "template", "jotform")) out.push({ id: "forms", icon: "file", title: "Forms and templates", sub: "Preview any form full screen", run: go({ page: "Programmes", tab: "forms-templates" }) });
   if (has(q, "flu", "vaccine")) out.push({ id: "flu", icon: "shield", title: "Flu", sub: "Bookings, stock and cold chain", run: go({ page: "Flu", tab: "overview" }) });
   if (has(q, "occupational", "oh client")) out.push({ id: "oh", icon: "users", title: "Occupational Health", sub: "Clients, agreements and sessions", run: go({ page: "OccHealth", tab: "clients" }) });
+  if (has(q, "journey", "start to finish", "end to end", "where is", "where's", "lifecycle")) {
+    const rest = q.replace(/\b(show|open|me|the|client|journey|start to finish|end to end|where is|where's|lifecycle|for|of|at|up to|with)\b/gi, " ").trim();
+    const key = resolveClientKey(state, rest) || (companies[0] ? resolveClientKey(state, companies[0].name) : null) || "co-ibm";
+    const name = journeyClients(state).find((c) => c.key === key)?.name || "IBM";
+    out.unshift({ id: "journey", icon: "flag", title: `${name}, start to finish`, sub: "Every stage from first enquiry to next year's rebooking, with what happens next", run: go({ page: "Clients", tab: "journey", params: { who: key } }) });
+  }
   if (has(q, "task", "to do", "todo")) out.push({ id: "tasks", icon: "list", title: "Tasks", sub: "Everything assigned to people", run: go({ page: "Work", tab: "tasks" }) });
   if (has(q, "nurse")) out.push({ id: "nurse", icon: "heart", title: "Open the nurse portal", sub: "Clinic day, check in, measurements, sign-off", run: () => { nav.openNursePortal?.(); close(); } });
   if (has(q, "client portal", "hr portal", "employer")) out.push({ id: "client", icon: "users", title: "Open the client (HR) portal", sub: "Dates, rooms and live counts", run: () => { nav.openClientPortal?.(); close(); } });
@@ -76,6 +84,7 @@ export function pulseHits(state: PhState, nav: PhNav, raw: string, close: () => 
       if (ep) out.push({ id: `e-${ep.id}`, icon: "chart", title: `${p.given} ${p.family}: results`, sub: `${ep.id} in Results`, run: go({ page: "Results", tab: "review", params: { episode: ep.id } }) });
     });
   }
+  companies.slice(0, 2).forEach((c) => out.push({ id: `j-${c.id}`, icon: "flag", title: `${c.name}: client journey`, sub: "Where they are, start to finish", run: go({ page: "Clients", tab: "journey", params: { who: c.id } }) }));
   companies.slice(0, 3).forEach((c) => out.push({ id: `c-${c.id}`, icon: "home", title: c.name, sub: "Open the client record", run: go({ page: "Records", tab: "companies", params: { company: c.id } }) }));
 
   if (!out.length) {

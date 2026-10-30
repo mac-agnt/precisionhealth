@@ -10,6 +10,7 @@ import { useNav } from "../../nav-context";
 import { Card, CardHeader, Chip, DataTable, DemoTag, EntityLink, Pill, RestrictedNotice, Split } from "../../ui";
 import type { Column, GlyphName, Tone } from "../../ui";
 import { ActivityList, DefList, SettingsHeader, rolesLabelFor } from "../Settings/common";
+import { CompanyJourney } from "../Journey/CompanyLinks";
 
 const KIND: Record<CompanyKind, { label: string; tone: Tone; icon: GlyphName }> = {
   self: { label: "Screening provider", tone: "brand", icon: "heart" },
@@ -146,6 +147,7 @@ function CompanyDetail({ c, state }: { c: Company; state: PhState }) {
         right={<Pill tone={KIND[c.kind].tone} icon={KIND[c.kind].icon}>{KIND[c.kind].label}</Pill>}
       />
       <div className="phs-body">{c.note}</div>
+      <CompanyJourney c={c} state={state} />
       <div className="ph-wrap" style={{ marginTop: 8, gap: 6 }}>
         {c.kind === "client" ? <DemoTag title="Client name is a real reference. Everything operational is fictional.">Fictional activity</DemoTag> : null}
         {c.kind === "self" ? <DemoTag title="From the public website">Public details</DemoTag> : null}

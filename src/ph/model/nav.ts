@@ -6,7 +6,7 @@ import type { EntityKind } from "./types";
 export type PageId =
   | "Home" | "Agents" | "Dashboard" | "Programmes" | "Clinics" | "Participants"
   | "Results" | "Reporting" | "Work" | "Records" | "Activity" | "Settings"
-  | "Sales" | "Flu" | "OccHealth" | "Screening" | "Calendar";
+  | "Sales" | "Flu" | "OccHealth" | "Screening" | "Calendar" | "Clients";
 
 export interface TabDef { id: string; label: string }
 export interface PageDef { id: PageId; label: string; icon: string; hint: string; tabs: TabDef[]; /** Side-rail section heading; a labelled divider appears where it changes. */ section?: string }
@@ -18,9 +18,10 @@ export const PAGES: PageDef[] = [
   { id: "Agents", label: "Agents", icon: "navAgents", hint: "Seven agents", tabs: [
     { id: "conversations", label: "Conversations" }, { id: "activity", label: "Activity" }] },
   { id: "Calendar", label: "Calendar", icon: "navCalendar", hint: "Everything with a date, in one place", tabs: [{ id: "all", label: "Everything" }] },
+  { id: "Clients", label: "Clients", icon: "navClients", hint: "Every client, start to finish", tabs: [{ id: "journey", label: "Start to finish" }] },
   { id: "Dashboard", label: "Dashboard", icon: "navDash", hint: "Executive, clinics, delivery", tabs: [
     { id: "executive", label: "Executive" }, { id: "clinic-operations", label: "Clinic Operations" }, { id: "clinical-delivery", label: "Clinical Delivery" }] },
-  { id: "Sales", section: "Sell", label: "Sales", icon: "navSales", hint: "Leads, proposals, recall", tabs: [
+  { id: "Sales", section: "Sell", label: "Sales", icon: "navSales", hint: "Leads, proposals, onboarding, retention", tabs: [
     { id: "pipeline", label: "Pipeline" }, { id: "proposals", label: "Proposals" }, { id: "price-list", label: "Price list" }, { id: "onboarding", label: "Onboarding" },
     { id: "recall", label: "Retention" }, { id: "partners", label: "Irish Life Health" }] },
   { id: "Programmes", section: "Deliver screening", label: "Programmes", icon: "navProgrammes", hint: "Screening programmes", tabs: [
@@ -53,7 +54,7 @@ export const PAGES: PageDef[] = [
 export const PAGE_BY_ID: Record<PageId, PageDef> = Object.fromEntries(PAGES.map((p) => [p.id, p])) as Record<PageId, PageDef>;
 /** True when this page and tab are rendered by a PH component rather than the original Pulse view. */
 export function isPhScreen(page: string, tab: string): boolean {
-  if (["Dashboard", "Programmes", "Clinics", "Participants", "Results", "Reporting", "Work", "Activity", "Settings", "Sales", "Flu", "OccHealth", "Screening", "Calendar"].includes(page)) return true;
+  if (["Dashboard", "Programmes", "Clinics", "Participants", "Results", "Reporting", "Work", "Activity", "Settings", "Sales", "Flu", "OccHealth", "Screening", "Calendar", "Clients"].includes(page)) return true;
   if (page === "Agents") return tab === "activity";
   if (page === "Records") return tab === "companies" || tab === "staff";
   return false;

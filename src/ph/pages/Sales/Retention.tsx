@@ -19,6 +19,8 @@ import type { RetClient, RetReleaseItem, RetReminder, RetReminderState } from ".
 import { BrandedEmail } from "./onbShared";
 import { salesRecalls } from "../../model";
 import { useSalesRights } from "./shared";
+import { JourneyStrip } from "../Journey/JourneyStrip";
+import { nextYearLeadAction } from "../Journey/model";
 
 type Preview = { to: string; subject: string; body: string; sentAt?: string | null; action?: { label: string; run: () => void } };
 
@@ -105,6 +107,7 @@ export default function Retention() {
                   <div className="ph-grow">
                     <div className="rt-item-title">{it.company}: {it.programme}</div>
                     <div className="rt-item-sub">{it.newReports} new report{it.newReports === 1 ? "" : "s"} released ({it.released} in total) · To {it.contact ? <b>{it.contact.name}</b> : <span className="rt-bad">no contact chosen</span>}</div>
+                    <JourneyStrip programme={it.programmeId} at="retention" mini />
                   </div>
                   <div className="rt-item-act">
                     <Button size="sm" icon="eye" onClick={() => previewRelease(it)}>Preview</Button>
@@ -138,11 +141,13 @@ export default function Retention() {
                       Anniversary {longDate(r.recall.recallOn)} · {r.contact ? <>To <b>{r.contact.name}</b>, {r.contact.role}</> : <span className="rt-bad">contact left, choose a new one</span>}
                       {r.state === "scheduled" ? ` · in ${r.daysToDue} day${r.daysToDue === 1 ? "" : "s"}` : r.state === "due" && r.daysToDue < 0 ? ` · ${-r.daysToDue} days late` : ""}
                     </div>
+                    <JourneyStrip company={r.recall.company} at="retention" mini />
                   </div>
                   <div className="rt-item-act">
                     {r.state === "no_contact" ? <Button size="sm" variant="primary" icon="user" onClick={() => { const c = clientOf(r.recall.company); if (c) setLeftFor({ client: c, mode: "choose" }); }}>Choose contact</Button> : null}
                     <Button size="sm" icon="eye" onClick={() => previewReminder(r)}>Preview</Button>
                     {r.state === "due" || r.state === "scheduled" ? <Button size="sm" variant={r.state === "due" ? "primary" : "secondary"} icon="send" disabled={!staff} onClick={() => dispatch(onbAct.sendRebooking(r.recall.id))}>{r.state === "due" ? "Send (simulated)" : "Send early"}</Button> : null}
+                    <Button size="sm" variant={r.state === "sent" ? "primary" : "ghost"} icon="refresh" disabled={!staff} title="Creates a lead in the pipeline for next year's screening" onClick={() => { const x = dispatch(nextYearLeadAction(state, r.recall) as never); if (x.ok && x.id) nav.go({ page: "Sales", tab: "pipeline", params: { lead: x.id } }); }}>Start next year's screening</Button>
                   </div>
                 </div>
               );
