@@ -13,6 +13,7 @@ import { initialSalesState } from "../sales";
 import { initialSalesFlowState, seedSalesFlow } from "../salesFlow";
 import { initialFluState } from "../flu";
 import { initialOccHealthState } from "../occHealth";
+import { initialOnboardingState } from "../onboarding";
 import { initialNurseOpsState } from "../nurseOps";
 import { initialAdviceLibraryState } from "../adviceLibrary";
 import { initialReferenceRangesState, setActiveRangeVersions } from "../referenceRangesData";
@@ -103,6 +104,7 @@ export function createInitialState(): PhState {
     labCsv: initialLabCsvState(),
     salesFlow: initialSalesFlowState(),
     screeningDays: days.state,
+    onboarding: initialOnboardingState(),
   };
   state.portal = buildPortalBaseline(state);
   seedSalesFlow(state);

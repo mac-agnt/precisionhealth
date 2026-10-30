@@ -4,7 +4,7 @@ import { useState } from "react";
 import "./actions";
 import {
   SALES_FAMILY_LABEL, SALES_ILH_REQUESTED_LABEL, SALES_PRICE_STATUS_LABEL, SALES_STAGES, SALES_STAGE_LABEL, SALES_UNIT_LABEL,
-  fmtDate, salesEur, salesEurRange, salesLatestVersion, salesLeadViews, salesProposalTotals, salesRecalls, salesVersionTotals, today,
+  fmtDate, salesEur, salesEurRange, salesLatestVersion, salesLeadViews, salesProposalTotals, salesVersionTotals, today,
 } from "../../model";
 import type { SalesStage } from "../../model";
 import { dispatch, usePersona, usePhState } from "../../store";
@@ -12,12 +12,13 @@ import { Button, Card, CardHeader, DataTable, DemoTag, EmptyState, Kpi, KpiStrip
 import { salesAct } from "./actions";
 import { LostReasonModal, NewLeadModal, createProgrammeTask } from "./LeadForms";
 import type { LeadPrefill } from "./LeadForms";
-import { PaymentPill, ProposalStatusPill, RecallPill, ServiceTags, SourceTag, StagePill, ViewOnly, useSalesRights } from "./shared";
+import { PaymentPill, ProposalStatusPill, ServiceTags, SourceTag, StagePill, ViewOnly, useSalesRights } from "./shared";
 
 import Crm from "./Crm";
 import ProposalDoc from "./ProposalDoc";
 import PriceCatalog from "./PriceCatalog";
 import Onboarding from "./Onboarding";
+import Retention from "./Retention";
 
 export default function Sales({ tab }: { tab: string }) {
   const p = usePersona();
@@ -33,7 +34,7 @@ export default function Sales({ tab }: { tab: string }) {
     case "proposals": return <ProposalDoc />;
     case "price-list": return <PriceCatalog />;
     case "onboarding": return <Onboarding />;
-    case "recall": return <Recall />;
+    case "recall": return <Retention />;
     case "partners": return <IrishLife />;
     default: return <Crm />;
   }
@@ -147,28 +148,6 @@ function PriceList() {
         </Card>
         <Card><CardHeader title="Version history" />{s.priceHistory.slice().reverse().map((h) => <div key={h.version} style={{ fontSize: 12.5, padding: "4px 0" }}>v{h.version}, {fmtDate(h.at)}, {h.by}: {h.summary} {h.reason}</div>)}</Card>
       </div>
-    </div>
-  );
-}
-
-function Recall() {
-  const state = usePhState();
-  const rights = useSalesRights();
-  const recalls = salesRecalls(state);
-  return (
-    <div className="ph-page">
-      <PageHeader title="Recall & repeat" sub="Stephen's rule: a client screened on a date is re-contacted for the same date next year, with planning about a month before. J&J screened 5 Feb, recall 5 Feb next year, conversation from early January. Engagement history is fictional." />
-      <Card pad={false}>
-        <DataTable rows={recalls} rowKey={(r) => r.id} caption="Recalls" minWidth={860}
-          columns={[
-            { key: "co", header: "Client", cell: (r) => <div><div style={{ color: "var(--ink)", fontWeight: 500 }}>{r.company}</div><div className="ph-faint" style={{ fontSize: 11 }}>{r.packageText}{r.lapsed ? ", lapsed" : ""}</div></div> },
-            { key: "last", header: "Last screened", cell: (r) => fmtDate(r.screenedOn) },
-            { key: "recall", header: "Recall date", cell: (r) => fmtDate(r.recallOn) },
-            { key: "plan", header: "Planning from", cell: (r) => fmtDate(r.planFrom) },
-            { key: "status", header: "Status", cell: (r) => <RecallPill status={r.status} /> },
-            { key: "act", header: "", cell: (r) => rights.manage && !r.leadId ? <Button size="sm" icon="mail" onClick={() => dispatch(salesAct.draftOutreach(r.id, r.lapsed ? "lapsed" : "recall"))}>Draft email (simulated)</Button> : null },
-          ]} />
-      </Card>
     </div>
   );
 }

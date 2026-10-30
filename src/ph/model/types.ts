@@ -633,7 +633,8 @@ export type EntityKind =
   | "message"
   | "file"
   | "invitation"
-  | "system";
+  | "system"
+  | "onboarding";
 export interface EntityRef {
   kind: EntityKind;
   id: Id;
@@ -1048,4 +1049,6 @@ export interface PhState {
   salesFlow: import("./salesFlow").SalesFlowState;
   /** Screening day setup (Clinics, Screening days): drafts and published days, each backed by a clinic session. */
   screeningDays: import("./screeningDays").ScreeningDaysState;
+  /** Client onboarding and retention (Sales, Onboarding and Retention). */
+  onboarding: import("./onboarding").OnboardingState;
 }

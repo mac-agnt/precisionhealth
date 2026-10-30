@@ -739,7 +739,7 @@ try {
     const ot = M.salesProposalTotals(occ.versions[1].config, s.sales.priceItems, occ.versions[1].prices);
     eq("O'Callaghan POC3 2 days, flu 40 and 45", [ot.programme, ot.totalLow, ot.totalHigh, M.salesSuggestedDays(45, 25)], [3820, 4420, 4495, 2]);
     const jj = M.salesRecalls(s).find((r) => r.company === "J&J");
-    eq("J&J recall and planning dates", [jj.recallOn, jj.planFrom], ["2027-02-05", "2027-01-05"]);
+    eq("J&J recall and planning dates", [jj.recallOn, jj.planFrom], ["2027-02-05", "2026-11-05"]);
     check("lapsed client listed", M.salesRecalls(s).some((r) => r.company === "Kerry Coast Hotels" && r.lapsed));
     run(act.setPersona("brenda"));
     check("brenda cannot move leads", !run(SA.moveLead("LD-0001", "won")).ok);

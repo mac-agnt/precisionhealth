@@ -594,9 +594,9 @@ export function salesAllEngagements(state: PhState): Array<SalesEngagement & { p
 }
 
 /**
- * Stephen's rule: a client screened on a date is re-contacted for the same date next year, and the
- * planning conversation starts about a month before (J&J screened 5 Feb, recall 5 Feb next year,
- * conversation from early January). One recall per company, from its latest engagement.
+ * Stephen's rule: a client screened on a date is re-contacted for the same date next year. Planning
+ * starts three months before (updated from one month at Neil and Stephen's request: J&J screened
+ * 5 Feb, recall 5 Feb next year, rebooking reminder from 5 November). One recall per company, from its latest engagement.
  * Lapsed: no engagement in the last 13 months and nothing in the pipeline.
  */
 export function salesRecalls(state: PhState): SalesRecall[] {
@@ -612,7 +612,7 @@ export function salesRecalls(state: PhState): SalesRecall[] {
   for (const e of latest.values()) {
     const id = `RC-${e.id}`;
     const recallOn = salesShiftMonths(e.screenedOn, 12);
-    const planFrom = salesShiftMonths(recallOn, -1);
+    const planFrom = salesShiftMonths(recallOn, -3);
     const linked = s.recallLeads[id] ? s.leads.find((l) => l.id === s.recallLeads[id]) : undefined;
     const later = s.leads.filter((l) => normCompany(l.company) === normCompany(e.company) && l.receivedOn >= e.screenedOn && l.stage !== "lost");
     const lead = linked && linked.stage !== "lost" ? linked : later[later.length - 1];
