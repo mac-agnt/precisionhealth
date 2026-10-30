@@ -126,8 +126,8 @@
 .er-calc { border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px; display: flex; flex-direction: column; gap: 4px; align-items: flex-start; }
 .er-calc-name { font-size: 11.5px; color: var(--faint); }
 .er-calc-val { font-size: 19px; font-weight: 600; color: var(--ink); font-variant-numeric: tabular-nums; }
-.er-lines { display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: 0 18px; }
-.er-line { display: grid; grid-template-columns: minmax(0, 1fr) 150px 112px; gap: 10px; align-items: center; padding: 9px 2px; border-top: 1px solid var(--border); }
+.er-lines { display: grid; grid-template-columns: repeat(auto-fill, minmax(440px, 1fr)); gap: 0 28px; }
+.er-line { display: grid; grid-template-columns: minmax(0, 1fr) 140px 108px; gap: 10px; align-items: center; padding: 9px 2px; border-top: 1px solid var(--border); }
 .er-line-name { font-size: 13px; color: var(--ink); font-weight: 500; display: flex; flex-direction: column; min-width: 0; }
 .er-line-name .ph-faint { font-size: 11px; font-weight: 400; }
 .er-line-val { font-size: 18px; font-weight: 600; color: var(--ink); font-variant-numeric: tabular-nums; }

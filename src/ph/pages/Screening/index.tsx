@@ -12,7 +12,7 @@ import EnterResults from "./EnterResults";
 import Changes from "./Changes";
 import { Calculations, Cohorts, Impact, Questions } from "./Reference";
 
-/* Four tabs in the top bar (Ranges, Test run, Changes, More). The rest stay reachable, and keep
+/* Four tabs in the top bar (Ranges, Enter results, Changes, More). The rest stay reachable, and keep
    their own links, through a small switch at the top of Changes and More. */
 const GROUPS: Array<Array<{ id: string; label: string }>> = [
   [{ id: "changes", label: "Changes" }, { id: "impact", label: "Results impact" }],

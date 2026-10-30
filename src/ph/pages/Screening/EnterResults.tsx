@@ -211,7 +211,7 @@ function Participant({ episodeId, onChange }: { episodeId: string; onChange: () 
         <div className="er-lines">
           {lines.map((l) => (
             <div key={l.code} className={"er-line" + (l.onRecord ? " on" : "")}>
-              <label className="er-line-name" htmlFor={`er-${l.code}`}>{l.name}<span className="ph-faint">{l.limit ? `Normal ${l.limit}` : ""}</span></label>
+              <label className="er-line-name" htmlFor={`er-${l.code}`}>{l.name}<span className="ph-faint">{l.limit ? `Normal ${l.limit.replace(/(\d)\s*-\s*(\d)/, "$1 to $2")}` : ""}</span></label>
               {l.onRecord ? <span className="er-line-val">{l.onRecord} <small>{l.unit}</small></span> : (
                 <span className="er-line-input"><TextInput id={`er-${l.code}`} inputMode={ANALYTES[l.code].qualitative ? "text" : "decimal"} value={l.typed} invalid={l.invalid} disabled={released || e.reportState === "on_hold"}
                   placeholder={ANALYTES[l.code].qualitative ? "Negative or Positive" : "Value"} onChange={(ev) => setTyped((x) => ({ ...x, [l.code]: ev.target.value }))} /><small>{l.unit}</small></span>
@@ -223,7 +223,7 @@ function Participant({ episodeId, onChange }: { episodeId: string; onChange: () 
       </Card>
 
       <Card>
-        {flags.length ? <Callout tone="warn"><strong>{flags.length} {flags.length === 1 ? "value needs" : "values need"} your review:</strong> {flags.join("; ")}.</Callout>
+        {flags.length ? <Callout tone="warn"><strong>{flags.length} {flags.length === 1 ? "value needs" : "values need"} your review:</strong> {flags.slice(0, 6).join("; ")}{flags.length > 6 ? `, and ${flags.length - 6} more` : ""}.</Callout>
           : lines.some((l) => l.value !== null) ? <Callout tone="ok"><strong>Everything so far is in the normal range.</strong> You still release the report yourself.</Callout> : null}
         {msg ? <div className="ph-err" role="alert" style={{ marginTop: 10 }}>{msg}</div> : null}
         {invalid.length ? <div className="ph-err" style={{ marginTop: 10 }}>Check {invalid.map((l) => l.name).join(", ")}: Pulse cannot read {invalid.length === 1 ? "that value" : "those values"}.</div> : null}
