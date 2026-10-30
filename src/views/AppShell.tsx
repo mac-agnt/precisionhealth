@@ -251,7 +251,7 @@ export default function AppShell({ v }: Props) {
                 <div style={{"flex":"0 0 auto","display":"flex","alignItems":"center","gap":"2px","padding":"0 3px"}}>
                   {v.showTheme && (
                     <>
-                      <button className="ix2" onClick={v.toggleTheme} title={v.themeLabel} style={{"width":"42px","height":"42px","border":"0","borderRadius":"999px","background":"none","cursor":"pointer","color":"var(--dim)","display":"flex","alignItems":"center","justifyContent":"center","transition":"background .2s var(--ease),color .2s var(--ease)"}}>
+                      <button className={cx("ix2", "ph-top-theme")} onClick={v.toggleTheme} title={v.themeLabel} style={{"width":"42px","height":"42px","border":"0","borderRadius":"999px","background":"none","cursor":"pointer","color":"var(--dim)","display":"flex","alignItems":"center","justifyContent":"center","transition":"background .2s var(--ease),color .2s var(--ease)"}}>
                         <span style={{"position":"relative","width":"17px","height":"17px","flex":"none","display":"block"}}>
                           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={css(v.sunStyle)}>
                             <circle cx="12" cy="12" r="4.1" fill="none" stroke="currentColor" strokeWidth="1.7" />

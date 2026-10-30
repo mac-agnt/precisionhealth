@@ -11,7 +11,7 @@ import { Avatar, Button, Icon } from "../ui";
 import type { GlyphName } from "../ui";
 
 const PORTALS: Array<{ id: "participant" | "nurse" | "client"; title: string; sub: string; icon: GlyphName }> = [
-  { id: "participant", title: "Participant portal", sub: "Book, consent, questionnaire and own released report.", icon: "user" },
+  { id: "participant", title: "Employee portal", sub: "Book, consent, questionnaire and own released report.", icon: "user" },
   { id: "nurse", title: "Nurse portal", sub: "Clinic day: check in, nurse form, specimens, sign-off.", icon: "heart" },
   { id: "client", title: "Client portal", sub: "Employer view. Aggregate figures and approved reports only.", icon: "chart" },
 ];
