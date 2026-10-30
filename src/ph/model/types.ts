@@ -1040,4 +1040,6 @@ export interface PhState {
   adviceLibrary: import("./adviceLibrary").AdviceLibraryState;
   /** Health Screening reference ranges: versioned, superadmin-controlled (Health Screening module). */
   referenceRanges: import("./referenceRanges").ReferenceRangesState;
+  /** Stephen's sales workflow: first-touch clock, first reply, meeting notes, deal instructions, follow ups. */
+  salesFlow: import("./salesFlow").SalesFlowState;
 }

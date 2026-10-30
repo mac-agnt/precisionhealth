@@ -2,14 +2,16 @@
    right as a branded document in the shape of Precision Health's own proposals (cover, about us,
    your programme, what's included, investment with flu scenarios, commercial approach, upgrade
    options, next steps). Send, accept, decline and new version act on the same records. */
-import { useState } from "react";
-import { BRAND, SALES_PROPOSAL_STATUS_LABEL, act, fmtDate, salesEur, salesEurRange, salesLatestVersion, salesVersionTotals } from "../../model";
+import { useEffect, useState } from "react";
+import { BRAND, SALES_PROPOSAL_STATUS_LABEL, act, fmtDate, salesEur, salesEurRange, salesLatestVersion, salesNetTotals } from "../../model";
 import type { SalesProposal, SalesProposalVersion } from "../../model";
 import { useNav } from "../../nav-context";
 import { dispatch, usePhState } from "../../store";
 import { Button, Icon, PageHeader, Pill } from "../../ui";
 import type { Tone } from "../../ui";
 import { salesAct } from "./actions";
+import { useMarkWon } from "./LeadFlow";
+import ProposalBuilder from "./ProposalBuilder";
 import { useSalesRights } from "./shared";
 
 const STATUS_TONE: Record<SalesProposalVersion["status"], Tone> = { draft: "neutral", sent: "warn", accepted: "ok", declined: "bad" };
@@ -20,9 +22,10 @@ export default function ProposalDoc() {
   const rights = useSalesRights();
   const props = s.sales.proposals.slice().sort((a, b) => salesLatestVersion(b).createdAt.localeCompare(salesLatestVersion(a).createdAt));
   const [sel, setSel] = useState<string | null>(nav.params.proposal || props[0]?.id || null);
+  useEffect(() => { if (nav.params.proposal) setSel(nav.params.proposal); }, [nav.params.proposal]);
   const p = props.find((x) => x.id === sel) || props[0];
   const out = props.map((x) => salesLatestVersion(x)).filter((v) => v.status === "sent");
-  const outValue = props.filter((x) => salesLatestVersion(x).status === "sent").reduce((n, x) => n + salesVersionTotals(s.sales, salesLatestVersion(x)).totalHigh, 0);
+  const outValue = props.filter((x) => salesLatestVersion(x).status === "sent").reduce((n, x) => n + salesNetTotals(s, x).netHigh, 0);
   return (
     <div className="ph-page">
       <style>{CSS}</style>
@@ -30,12 +33,12 @@ export default function ProposalDoc() {
       <div className="pd-wrap">
         <div className="pd-list">
           {props.map((x) => {
-            const v = salesLatestVersion(x), t = salesVersionTotals(s.sales, v), lead = s.sales.leads.find((l) => l.id === x.leadId);
+            const v = salesLatestVersion(x), t = salesNetTotals(s, x), lead = s.sales.leads.find((l) => l.id === x.leadId);
             return (
               <button key={x.id} type="button" className={`pd-item${x.id === p?.id ? " on" : ""}`} onClick={() => setSel(x.id)}>
                 <span className="pd-item-top"><span className="pd-item-co">{lead?.company || x.leadId}</span><Pill tone={STATUS_TONE[v.status]}>{SALES_PROPOSAL_STATUS_LABEL[v.status]}</Pill></span>
                 <span className="pd-item-sub">{v.config.title} · v{v.version}</span>
-                <span className="pd-item-val">{salesEurRange(t.totalLow, t.totalHigh)}</span>
+                <span className="pd-item-val">{salesEurRange(t.netLow, t.netHigh)}</span>
               </button>);
           })}
         </div>
@@ -49,8 +52,12 @@ function Doc({ p, manage }: { p: SalesProposal; manage: boolean }) {
   const s = usePhState();
   const nav = useNav();
   const v = salesLatestVersion(p);
-  const t = salesVersionTotals(s.sales, v);
+  const n = salesNetTotals(s, p);
+  const t = n.totals;
   const lead = s.sales.leads.find((l) => l.id === p.leadId);
+  const markWon = useMarkWon();
+  const [building, setBuilding] = useState(false);
+  const instructions = n.instructions;
   const item = (id: string) => s.sales.priceItems.find((x) => x.id === id);
   const c = v.config;
   const issued = fmtDate(v.sentAt || v.createdAt);
@@ -60,15 +67,17 @@ function Doc({ p, manage }: { p: SalesProposal; manage: boolean }) {
     <div className="pd-right">
       <div className="pd-bar">
         <Pill tone={STATUS_TONE[v.status]}>{SALES_PROPOSAL_STATUS_LABEL[v.status]}</Pill>
-        <span className="ph-faint" style={{ fontSize: 12 }}>{v.status === "sent" && v.sentAt ? `Sent ${fmtDate(v.sentAt)}${v.sentTo ? ` to ${v.sentTo}` : ""}` : v.status === "draft" ? "Not sent yet" : v.decidedAt ? `${SALES_PROPOSAL_STATUS_LABEL[v.status]} ${fmtDate(v.decidedAt)}` : ""}{p.versions.length > 1 ? ` · ${p.versions.length} versions` : ""}</span>
+        <span className="ph-faint" style={{ fontSize: 12 }}>{v.status === "sent" && v.sentAt ? `Sent ${fmtDate(v.sentAt)}` : v.status === "draft" ? "Not sent yet" : v.decidedAt ? `${SALES_PROPOSAL_STATUS_LABEL[v.status]} ${fmtDate(v.decidedAt)}` : ""}{p.versions.length > 1 ? ` · ${p.versions.length} versions` : ""}</span>
         <span className="ph-grow" />
-        {lead ? <Button size="sm" variant="ghost" onClick={() => nav.go({ page: "Sales", tab: "pipeline" })}>Open in pipeline</Button> : null}
+        {lead ? <Button size="sm" variant="ghost" onClick={() => nav.go({ page: "Sales", tab: "pipeline", params: { lead: lead.id } })}>Open in pipeline</Button> : null}
         {!manage ? <Button size="sm" variant="primary" onClick={() => dispatch(act.setPersona("stephen"))}>Work as Stephen</Button> : null}
-        {manage && v.status === "draft" ? <Button size="sm" variant="primary" icon="send" onClick={() => dispatch(salesAct.sendProposal(p.id))}>Send to client</Button> : null}
+        {manage && v.status === "draft" && lead ? <Button size="sm" icon="edit" onClick={() => setBuilding(true)}>Edit in builder</Button> : null}
+        {manage && v.status === "draft" ? <Button size="sm" variant="primary" icon="send" onClick={() => dispatch(salesAct.sendProposal(p.id))}>Send to client (simulated)</Button> : null}
         {manage && v.status === "sent" ? <>
           <Button size="sm" onClick={() => dispatch(salesAct.newProposalVersion(p.id))}>New version</Button>
           <Button size="sm" icon="x" onClick={() => dispatch(salesAct.decideProposal(p.id, "declined"))}>Declined</Button>
-          <Button size="sm" variant="primary" icon="check" onClick={() => dispatch(salesAct.decideProposal(p.id, "accepted"))}>Accepted</Button></> : null}
+          <Button size="sm" variant="primary" icon="check" onClick={() => markWon(p.leadId)}>Mark as won</Button></> : null}
+        {manage && v.status === "accepted" && lead && lead.stage === "won" ? <Button size="sm" variant="primary" icon="arrow" onClick={() => nav.go({ page: "Sales", tab: "onboarding", params: { lead: lead.id } })}>Open onboarding</Button> : null}
         {manage && v.status === "declined" ? <Button size="sm" onClick={() => dispatch(salesAct.newProposalVersion(p.id))}>New version</Button> : null}
       </div>
 
@@ -120,13 +129,14 @@ function Doc({ p, manage }: { p: SalesProposal; manage: boolean }) {
               {t.lines.map((l) => <tr key={l.itemId}><td>{l.name}</td><td>{l.days} clinical day{l.days === 1 ? "" : "s"}</td><td>{salesEur(l.rate)} per day</td><td>{salesEur(l.total)}</td></tr>)}
               {t.flu ? <tr><td>Flu vaccination</td><td>{t.flu.lowQty === t.flu.highQty ? t.flu.lowQty : `${t.flu.lowQty} to ${t.flu.highQty}`} vaccines</td><td>{salesEur(t.flu.rate)} each</td><td>{salesEurRange(t.flu.low, t.flu.high)}</td></tr> : null}
               {t.exec ? <tr><td>Executive Health Assessment</td><td>{t.exec.count} people</td><td>{salesEur(t.exec.rate)} each</td><td>{salesEur(t.exec.total)}</td></tr> : null}
+              {n.discountPct ? <tr className="pd-disc"><td>Discount, as agreed</td><td colSpan={2}>{n.discountPct}% of {salesEurRange(t.totalLow, t.totalHigh)}</td><td>-{salesEurRange(n.discountLow, n.discountHigh)}</td></tr> : null}
             </tbody>
-            <tfoot><tr><td colSpan={3}>Programme total (excl. VAT)</td><td>{salesEurRange(t.totalLow, t.totalHigh)}</td></tr></tfoot>
+            <tfoot><tr><td colSpan={3}>Programme total (excl. VAT)</td><td>{salesEurRange(n.netLow, n.netHigh)}</td></tr></tfoot>
           </table>
           {t.flu && t.flu.lowQty !== t.flu.highQty ? (
             <div className="pd-scen">
-              <div><span>If {t.flu.lowQty} are vaccinated</span><b>{salesEur(t.totalLow)}</b></div>
-              <div><span>If {t.flu.highQty} are vaccinated</span><b>{salesEur(t.totalHigh)}</b></div>
+              <div><span>If {t.flu.lowQty} are vaccinated</span><b>{salesEur(n.netLow)}</b></div>
+              <div><span>If {t.flu.highQty} are vaccinated</span><b>{salesEur(n.netHigh)}</b></div>
             </div>) : null}
         </section>
 
@@ -137,7 +147,9 @@ function Doc({ p, manage }: { p: SalesProposal; manage: boolean }) {
             {t.flu ? <li>Flu is charged per vaccine administered and is conditional on vaccine supply.</li> : null}
             <li>Invoiced after delivery. Prices exclude VAT and are valid for 30 days from {issued}.</li>
             {c.notes ? <li>{c.notes}</li> : null}
+            {n.discountPct ? <li>A {n.discountPct}% discount is applied to the programme total, shown as its own line above.</li> : null}
           </ul>
+          {instructions ? <div className="pd-agreed"><span>Agreed for this proposal</span><p>{instructions}</p></div> : null}
         </section>
 
         {upsell.length ? (
@@ -153,6 +165,7 @@ function Doc({ p, manage }: { p: SalesProposal; manage: boolean }) {
           <div className="pd-contact">{BRAND.legalName} · {BRAND.address} · {BRAND.phone} · {BRAND.email}</div>
         </section>
       </article>
+      {building && lead ? <ProposalBuilder lead={lead} onClose={() => setBuilding(false)} /> : null}
     </div>
   );
 }
@@ -212,5 +225,11 @@ const CSS = `
 .pd-up-price { color: #2f716a; font-weight: 700; font-size: 13px; }
 .pd-up p { font-size: 12.5px !important; }
 .pd-up-meta { font-size: 11.5px; color: #8a9393; }
+.pd-disc td { color: #2f716a !important; }
+.pd-agreed { margin-top: 14px; border-left: 3px solid #5ca39a; background: #eef5f3; border-radius: 0 12px 12px 0; padding: 12px 16px; }
+.pd-agreed span { display: block; font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; color: #5c7a76; margin-bottom: 4px; }
+.pd-agreed p { margin: 0; font-size: 13.5px; color: #1d2a2a; }
 .pd-contact { margin-top: 20px; padding-top: 14px; border-top: 1px solid #e7e3dc; font-size: 11.5px; color: #8a9393; }
+@media (max-width: 1000px) { .pd-list { position: static; flex-direction: row; overflow-x: auto; padding-bottom: 4px; } .pd-item { flex: 0 0 240px; } }
+@media (max-width: 560px) { .pd-table th:nth-child(3), .pd-table td:nth-child(3) { display: none; } .pd-h1 { font-size: 28px; } .pd-scen { grid-template-columns: 1fr; } }
 `;
