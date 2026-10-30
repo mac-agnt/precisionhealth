@@ -8,6 +8,8 @@ import {
 } from "../../model";
 import type { Episode, HoldItem, ImportRow, InboxQueue, ReviewItem } from "../../model";
 import { usePhState } from "../../store";
+import { AwaitingLabPill } from "./LabImport";
+import { awaitingLab } from "../../model";
 import { useNav } from "../../nav-context";
 import {
   Button, Card, CardHeader, Chip, DataTable, DemoTag, EmptyState, Icon, PALETTE, PageHeader, Pill, ProgressBar, RestrictedNotice, Split, Stacked,
@@ -110,7 +112,7 @@ function AwaitingQueue() {
     ...(narrow ? [] : [{ key: "col", header: "Collected", cell: (r: AwaitRow) => fmtDate(r.e.collectedAt), sort: (a: AwaitRow, b: AwaitRow) => (a.e.collectedAt < b.e.collectedAt ? -1 : 1) }]),
     { key: "rec", header: "Results", cell: (r) => <div style={{ minWidth: 90 }}><div className="ph-num" style={{ fontSize: 12 }}>{r.received} of {r.expected} tests</div><div style={{ marginTop: 4 }}><ProgressBar value={r.received} max={r.expected} label={`${r.received} of ${r.expected} tests received`} /></div></div>, sort: (a, b) => a.received / a.expected - b.received / b.expected },
     ...(narrow ? [] : [{ key: "pend", header: "Pending", nowrap: false, cell: (r: AwaitRow) => <span style={{ fontSize: 12 }}>{r.pending.join(", ")}</span> }]),
-    { key: "spec", header: "Specimen", cell: (r) => r.atLab ? <Pill tone="info" icon="flask">At laboratory</Pill> : <Pill tone="neutral" icon="clock">Not yet at laboratory</Pill> },
+    { key: "spec", header: "Status", cell: (r) => awaitingLab(state, r.e) ? <AwaitingLabPill /> : r.atLab ? <Pill tone="info" icon="flask">At laboratory</Pill> : <Pill tone="neutral" icon="clock">Not yet at laboratory</Pill> },
   ];
   return (
     <div ref={ref}>

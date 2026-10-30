@@ -21,6 +21,7 @@ import { Banner, Count, HiddenValue, Kv, QUARANTINE_LABEL, RowStatePill, useWidt
 import { checkLabel, openUnitIssues, participantCheck, rowIndex, validationSummary } from "./select";
 import type { CheckStatus } from "./select";
 import { RowDrawer } from "./RowDrawer";
+import { LabImportHome, UploadDetail } from "./LabImport";
 
 type RowFilter = "all" | "imported" | "resolved" | "duplicate" | "quarantined" | "unit" | "dob";
 /** Columns in the bundled Eurofins CSV, in file order. */
@@ -32,6 +33,7 @@ export const BATCH_KIND: Record<NonNullable<ImportBatch["kind"]>, { label: strin
   core: { label: "Core batch: lipids and HbA1c", short: "Core", detail: "Total, HDL and LDL cholesterol, triglycerides and HbA1c." },
   extended: { label: "Extended panel batch", short: "Extended", detail: "Full blood count, kidney, liver, thyroid, iron, vitamins and minerals, PSA and FIT where taken." },
   sample: { label: "Sample delivery", short: "Sample", detail: "Simulated results loaded in this session for one episode." },
+  upload: { label: "Uploaded CSV file", short: "Upload", detail: "A lab CSV dropped into Pulse and matched on name, date of birth and Unique ID." },
 };
 const kindOf = (b: ImportBatch) => BATCH_KIND[b.kind || "core"];
 
@@ -51,12 +53,36 @@ export default function Imports() {
   return <ImportsWorkspace />;
 }
 
+/** The calm landing view (drop zone, matching queue, import log) unless a batch is opened from the log. */
 function ImportsWorkspace() {
   const state = usePhState();
   const nav = useNav();
+  const rowBatch = nav.params.row ? rowIndex(state).get(nav.params.row)?.batchId : undefined;
+  const batchId = nav.params.batch && state.batches.some((b) => b.id === nav.params.batch) ? nav.params.batch : rowBatch;
+  if (!batchId) {
+    return (
+      <div className="ph-page phr">
+        <PageHeader title="Lab imports" sub="Drop the lab's CSV file. Matching rows go straight onto the patient's record; anything that does not match waits below for a person." actions={<DemoTag>Simulated lab feed</DemoTag>} />
+        <LabImportHome />
+      </div>
+    );
+  }
+  const upload = state.labCsv.uploads.find((u) => u.batchId === batchId);
+  if (upload) {
+    return (
+      <div className="ph-page phr">
+        <PageHeader title="Lab imports" sub="One uploaded lab file and what happened to each row." actions={<Button icon="chevronLeft" onClick={() => nav.setParams({})}>All imports</Button>} />
+        <UploadDetail upload={upload} onBack={() => nav.setParams({})} />
+      </div>
+    );
+  }
+  return <BatchWorkspace batchId={batchId} />;
+}
+
+function BatchWorkspace({ batchId }: { batchId: string }) {
+  const state = usePhState();
+  const nav = useNav();
   const batches = batchList(state);
-  const fallback = (batches.find((b) => b.quarantined > 0) || batches[0]).batch.id;
-  const batchId = nav.params.batch && batches.some((b) => b.batch.id === nav.params.batch) ? nav.params.batch : fallback;
   const stats = batchStats(state, batchId);
   const rowParam = nav.params.row && rowIndex(state).has(nav.params.row) ? nav.params.row : null;
   const [filter, setFilter] = useState<RowFilter>(FILTERS.find((f) => f === nav.params.filter) || "all");
@@ -69,9 +95,10 @@ function ImportsWorkspace() {
 
   return (
     <div className="ph-page phr">
-      <PageHeader title="Imports"
+      <PageHeader title="Lab imports"
         sub="Eurofins laboratory results arrive as a CSV over FTP (simulated here). Each row is one observation: rows, specimens and people are counted separately."
         actions={<>
+          <Button icon="chevronLeft" onClick={() => nav.setParams({})}>All imports</Button>
           <DemoTag>Simulated source</DemoTag>
           <Button icon="refresh" onClick={() => dispatch(act.loadSampleCsv(batchId))} title={`Re-reads the bundled synthetic file for ${batchId}. No real file is uploaded.`}>Load sample Eurofins CSV</Button>
         </>} />

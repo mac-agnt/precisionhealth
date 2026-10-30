@@ -18,6 +18,7 @@ import { AdviceEditor, FlagsCard, PreviewCard, ReleaseCard, ReleaseUnavailableCa
 import { PreviewModal } from "./ReportPreview";
 import { ClinicalAlerts, ReviewSheet } from "./Sheet";
 import { Count } from "./shared";
+import { AgentGuardNote } from "./LabImport";
 
 type QueueFilter = "all" | "routine" | "flagged" | "aged";
 
@@ -241,7 +242,7 @@ function Actions({ b, canReview, previewSeen, onOpenPreview, onNext }: { b: Bund
       </>
     );
   }
-  if (st === "released") return <ReleasedCard b={b} onNext={onNext} />;
+  if (st === "released") return <><ReleasedCard b={b} onNext={onNext} /><AgentGuardNote /></>;
   if (st !== "ready_for_review") {
     return (
       <>
@@ -255,6 +256,7 @@ function Actions({ b, canReview, previewSeen, onOpenPreview, onNext }: { b: Bund
       <ReleaseCard b={b} mode="review" canAct previewSeen={previewSeen || !!b.draft?.checklist.preview} />
       <FlagsCard b={b} canAct />
       <PreviewCard b={b} onOpen={onOpenPreview} seen={previewSeen} mode="review" />
+      <AgentGuardNote />
     </>
   );
 }

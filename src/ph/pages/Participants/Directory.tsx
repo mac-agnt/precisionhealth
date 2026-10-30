@@ -4,7 +4,7 @@
    booking and communication status, never clinical content. */
 import { useMemo, useState } from "react";
 import {
-  PROGRAMME_ORDER, canViewEpisodeClinical, directory, fmtDate, fmtNumericDate, fmtShortDateTime, fmtWeekdayDate, ix, personName,
+  PROGRAMME_ORDER, awaitingLab, canViewEpisodeClinical, releasedLine, directory, fmtDate, fmtNumericDate, fmtShortDateTime, fmtWeekdayDate, ix, personName,
   staffName,
 } from "../../model";
 import type { DirectoryRow, DirectoryStage, Id, PhState, ProgrammeId } from "../../model";
@@ -19,6 +19,7 @@ import {
   Facts, FilterChips, KIND_ICON, KIND_LABEL, MessageStatusPill, STAGES, STAGE_BY_ID, SectionTitle, StagePill, StatusPill, clinicalStatus, cmp, holdLine,
   onboardingText, opsStatus, stageDetail, useMeasure, withParams,
 } from "./shared";
+import { AwaitingLabPill, LabAware, LabDropZone, MatchQueue, MatchRule } from "../Results/LabImport";
 
 const STAGE_IDS = STAGES.map((s) => s.id);
 const DEMO_CASES: Array<{ id: Id; why: string }> = [
@@ -89,7 +90,7 @@ export default function DirectoryTab() {
     if (!r.episodeIds.length) return <span className="ph-faint">No episode yet</span>;
     const ep = I.episodeById.get(r.episodeIds[r.episodeIds.length - 1]);
     if (!ep) return null;
-    return <StatusPill s={clinicalViewer && canViewEpisodeClinical(state, ep.id) ? clinicalStatus(ep) : opsStatus(ep)} />;
+    return <LabAware state={state} ep={ep}><StatusPill s={clinicalViewer && canViewEpisodeClinical(state, ep.id) ? clinicalStatus(ep) : opsStatus(ep)} /></LabAware>;
   };
   const failedSet = useMemo(() => new Set(state.messages.filter((m) => m.status === "failed").map((m) => m.personId)), [state]);
   const failedFor = (id: Id) => failedSet.has(id);
@@ -382,8 +383,9 @@ export function PersonDrawer({ personId, onClose }: { personId: Id; onClose: () 
                   <div className="ph-row-flex" style={{ flexWrap: "wrap", gap: "4px 10px" }}>
                     {canSee ? <EntityLink kind="episode" id={ep.id} /> : <span className="ph-dim">Screening episode</span>}
                     <span className="ph-grow ph-faint" style={{ fontSize: 12 }}>{I.programmeById.get(ep.programmeId)?.clientName}, attended {fmtDate(s.date)}</span>
-                    <StatusPill s={canSee ? clinicalStatus(ep) : opsStatus(ep)} />
+                    <LabAware state={state} ep={ep}><StatusPill s={canSee ? clinicalStatus(ep) : opsStatus(ep)} /></LabAware>
                   </div>
+                  {releasedLine(state, versions.filter((v) => v.status === "released").pop()) ? <div className="ph-faint" style={{ fontSize: 11.5, marginTop: 4 }}>{releasedLine(state, versions.filter((v) => v.status === "released").pop())}.</div> : null}
                   {canSee ? (
                     <div className="ph-faint" style={{ fontSize: 11.5, marginTop: 4, lineHeight: 1.5 }}>
                       {ep.reportState === "on_hold" ? `${holdLine(ep)}. ` : ""}Form {ep.formSnapshot.version}. Reviewer {staffName(state, ep.reviewAssigneeId || "neil")}.
@@ -410,6 +412,15 @@ export function PersonDrawer({ personId, onClose }: { personId: Id; onClose: () 
           </div>
         )}
       </section>
+
+      {p.perms.has("imports.view") && !p.isParticipant && episodes.length ? (
+        <section className="pd-sec">
+          <SectionTitle right={episodes.some((ep) => awaitingLab(state, ep)) ? <AwaitingLabPill /> : null}>Lab results</SectionTitle>
+          <MatchRule compact />
+          <MatchQueue personId={person.id} />
+          {episodes.some((ep) => awaitingLab(state, ep)) ? <LabDropZone personId={person.id} /> : <div className="ph-dim" style={{ fontSize: 12.5 }}>Nothing is awaiting the lab for this patient, so there is no file to drop here.</div>}
+        </section>
+      ) : null}
     </Drawer>
   );
 }

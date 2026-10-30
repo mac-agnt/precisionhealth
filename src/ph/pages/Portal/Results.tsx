@@ -14,6 +14,7 @@ import { Button, Card, EmptyState, Icon, Pill } from "../../ui";
 import type { PortalData, PortalView, ReportDelivery } from "./data";
 import { DELIVERY_LABEL, SUPPORT_EMAIL, participantVersions } from "./data";
 import { UrgentCareCard, usePrintOnly } from "./parts";
+import { ReadOnlyNote } from "../Results/LabImport";
 
 export function ResultsView({ d, compact, delivery, go }: { d: PortalData; compact: boolean; delivery: ReportDelivery; go: (v: PortalView) => void }) {
   const state = usePhState();
@@ -94,6 +95,7 @@ function ReadyCard({ d, ep, v, versions, onOpen }: { d: PortalData; ep: Episode;
         </div>
         <div className="pp-wrap">
           <Pill tone="ok" icon="check">Final report</Pill>
+          <ReadOnlyNote />
           {versions.length > 1 ? <Pill tone="info" icon="refresh">Updated to v{v.version}</Pill> : null}
         </div>
       </div>
@@ -117,6 +119,7 @@ function ReportView({ d, ep, v, versions, compact, delivery, go, onBack, onVersi
       <div className="pp-wrap">
         <Button variant="ghost" icon="chevronLeft" onClick={onBack}>My results</Button>
         <span className="ph-grow" />
+        <ReadOnlyNote />
         {doc ? <Button icon="print" onClick={() => print(<ScreeningReport doc={doc} />)} title="Opens the print dialog with the paper report. Choose Save as PDF to keep a copy.">Download or print PDF</Button> : null}
       </div>
       {superseded ? (
