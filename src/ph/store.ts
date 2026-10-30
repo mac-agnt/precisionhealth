@@ -28,6 +28,8 @@ function boot(): PhState {
     for (const a of saved.actions) {
       const r = reduce(s, a);
       if (r.result.ok !== false) { s = r.state; log.push(a); }
+      /* A handler not registered yet (page module not loaded) keeps its place in the log rather than being lost. */
+      else if (/^Unknown action/.test(r.result.message || "")) log.push(a);
     }
     s = { ...s, toasts: [] };
   } catch {
@@ -44,11 +46,15 @@ function save() {
   }, 300);
 }
 
-let state: PhState = boot();
+/* Booted lazily on first read, so every page module has registered its handlers before the saved
+   actions are replayed. */
+let booted: PhState | null = null;
+let state: PhState = null as unknown as PhState;
+function ensure(): PhState { if (!booted) { booted = boot(); state = booted; } return state; }
 const listeners = new Set<() => void>();
 const emit = () => listeners.forEach((l) => l());
 
-export const getState = () => state;
+export const getState = () => ensure();
 export function subscribe(l: () => void) {
   listeners.add(l);
   return () => { listeners.delete(l); };
@@ -59,6 +65,7 @@ export function subscribe(l: () => void) {
  * unless silent is set (autosave, typing).
  */
 export function dispatch(action: Action, opts: { silent?: boolean } = {}): ActionResult {
+  ensure();
   const { state: next, result } = reduce(state, action);
   if (result.ok !== false && next !== state && !NO_LOG.has(action.type)) { log.push(action); save(); }
   let s = next;
@@ -73,7 +80,8 @@ export function dispatch(action: Action, opts: { silent?: boolean } = {}): Actio
 export function resetDemo() {
   log = [];
   try { storage()?.removeItem(LOG_KEY); } catch { /* ignore */ }
-  state = createInitialState();
+  booted = createInitialState();
+  state = booted;
   emit();
 }
 
