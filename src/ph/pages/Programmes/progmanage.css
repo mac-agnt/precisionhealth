@@ -1,0 +1,70 @@
+/* Programmes you create and manage: the New programme dialog (pn-), the manage card at the top of a
+   programme (pm-) and the Overview list (po-). Pulse tokens only. */
+
+/* ---- New programme dialog ---- */
+.pn-form { display: flex; flex-direction: column; gap: 12px; }
+.pn-two { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; align-items: start; }
+.pn-switch { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: 13px; color: var(--ink); cursor: pointer; padding: 2px 0; }
+.pn-sub { display: block; font-size: 11.5px; color: var(--dim); }
+.pn-note { display: flex; gap: 8px; align-items: flex-start; padding: 10px 12px; border-radius: 12px; background: var(--surface-faint, var(--track)); border: 1px solid var(--border); font-size: 12.5px; color: var(--body); line-height: 1.45; }
+.pn-note svg { flex: none; margin-top: 2px; color: var(--accent); }
+.pn-err { display: flex; gap: 6px; align-items: center; font-size: 12.5px; color: var(--bad, #c0392b); }
+.pn-mono, .pm-mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .02em; }
+.pn-client-fixed { font-size: 13px; color: var(--ink); }
+.pn-k { display: block; font-size: 10.5px; letter-spacing: .05em; text-transform: uppercase; color: var(--faint); margin-bottom: 2px; }
+.pn-form .ph-seg { width: 100%; }
+.pn-form .ph-seg > * { flex: 1 1 0; }
+@media (max-width: 560px) { .pn-two { grid-template-columns: minmax(0, 1fr); } }
+
+/* ---- manage card (programme detail) ---- */
+.pm-card { display: flex; flex-direction: column; gap: 14px; }
+.pm-top { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.pm-title { display: flex; align-items: center; gap: 10px; flex: 1 1 260px; min-width: 0; flex-wrap: wrap; }
+.pm-what { font-size: 13px; color: var(--ink); line-height: 1.45; min-width: 0; }
+.pm-dim { color: var(--dim); }
+.pm-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.pm-counts { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; }
+.pm-count { display: flex; flex-direction: column; gap: 1px; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--border); background: var(--surface); font: inherit; text-align: left; color: var(--ink); cursor: pointer; min-width: 0; transition: border-color .15s var(--ease); }
+.pm-count:hover { border-color: var(--border-strong); }
+.pm-count.pm-static { cursor: default; }
+.pm-count.pm-static:hover { border-color: var(--border); }
+.pm-count b { font-size: 20px; font-weight: 600; line-height: 1.15; font-variant-numeric: tabular-nums; }
+.pm-count span { font-size: 12px; color: var(--body); }
+.pm-count i { font-style: normal; font-size: 11px; color: var(--faint); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pm-days { display: flex; flex-direction: column; gap: 6px; }
+.pm-days-h { font-size: 10.5px; letter-spacing: .05em; text-transform: uppercase; color: var(--faint); }
+.pm-day { display: grid; grid-template-columns: auto auto minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 10px; border: 1px solid var(--border); background: var(--surface); font: inherit; font-size: 12.5px; color: var(--ink); text-align: left; cursor: pointer; }
+.pm-day:hover { border-color: var(--border-strong); }
+.pm-day svg { color: var(--accent); }
+.pm-day-d { font-weight: 600; white-space: nowrap; }
+.pm-day-x { color: var(--dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pm-empty { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; padding: 10px 12px; border-radius: 10px; border: 1px dashed var(--border-strong, var(--border)); font-size: 12.5px; color: var(--dim); }
+@container prg (max-width: 700px) {
+  .pm-counts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .pm-day { grid-template-columns: auto minmax(0, 1fr) auto; }
+  .pm-day-x { grid-column: 2 / -1; grid-row: 2; white-space: normal; }
+}
+
+/* ---- overview list ---- */
+.po-filters { display: flex; gap: 6px; flex-wrap: wrap; }
+.po-list { list-style: none; margin: 0; padding: 0; }
+.po-head, .po-row { display: grid; grid-template-columns: minmax(200px, 1.6fr) minmax(120px, 1fr) minmax(110px, .9fr) minmax(130px, 1fr) minmax(90px, .7fr) minmax(170px, auto); gap: 14px; align-items: center; padding: 12px 16px; }
+.po-head { font-size: 10.5px; letter-spacing: .05em; text-transform: uppercase; color: var(--faint); padding-top: 10px; padding-bottom: 8px; }
+.po-row { border-top: 1px solid var(--border); font-size: 12.5px; color: var(--ink); }
+.po-main { display: flex; flex-direction: column; gap: 4px; align-items: flex-start; min-width: 0; background: none; border: 0; padding: 0; font: inherit; text-align: left; cursor: pointer; color: inherit; }
+.po-name { font-size: 13.5px; font-weight: 600; color: var(--ink); }
+.po-main:hover .po-name { color: var(--accent); }
+.po-sub { display: flex; align-items: center; gap: 8px; color: var(--dim); font-size: 12px; flex-wrap: wrap; }
+.po-cell { min-width: 0; }
+.po-k { display: none; }
+.po-faint { display: block; font-size: 11.5px; color: var(--faint); }
+.po-act { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+.po-todo { font-size: 11.5px; color: var(--warn-ink, var(--body)); text-align: right; }
+@container prg (max-width: 860px) {
+  .po-head { display: none; }
+  .po-row { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); row-gap: 10px; }
+  .po-main { grid-column: 1 / -1; }
+  .po-act { grid-column: 1 / -1; flex-direction: row; justify-content: space-between; align-items: center; }
+  .po-todo { text-align: left; }
+  .po-k { display: block; font-size: 10.5px; letter-spacing: .05em; text-transform: uppercase; color: var(--faint); margin-bottom: 2px; }
+}

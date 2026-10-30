@@ -273,7 +273,7 @@ export function answerQuery(state: PhState, q: string): Answer {
         text: `${sess.length} clinics run today with ${todayStats(state).booked} booked appointments. Each nurse has one clinic, with no overlaps. Ian is a support resource, not a second booked nurse. The clinic day is 09:00 to 16:15 with three breaks, which gives exactly 25 fifteen-minute slots.`,
         cols: ["Clinic", "Nurse", "Support", "Booked"],
         rows: sess.map((s) => [`${PROGRAMME_BY_ID[s.programmeId].code}, ${s.siteName.replace("Sisk Dublin ", "")}`, staffName(state, s.nurseId), s.supportIds.length ? staffName(state, s.supportIds[0]) : "None", `${sessionStats(state, s.id).booked}/${sessionStats(state, s.id).slots}`]),
-        actions: [{ label: "Open clinics overview", target: { page: "Clinics", tab: "overview" }, primary: true }, { label: "Open team and resources", target: { page: "Clinics", tab: "team-resources" } }],
+        actions: [{ label: "Open clinics overview", target: { page: "Clinics", tab: "overview" }, primary: true }, { label: "Open the nurse rota", target: { page: "Clinics", tab: "team-resources" } }],
       };
     }
     case "quality": {
@@ -364,7 +364,7 @@ export function agentThread(state: PhState, id: AgentId): ThreadItem[] {
       const ibm = ibmToday(state);
       return [
         stamp("Today 06:15 (simulated)"),
-        agent("checked today's three clinics: no nurse or room overlaps. Ian is a support resource, not a second booked nurse.", undefined, [open("Open team and resources", { page: "Clinics", tab: "team-resources" })]),
+        agent("checked today's three clinics: no nurse or room overlaps. Ian is a support resource, not a second booked nurse.", undefined, [open("Open the nurse rota", { page: "Clinics", tab: "team-resources" })]),
         agent(`${plural(rem.failed, "reminder")} failed delivery of ${rem.logical} logical reminders. Task opened for Brenda, due 08:45. The ${rem.attempts} provider attempts are counted separately.`, undefined, [open("Open failed reminders", { page: "Participants", tab: "communications", params: { filter: "failed" } }), open("Open Work tasks", { page: "Work", tab: "tasks" })]),
         agent(`IBM has ${ibm ? sessionStats(state, ibm.id).available : 0} unused slots today. I raised it as available capacity. I do not cancel or move appointments.`, undefined, [open("Open clinics today", { page: "Clinics", tab: "overview" })]),
       ];

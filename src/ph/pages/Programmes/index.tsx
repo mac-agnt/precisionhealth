@@ -1,6 +1,8 @@
 /* Programmes module: Overview, Programmes (register and detail), Forms and templates (composer)
    and Invitations. Tab ids come from the page registry in src/ph/model/nav.ts. */
 import "./programmes.css";
+import "./progmanage.css";
+import "./progActions";
 import { usePersona } from "../../store";
 import { PageHeader, RestrictedNotice } from "../../ui";
 import FormsTemplates from "./FormsTemplates";

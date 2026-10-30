@@ -27,7 +27,7 @@ export const PAGES: PageDef[] = [
   { id: "Programmes", section: "Deliver screening", label: "Programmes", icon: "navProgrammes", hint: "Screening programmes", tabs: [
     { id: "overview", label: "Overview" }, { id: "programmes", label: "All programmes" }, { id: "invitations", label: "Invitations" }, { id: "forms-templates", label: "Forms and templates" }] },
   { id: "Clinics", section: "Deliver screening", label: "Clinics", icon: "navClinics", hint: "Capacity and sessions", tabs: [
-    { id: "overview", label: "Today" }, { id: "days", label: "Screening days" }, { id: "schedule", label: "Schedule" }, { id: "appointments", label: "Appointments" }, { id: "board", label: "Bookings board" }, { id: "end-of-day", label: "End of day" }, { id: "team-resources", label: "Team and resources" }] },
+    { id: "overview", label: "Today" }, { id: "days", label: "Screening days" }, { id: "schedule", label: "Schedule" }, { id: "appointments", label: "Appointments" }, { id: "board", label: "Bookings board" }, { id: "end-of-day", label: "End of day" }, { id: "team-resources", label: "Nurse rota" }] },
   { id: "Participants", section: "Deliver screening", label: "Participants", icon: "navParticipants", hint: "People and messages", tabs: [
     { id: "directory", label: "Directory" }, { id: "screening-history", label: "Screening history" }, { id: "communications", label: "Communications" }, { id: "portal-admin", label: "Portal admin" }] },
   { id: "Portals", section: "Deliver screening", label: "Portals", icon: "navPortals", hint: "Client, participant and nurse portals", tabs: [{ id: "all", label: "All portals" }] },

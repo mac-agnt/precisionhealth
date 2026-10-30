@@ -1,4 +1,4 @@
-/* Clinics: Overview, Schedule, Appointments (with the nurse clinical workspace) and Team and resources. */
+/* Clinics: Overview, Screening days, Schedule, Appointments (with the nurse clinical workspace), bookings board, end of day and the Nurse rota. */
 import "./clinics.css";
 import Overview from "./Overview";
 import Schedule from "./Schedule";

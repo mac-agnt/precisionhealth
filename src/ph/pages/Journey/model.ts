@@ -94,7 +94,7 @@ export function journeyClients(s: PhState): JClient[] {
   }
   const leads = s.sales.leads.filter((l) => !companyByName(s, l.company) && (l.stage === "won" || !!onbForLead(s, l.id) || !!salesInboundFor(s, l.id)));
   for (const l of leads.filter((x) => x.stage === "won" || onbForLead(s, x.id))) out.push({ key: l.id, name: l.company, kind: "lead", sub: `Won lead ${l.id}` });
-  for (const o of s.onboarding.onboardings.filter((x) => !x.leadId || !s.sales.leads.some((l) => l.id === x.leadId))) {
+  for (const o of s.onboarding.onboardings.filter((x) => (!x.leadId || !s.sales.leads.some((l) => l.id === x.leadId)) && !companyByName(s, x.details.companyName))) {
     out.push({ key: o.id, name: o.details.companyName || "New client", kind: "onboarding", sub: `${ONB_KIND_LABEL[o.kind]} onboarding ${o.id}` });
   }
   for (const l of leads.filter((x) => x.stage !== "won" && !onbForLead(s, x.id)).reverse()) out.push({ key: l.id, name: l.company, kind: "lead", sub: `New lead ${l.id}` });
@@ -282,11 +282,16 @@ function stProgramme(x: Ctx): Part {
   }
   const l = x.lead;
   const ready = !!x.onb?.completedAt || l?.stage === "won";
+  /* One click to + New programme, prefilled from the onboarding or the client's name. */
+  const create = go("Create programme", { page: "Programmes", tab: "programmes", params: { new: x.onb ? `onb:${x.onb.id}` : x.name } });
   if (l && l.handoverTaskId) {
-    return { status: "progress", date: null, facts: [`Set-up task ${l.handoverTaskId} is with the operations team`], next: "The team creates the programme: package, sites, form and invite code.", open: go("Open the task", { page: "Work", tab: "tasks", params: { task: l.handoverTaskId } }), actions: [go("Open the task", { page: "Work", tab: "tasks", params: { task: l.handoverTaskId } })] };
+    return { status: "progress", date: null, facts: [`Set-up task ${l.handoverTaskId} is with the operations team`], next: "The team creates the programme: package, sites, form and invite code.", open: go("Open the task", { page: "Work", tab: "tasks", params: { task: l.handoverTaskId } }), actions: [go("Open the task", { page: "Work", tab: "tasks", params: { task: l.handoverTaskId } }), create] };
   }
   if (ready && l) {
-    return { status: "todo", date: null, facts: ["Package, sites, form and invite code are set up by the operations team."], next: "Ask the team to set up the programme.", open: go("Open Programmes", { page: "Programmes", tab: "programmes" }), actions: [{ kind: "programmeTask", label: "Create the programme set-up task", leadId: l.id }] };
+    return { status: "todo", date: null, facts: ["Package, sites, form and invite code are set up by the operations team."], next: "Ask the team to set up the programme.", open: go("Open Programmes", { page: "Programmes", tab: "programmes" }), actions: [{ kind: "programmeTask", label: "Create the programme set-up task", leadId: l.id }, create] };
+  }
+  if (ready) {
+    return { status: "todo", date: null, facts: ["Package, sites, window and invite code."], next: "Create the programme.", open: go("Open Programmes", { page: "Programmes", tab: "programmes" }), actions: [create] };
   }
   return { status: "todo", date: null, facts: ["Starts after onboarding."], next: null, open: go("Open Programmes", { page: "Programmes", tab: "programmes" }), actions: [] };
 }

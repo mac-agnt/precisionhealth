@@ -7,7 +7,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import type { GlyphName } from "../../ui";
 import type { ClientPortalRow, JourneyStatus, ProgrammeId } from "../../model";
-import { JOURNEY_LABEL, PROGRAMMES, clientPortalRows, fmtDate, nursePortalRows, participantPortalRows, portalAct } from "../../model";
+import { JOURNEY_LABEL, PROGRAMME_BY_ID, PROGRAMME_ORDER, clientPortalRows, fmtDate, nursePortalRows, participantPortalRows, portalAct } from "../../model";
 import { dispatch, usePersona, usePhState } from "../../store";
 import { useNav } from "../../nav-context";
 import { Avatar, Button, Card, DemoTag, Field, Icon, Modal, PageHeader, Pill, RestrictedNotice, SearchBox, Select, Switch, TextInput } from "../../ui";
@@ -164,7 +164,7 @@ function ParticipantSection({ onNew }: { onNew: () => void }) {
         <SearchBox value={q} onChange={setQ} placeholder="Search by name or email" width={260} />
         <Select value={prog} onChange={(e) => setProg(e.target.value)} aria-label="Programme" style={{ width: 200 }}>
           <option value="all">All programmes</option>
-          {PROGRAMMES.map((x) => <option key={x.id} value={x.id}>{x.clientName}</option>)}
+          {PROGRAMME_ORDER.map((id) => PROGRAMME_BY_ID[id]).map((x) => <option key={x.id} value={x.id}>{x.clientName}</option>)}
         </Select>
         <div className="pt-chips" role="group" aria-label="Status">
           {FILTERS.map((x) => (
@@ -303,7 +303,7 @@ function InviteDialog({ onClose }: { onClose: () => void }) {
           <Field label="Date of birth" help="Used to match lab results."><TextInput type="date" value={dob} onChange={(e) => setDob(e.target.value)} /></Field>
           <Field label="Programme">
             <Select value={programmeId} onChange={(e) => setProgrammeId(e.target.value as ProgrammeId)} aria-label="Programme">
-              {PROGRAMMES.map((x) => <option key={x.id} value={x.id}>{x.clientName}: {x.name}</option>)}
+              {PROGRAMME_ORDER.map((id) => PROGRAMME_BY_ID[id]).map((x) => <option key={x.id} value={x.id}>{x.clientName}: {x.name}</option>)}
             </Select>
           </Field>
         </div>
