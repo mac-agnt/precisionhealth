@@ -22,6 +22,8 @@ export * from "./ai";
 export * from "./automations";
 export * from "./portalAdmin";
 export * from "./onboarding";
+export * from "./scheduledActions";
+export * from "./portalsHub";
 export { createInitialState } from "./fixtures";
 export { reduce, act, registerHandlers } from "./reducer";
 export type { Action } from "./reducer";

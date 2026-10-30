@@ -19,6 +19,7 @@ import type { RetClient, RetReleaseItem, RetReminder, RetReminderState } from ".
 import { BrandedEmail } from "./onbShared";
 import { salesRecalls } from "../../model";
 import { useSalesRights } from "./shared";
+import SchedRetentionCard from "../Calendar/SchedRetentionCard";
 
 type Preview = { to: string; subject: string; body: string; sentAt?: string | null; action?: { label: string; run: () => void } };
 
@@ -120,6 +121,8 @@ export default function Retention() {
             </EmptyState>
           )}
         </Card>
+
+        <SchedRetentionCard />
 
         {/* ---------------- rebooking reminders ---------------- */}
         <Card>

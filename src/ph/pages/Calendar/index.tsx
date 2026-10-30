@@ -16,8 +16,8 @@ export default function CalendarPage() {
   }
   return (
     <div className="ph-page">
-      <PageHeader title="Calendar" sub="Clinics, screening days, flu, occupational health, Irish Life Health, sales and tasks in one calendar. Tick what you want to see and select anything to open it." />
-      <CalendarBoard />
+      <PageHeader title="Calendar" sub="Everything the business does, in one calendar. Schedule anything with the + button or by clicking an empty time, drag to move, and tick the layers you want to see." />
+      <CalendarBoard defaultView="week" schedule />
     </div>
   );
 }

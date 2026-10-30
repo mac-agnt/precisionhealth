@@ -21,6 +21,7 @@ export function DemoBadge() {
     { id: "participant", label: "Participant portal", icon: "user", open: () => nav.openPortal(PORTAL_EXAMPLE_PERSON) },
     { id: "nurse", label: "Nurse portal", icon: "heart", open: nav.openNursePortal },
     { id: "client", label: "Client portal", icon: "users", open: nav.openClientPortal },
+    { id: "all", label: "All portals", icon: "layers", open: () => nav.go({ page: "Portals", tab: "all" }) },
   ];
   return (
     <div aria-label="Demo status" style={{ position: "absolute", left: 20, bottom: 12, zIndex: 6, pointerEvents: "none", display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", maxWidth: "calc(100% - 100px)" }}>

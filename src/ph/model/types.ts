@@ -1051,4 +1051,8 @@ export interface PhState {
   screeningDays: import("./screeningDays").ScreeningDaysState;
   /** Client onboarding and retention (Sales, Onboarding and Retention). */
   onboarding: import("./onboarding").OnboardingState;
+  /** Things scheduled from the Calendar with "+ Schedule" (meetings, emails, training, leave). */
+  scheduled: import("./scheduledActions").ScheduledState;
+  /** Client portals created on the Portals page, nurses added there and people invited there. */
+  portalsHub: import("./portalsHub").PortalsHubState;
 }
