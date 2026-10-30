@@ -9,7 +9,7 @@ import type { CSSProperties, DragEvent as ReactDragEvent, MouseEvent as ReactMou
 import { createPortal } from "react-dom";
 import type { CalDim, CalEvent, CalFilter, CalView, LocalDate } from "../../model";
 import {
-  CAL_DEFAULT_OFF, CAL_GROUPS, CAL_KIND_BY_ID, addDays, addMonths, calClients, calGroupFromParam, calGroupOf, calKindColor, calLayoutDay, calMatches, calRange, calStep,
+  CAL_DEFAULT_OFF, CAL_GROUPS, CAL_KIND_BY_ID, CAL_MAX_SIDE_BY_SIDE, CAL_PRESET_VIEWS, CAL_VIEW_KEYS, calDefaultViewFor, CAL_MIN_BLOCK_PX, addDays, addMonths, calClients, calCountRange, calGroupFromParam, calGroupOf, calKindColor, calLayoutDay, calMatches, calRange, calStep,
   calendarEvents, dublinOffsetMinutes, dublinToUtc, fmtDateLong, fmtWeekdayDate, hhmmToMinutes, localTimeOf, minutesToHhmm, staffName, startOfWeek, today, weekdayOf,
 } from "../../model";
 import { dispatch, usePersona, usePhState } from "../../store";
@@ -17,12 +17,18 @@ import { useNav } from "../../nav-context";
 import { Button, Icon, Pill, SearchBox, Segmented, Switch } from "../../ui";
 import { schedAct } from "./schedActions";
 import ScheduleDialog from "./ScheduleDialog";
+import { ViewsBlock } from "./ViewsBlock";
+import { PeopleGrid } from "./PeopleGrid";
+import { TimelineView } from "./TimelineView";
+import { CalFilterRow } from "./CalFilterRow";
+import { calSpanLanes, calSpans, calTimelineRange } from "../../model/calTimeline";
+import type { CalSpan } from "../../model/calTimeline";
 import EventCard from "./EventCard";
 import { ampm, overlayRoot, timeLabel } from "./util";
 import "./calendar.css";
 
 const VIEWS: Array<{ id: CalView; label: string }> = [
-  { id: "day", label: "Day" }, { id: "week", label: "Week" }, { id: "month", label: "Month" }, { id: "agenda", label: "Agenda" },
+  { id: "day", label: "Day" }, { id: "week", label: "Week" }, { id: "month", label: "Month" }, { id: "agenda", label: "Agenda" }, { id: "people", label: "People" }, { id: "timeline", label: "Programmes" },
 ];
 const MONTHS_LONG = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -31,8 +37,13 @@ const isDate = (v: string | undefined): v is LocalDate => !!v && /^\d{4}-\d{2}-\
 const list = (v: string | undefined) => (v ? v.split(",").map((x) => x.trim()).filter(Boolean) : []);
 const dayNum = (d: LocalDate) => Number(d.slice(8, 10));
 const monthTitle = (d: LocalDate) => `${MONTHS_LONG[Number(d.slice(5, 7)) - 1]} ${d.slice(0, 4)}`;
-function rangeTitle(view: CalView, date: LocalDate): string {
-  if (view === "day") return fmtDateLong(date);
+function rangeTitle(view: CalView, date: LocalDate, weeks = 4): string {
+  if (view === "timeline") {
+    const r = calTimelineRange(date, weeks);
+    const a = `${dayNum(r.from)} ${MONTHS[Number(r.from.slice(5, 7)) - 1]}`, b = `${dayNum(r.to)} ${MONTHS[Number(r.to.slice(5, 7)) - 1]} ${r.to.slice(0, 4)}`;
+    return `${a} to ${b}`;
+  }
+  if (view === "day" || view === "people") return fmtDateLong(date);
   if (view === "week") {
     const s = startOfWeek(date), e = addDays(s, 6);
     if (s.slice(0, 7) === e.slice(0, 7)) return monthTitle(s);
@@ -100,27 +111,37 @@ export default function CalendarBoard({ scope, defaultView = "week", onEventClic
   const [anchor, setAnchor] = useState<DOMRect | null>(null);
   const [creating, setCreating] = useState<{ date: LocalDate; time: string | null } | null>(null);
   const t = today(state);
-  const P = nav.params;
+  /* Saved views: the active view's filters sit under whatever the URL says, so a view can be tweaked
+     and "Clear filters" goes back to it. No ?v= means the persona's own view (Stephen: sales). */
+  const savedViews = state.scheduled.views || [];
+  const viewId = scope ? null : (nav.params.v || calDefaultViewFor(p.id));
+  const viewDef: Record<string, string> = (viewId ? CAL_PRESET_VIEWS.find((v) => v.id === viewId)?.params || savedViews.find((v) => v.id === viewId)?.params : undefined) || {};
+  const P: Record<string, string> = { ...viewDef, ...nav.params };
+  const viewChanged = !!viewId && CAL_VIEW_KEYS.some((k) => k !== "view" && (P[k] || "") !== (viewDef[k] || ""));
 
   const view: CalView = (VIEWS.find((v) => v.id === P.view)?.id) || (P.view === "list" ? "agenda" : narrow ? "agenda" : defaultView);
   const date: LocalDate = isDate(P.date) ? P.date : t;
+  const zoom = [2, 4, 8].includes(Number(P.zoom)) ? Number(P.zoom) : 4;
   const groupsAll = scope ? CAL_GROUPS.filter((g) => scope.includes(g.id)) : CAL_GROUPS;
   const groups = P.types !== undefined ? [...new Set(list(P.types).map(calGroupFromParam))].filter((g): g is string => !!g && groupsAll.some((x) => x.id === g)) : groupsAll.filter((g) => !CAL_DEFAULT_OFF.includes(g.id)).map((g) => g.id);
   const status = P.status === "todo" || P.status === "done" ? P.status : null;
   const f: CalFilter = { groups, clients: list(P.clients), people: list(P.people), q: P.q || "", mine: P.mine === "1" && !p.isParticipant ? p.id : null, byMe: P.byme === "1" && !p.isParticipant ? p.id : null, status };
 
   const set = (patch: Record<string, string | null>) => {
-    const next: Record<string, string> = { ...P };
+    const next: Record<string, string> = { ...nav.params };
     for (const [k, v] of Object.entries(patch)) { if (v === null || v === "") delete next[k]; else next[k] = v; }
     nav.setParams(next);
   };
 
   const all = calendarEvents(state);
   const scoped = useMemo(() => (scope ? all.filter((e) => scope.includes(calGroupOf(e.kind))) : all), [all, scope]);
-  const range = calRange(view, date);
+  const range = view === "timeline" ? calTimelineRange(date, zoom) : calRange(view, date);
   const inRange = useMemo(() => scoped.filter((e) => e.date >= range.from && e.date <= range.to), [scoped, range.from, range.to]);
   const shown = useMemo(() => inRange.filter((e) => calMatches(e, f)), [inRange, f.groups.join(), f.clients.join(), f.people.join(), f.q, f.mine, f.byMe, f.status]); // eslint-disable-line react-hooks/exhaustive-deps
-  const count = (dim: CalDim, pred: (e: CalEvent) => boolean) => inRange.filter((e) => pred(e) && calMatches(e, f, dim)).length;
+  /* Counts cover the month itself in Month view (not the edge days of the grid), so Month and Agenda agree. */
+  const cr = calCountRange(view, date);
+  const inCount = useMemo(() => inRange.filter((e) => e.date >= cr.from && e.date <= cr.to), [inRange, cr.from, cr.to]);
+  const count = (dim: CalDim, pred: (e: CalEvent) => boolean) => inCount.filter((e) => pred(e) && calMatches(e, f, dim)).length;
 
   const selected = P.ev ? scoped.find((e) => e.id === P.ev) || null : null;
   /* An event selected by link (or just created) has no click position: anchor it to its block once drawn. */
@@ -138,14 +159,17 @@ export default function CalendarBoard({ scope, defaultView = "week", onEventClic
   const goDay = (d: LocalDate) => set({ view: "day", date: d, ev: null });
   const createAt = canSchedule ? (d: LocalDate, time: string | null) => { setAnchor(null); if (P.ev) set({ ev: null }); setCreating({ date: d, time }); } : undefined;
   const onMove = canSchedule ? dropOn : undefined;
-  const activeFilters = (P.types !== undefined ? 1 : 0) + f.clients.length + f.people.length + (f.q ? 1 : 0) + (f.mine ? 1 : 0) + (f.byMe ? 1 : 0) + (status ? 1 : 0);
+  const activeFilters = (nav.params.types !== undefined ? 1 : 0) + f.clients.length + f.people.length + (f.q ? 1 : 0) + (f.mine ? 1 : 0) + (f.byMe ? 1 : 0) + (status ? 1 : 0);
   const resetFilters = () => set({ types: null, clients: null, people: null, q: null, mine: null, byme: null, status: null, ev: null });
+  const pickView = (id: string) => set({ ...Object.fromEntries(CAL_VIEW_KEYS.map((k) => [k, null])), v: id, ev: null });
+  const viewParams = Object.fromEntries(CAL_VIEW_KEYS.filter((k) => P[k]).map((k) => [k, P[k]]));
 
   const side = (
     <FilterPanel
-      date={date} today={t} scoped={scoped} f={f} groupsAll={groupsAll} inRange={inRange} count={count} set={set} scopeOnly={!!scope}
+      date={date} today={t} scoped={scoped} f={f} groupsAll={groupsAll} inRange={inCount} count={count} set={set} scopeOnly={!!scope}
       persona={p.isParticipant ? null : { id: p.id, first: p.name.split(" ")[0] }} footer={sideFooter} onDate={(d) => set({ date: d, ev: null })}
       onReset={resetFilters} activeFilters={activeFilters} narrow={narrow}
+      views={scope ? null : <ViewsBlock viewId={viewId} changed={viewChanged} saved={savedViews} onPick={pickView} params={viewParams} canSave={!p.isParticipant} />}
       create={canSchedule && !narrow ? <button type="button" className="cal-create" onClick={() => setCreating({ date: date < t ? t : date, time: null })}><Icon name="plus" size={20} stroke={2.2} /><span>Schedule</span></button> : null}
     />
   );
@@ -159,7 +183,7 @@ export default function CalendarBoard({ scope, defaultView = "week", onEventClic
             <button type="button" className="cal-today" onClick={() => set({ date: t, ev: null })}>Today</button>
             <button type="button" className="cal-iconbtn lg" aria-label="Previous" onClick={() => set({ date: calStep(view, date, -1), ev: null })}><Icon name="chevronLeft" size={18} /></button>
             <button type="button" className="cal-iconbtn lg" aria-label="Next" onClick={() => set({ date: calStep(view, date, 1), ev: null })}><Icon name="chevronRight" size={18} /></button>
-            <h2 className="cal-title">{narrow && view !== "day" ? rangeTitle(view, date).replace(/^(\w{3})\w* /, "$1 ") : rangeTitle(view, date)}</h2>
+            <h2 className="cal-title">{narrow ? (view === "day" || view === "people" ? fmtWeekdayDate(date) : view === "timeline" ? rangeTitle(view, date, zoom) : rangeTitle(view, date).replace(/^(\w{3})\w* /, "$1 ")) : rangeTitle(view, date, zoom)}</h2>
             {narrow ? <button type="button" className="cal-iconbtn lg cal-filterbtn" onClick={() => setSheet(true)} aria-expanded={sheet} aria-label="Filters"><Icon name="filter" size={17} />{activeFilters ? <span className="cal-badge">{activeFilters}</span> : null}</button> : null}
           </div>
           <div className="cal-tools">
@@ -167,11 +191,14 @@ export default function CalendarBoard({ scope, defaultView = "week", onEventClic
             <Segmented value={view} options={VIEWS} onChange={(v) => set({ view: v, ev: null })} label="Calendar view" />
           </div>
         </div>
-        {view === "month" ? <MonthView date={date} today={t} events={shown} onPick={pick} onDay={goDay} selectedId={selectedId || selected?.id} compact={narrow} onCreate={createAt} onMove={onMove} /> : null}
+        {narrow ? null : <CalFilterRow f={f} groupsAll={groupsAll} inRange={inCount} scoped={scoped} set={set} narrow={narrow} />}
+        {view === "timeline" ? <TimelineView date={date} today={t} weeks={zoom} onZoom={(w) => set({ zoom: w === 4 ? null : String(w) })} groups={f.groups} clients={f.clients} q={f.q} /> : null}
+        {view === "month" ? <MonthView spans={calSpans(state, shown, { groups: f.groups, clients: f.clients })} date={date} today={t} events={shown} onPick={pick} onDay={goDay} selectedId={selectedId || selected?.id} compact={narrow} onCreate={createAt} onMove={onMove} /> : null}
         {view === "week" ? <TimeGrid days={Array.from({ length: 7 }, (_, i) => addDays(startOfWeek(date), i))} today={t} now={state.clock.nowUtc} events={shown} onPick={pick} onDay={goDay} selectedId={selectedId || selected?.id} onCreate={createAt} onMove={onMove} narrow={narrow} /> : null}
         {view === "day" ? <TimeGrid days={[date]} today={t} now={state.clock.nowUtc} events={shown} onPick={pick} onDay={goDay} selectedId={selectedId || selected?.id} wide onCreate={createAt} onMove={onMove} narrow={narrow} /> : null}
+        {view === "people" ? <PeopleGrid date={date} today={t} now={state.clock.nowUtc} events={shown} onPick={pick} selectedId={selectedId || selected?.id} onCreate={createAt} /> : null}
         {view === "agenda" ? <AgendaView events={shown} today={t} onPick={pick} selectedId={selectedId || selected?.id} onNext={() => set({ date: calStep("agenda", date, 1) })} /> : null}
-        {!shown.length && view !== "agenda" ? <div className="cal-none">Nothing {view === "day" ? "on this day" : view === "week" ? "this week" : "this month"} with these filters.{activeFilters ? <> <button type="button" className="cal-linkbtn" onClick={resetFilters}>Clear filters</button></> : null}</div> : null}
+        {!shown.length && view !== "agenda" && view !== "timeline" ? <div className="cal-none">Nothing {view === "day" || view === "people" ? "on this day" : view === "week" ? "this week" : "this month"} with these filters.{activeFilters ? <> <button type="button" className="cal-linkbtn" onClick={resetFilters}>Clear filters</button></> : null}</div> : null}
       </section>
       {narrow && sheet ? <Sheet title="Filters" onClose={() => setSheet(false)}>{side}</Sheet> : null}
       {narrow && canSchedule ? <button type="button" className="cal-fab" aria-label="Schedule" onClick={() => setCreating({ date: date < t ? t : date, time: null })}><Icon name="plus" size={24} stroke={2.2} /></button> : null}
@@ -188,10 +215,10 @@ export default function CalendarBoard({ scope, defaultView = "week", onEventClic
    Filter panel
    ================================================================================================ */
 
-function FilterPanel({ date, today: t, scoped, f, groupsAll, inRange, count, set, persona, footer, onDate, onReset, activeFilters, scopeOnly, create, narrow }: {
+function FilterPanel({ date, today: t, scoped, f, groupsAll, inRange, count, set, persona, footer, onDate, onReset, activeFilters, scopeOnly, create, narrow, views }: {
   date: LocalDate; today: LocalDate; scoped: CalEvent[]; f: CalFilter; groupsAll: typeof CAL_GROUPS; inRange: CalEvent[];
   count: (dim: CalDim, pred: (e: CalEvent) => boolean) => number; set: (p: Record<string, string | null>) => void;
-  persona: { id: string; first: string } | null; footer?: ReactNode; onDate: (d: LocalDate) => void; onReset: () => void; activeFilters: number; scopeOnly: boolean; create: ReactNode; narrow: boolean;
+  persona: { id: string; first: string } | null; footer?: ReactNode; onDate: (d: LocalDate) => void; onReset: () => void; activeFilters: number; scopeOnly: boolean; create: ReactNode; narrow: boolean; views?: ReactNode;
 }) {
   const state = usePhState();
   const [q, setQ] = useState(f.q);
@@ -205,11 +232,9 @@ function FilterPanel({ date, today: t, scoped, f, groupsAll, inRange, count, set
 
   const toggle = (key: "types" | "clients" | "people", cur: string[], id: string, allIds?: string[]) => {
     const next = cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id];
-    if (key === "types" && allIds) {
-      const def = allIds.filter((g) => !CAL_DEFAULT_OFF.includes(g));
-      const same = next.length === def.length && def.every((g) => next.includes(g));
-      set({ types: same ? null : next.join(",") || "none", ev: null });
-    } else set({ [key]: next.join(",") || null, ev: null });
+    /* Always written out, so ticking works the same on top of any saved view. */
+    if (key === "types" && allIds) set({ types: next.join(",") || "none", ev: null });
+    else set({ [key]: next.join(",") || null, ev: null });
   };
   const clients = calClients(inRange.length ? inRange : scoped);
   for (const c of f.clients) if (!clients.some((x) => x.name === c)) clients.push({ name: c, n: 0 });
@@ -220,6 +245,7 @@ function FilterPanel({ date, today: t, scoped, f, groupsAll, inRange, count, set
   return (
     <div className="cal-side-in">
       {create}
+      {views}
       <MiniMonth date={date} today={t} events={scoped.filter((e) => calMatches(e, f))} onDate={onDate} />
       {narrow ? <SearchBox value={q} onChange={setQ} placeholder="Search the calendar" width="100%" /> : null}
 
@@ -356,8 +382,8 @@ function Chip({ e, onPick, selected, showTime = true, draggable }: { e: CalEvent
   );
 }
 
-function MonthView({ date, today: t, events, onPick, onDay, selectedId, compact, onCreate, onMove }: {
-  date: LocalDate; today: LocalDate; events: CalEvent[]; onPick: (e: CalEvent, el: HTMLElement) => void; onDay: (d: LocalDate) => void; selectedId?: string; compact?: boolean;
+function MonthView({ spans = [], date, today: t, events, onPick, onDay, selectedId, compact, onCreate, onMove }: {
+  spans?: CalSpan[]; date: LocalDate; today: LocalDate; events: CalEvent[]; onPick: (e: CalEvent, el: HTMLElement) => void; onDay: (d: LocalDate) => void; selectedId?: string; compact?: boolean;
   onCreate?: (d: LocalDate, time: string | null) => void; onMove?: (d: LocalDate, start?: string | null) => void;
 }) {
   const r = calRange("month", date);
@@ -366,13 +392,32 @@ function MonthView({ date, today: t, events, onPick, onDay, selectedId, compact,
   const byDay = new Map<string, CalEvent[]>();
   for (const e of events) { const a = byDay.get(e.date) || []; a.push(e); byDay.set(e.date, a); }
   const [over, setOver] = useState<string | null>(null);
-  const MAX = 4;
+  const nav = useNav();
+  /* Multi-day items (programme windows, leave) are drawn as one continuous bar across the days. Each
+     gets a lane so a bar sits at the same height in every cell it crosses. Leave days drawn as a bar
+     are left out of the single-day chips. */
+  const inGrid = spans.filter((sp) => sp.to >= r.from && sp.from <= r.to);
+  const lanes = calSpanLanes(inGrid);
+  const laneCount = inGrid.length ? Math.max(...[...lanes.values()]) + 1 : 0;
+  const spanned = new Set(inGrid.filter((sp) => sp.id.startsWith("leave:")).map((sp) => sp.id.slice(6)));
+  const MAX = Math.max(2, 4 - laneCount);
   return (
     <div className="cal-month" role="grid" aria-label={monthTitle(date)}>
       {DOW.map((d) => <div key={d} className="cal-month-dow" role="columnheader">{d}</div>)}
       {days.map((d) => {
-        const evs = byDay.get(d) || [];
+        const evs = (byDay.get(d) || []).filter((e) => !(e.kind === "sched_leave" && e.schedId && spanned.has(e.schedId)));
         const out = d.slice(0, 7) !== date.slice(0, 7);
+        const wd = (weekdayOf(d) + 6) % 7;
+        const laneRow = !compact && laneCount ? Array.from({ length: laneCount }, (_, lane) => {
+          const sp = inGrid.find((x) => lanes.get(x.id) === lane && x.from <= d && x.to >= d);
+          if (!sp) return <span key={lane} className="cal-span-gap" />;
+          const start = sp.from === d, end = sp.to === d;
+          const label = start || wd === 0;
+          return (
+            <button key={lane} type="button" className={"cal-span" + (start ? " start" : "") + (end ? " end" : "") + (label ? "" : " mid")} style={{ "--c": sp.color } as CSSProperties}
+              title={`${sp.label}, ${fmtDateLong(sp.from)} to ${fmtDateLong(sp.to)}`} onClick={(ev) => { ev.stopPropagation(); nav.go(sp.link); }}>{label ? sp.label : "\u00a0"}</button>
+          );
+        }) : null;
         const more = evs.length - MAX;
         return (
           <div key={d} role="gridcell" className={"cal-cell" + (out ? " out" : "") + (d === t ? " today" : "") + (over === d ? " over" : "") + (onCreate ? " can-create" : "")}
@@ -388,6 +433,7 @@ function MonthView({ date, today: t, events, onPick, onDay, selectedId, compact,
                 </button>
               ) : null
             ) : <div className="cal-cell-evs">
+              {laneRow}
               {evs.slice(0, more > 0 ? MAX - 1 : MAX).map((e) => <Chip key={e.id} e={e} onPick={onPick} selected={selectedId === e.id} draggable={!!onMove} />)}
               {more > 0 ? <button type="button" className="cal-more" onClick={(ev) => { ev.stopPropagation(); onDay(d); }}>{more + 1} more</button> : null}
             </div>}
@@ -417,7 +463,20 @@ function TimeGrid({ days, today: t, now, events, onPick, onDay, selectedId, wide
     const earliest = Math.min(...timedAll.map((e) => hhmmToMinutes(e.time!.start)), 7 * 60);
     el.scrollTop = Math.max(0, (earliest / 60) * HOUR_PX - 8);
   }, [days[0]]); // eslint-disable-line react-hooks/exhaustive-deps
-  const cols = { "--days": days.length } as CSSProperties;
+  /* Overlapping events sit side by side, never narrower than CAL_MIN_BLOCK_PX. With more than
+     CAL_MAX_SIDE_BY_SIDE at once, two are drawn and a "+N" chip opens the day. In week view each day
+     column is at least as wide as its busiest moment needs; the grid scrolls sideways only if the
+     week cannot fit. Day view is wide enough to show every event. */
+  const lays = byDay.map((evs) => calLayoutDay(evs));
+  const slotsFor = (cols: number) => (wide ? cols : cols > CAL_MAX_SIDE_BY_SIDE ? CAL_MAX_SIDE_BY_SIDE : cols);
+  const dayMin = lays.map((lay) => {
+    if (wide) return 0;
+    let most = 1;
+    lay.forEach((L) => { most = Math.max(most, slotsFor(L.cols)); });
+    return most > 1 ? most * CAL_MIN_BLOCK_PX + 6 : 0;
+  });
+  const minTotal = dayMin.reduce((a, b) => a + b, 0) + dayMin.filter((x) => !x).length * 64;
+  const cols = { "--days": days.length, gridTemplateColumns: `var(--gut) ${dayMin.map((m) => (m ? `minmax(${m}px, 1fr)` : "minmax(0, 1fr)")).join(" ")}`, minWidth: `calc(var(--gut) + ${minTotal}px)` } as CSSProperties;
   const minAt = (ev: { clientY: number; currentTarget: HTMLElement }, offset = 0) => {
     const r = ev.currentTarget.getBoundingClientRect();
     const m = ((ev.clientY - r.top) / HOUR_PX) * 60 - offset;
@@ -456,14 +515,17 @@ function TimeGrid({ days, today: t, now, events, onPick, onDay, selectedId, wide
           );
         })}
       </div>
-      <div className="cal-tg-scroll" ref={scroller}>
+      <div className="cal-tg-scroll" ref={scroller} style={{ minWidth: cols.minWidth }}>
         <div className="cal-tg-body" style={{ ...cols, height: 24 * HOUR_PX }}>
           <div className="cal-tg-gutter">
             {hours.map((h) => <div key={h} className="cal-tg-hour" style={{ top: h * HOUR_PX }}>{h ? hourLabel(h) : ""}</div>)}
           </div>
           {byDay.map((evs, i) => {
             const d = days[i];
-            const lay = calLayoutDay(evs);
+            const lay = lays[i];
+            /* Events past the second column of a crowded cluster fold into one "+N" chip per cluster. */
+            const hidden = new Map<number, CalEvent[]>();
+            for (const e of evs) { const L = lay.get(e.id); if (L && !wide && L.cols > CAL_MAX_SIDE_BY_SIDE && L.col >= CAL_MAX_SIDE_BY_SIDE - 1) hidden.set(L.cluster, [...(hidden.get(L.cluster) || []), e]); }
             return (
               <div key={d} className={"cal-tg-col" + (onCreate ? " can-create" : "")} onClick={(ev) => clickSlot(d, ev)}
                 onDragOver={onMove ? (ev) => { if (!dragging) return; ev.preventDefault(); const m = minAt(ev, dragging.offsetMin); setGhost((g) => (g && g.d === d && g.min === m ? g : { d, min: m })); } : undefined}
@@ -472,20 +534,31 @@ function TimeGrid({ days, today: t, now, events, onPick, onDay, selectedId, wide
                 {hours.map((h) => <div key={h} className="cal-tg-line" style={{ top: h * HOUR_PX }} />)}
                 {ghost && ghost.d === d ? <div className="cal-ghost" style={{ top: (ghost.min / 60) * HOUR_PX, height: HOUR_PX / 2 }}>{ampm(minutesToHhmm(ghost.min))}</div> : null}
                 {evs.filter((e) => !e.allDay && e.time).map((e) => {
-                  const L = lay.get(e.id) || { col: 0, cols: 1 };
+                  const L = lay.get(e.id) || { col: 0, cols: 1, cluster: -1 };
+                  if (hidden.get(L.cluster)?.includes(e)) return null;
+                  const n = slotsFor(L.cols);
                   const y = top(e.time!.start);
                   const h = Math.max(20, (e.time!.end ? top(e.time!.end) : y + HOUR_PX) - y - 2);
-                  const thin = !wide && (L.cols >= 3 || (narrow && L.cols >= 2));
-                  const st: CSSProperties = { top: y, height: h, left: `calc(${(L.col / L.cols) * 100}% + 1px)`, width: `calc(${100 / L.cols}% - ${L.col === L.cols - 1 ? 8 : 2}px)`, "--c": calKindColor(e.kind) } as CSSProperties;
+                  const thin = !!narrow && n >= 2;
+                  const last = L.col === n - 1;
+                  const st: CSSProperties = { top: y, height: h, left: `calc(${(L.col / n) * 100}% + 1px)`, width: `calc(${100 / n}% - ${last ? 8 : 2}px)`, "--c": calKindColor(e.kind) } as CSSProperties;
                   return (
                     <button key={e.id} type="button" data-ev={e.id} style={st} title={`${e.title}, ${timeLabel(e)}`}
                       className={"cal-block-ev" + (e.tentative ? " tentative" : "") + (e.done ? " done" : "") + (selectedId === e.id ? " sel" : "") + (thin ? " thin" : h < 36 ? " short" : "")}
                       draggable={!!onMove && !!e.movable} onDragStart={(ev) => startDrag(e, ev, HOUR_PX)}
                       onClick={(ev) => { ev.stopPropagation(); onPick(e, ev.currentTarget); }}>
-                      <span className={"cal-block-t" + (h >= 60 ? " two" : "")}>{thin && e.client ? e.client : e.title}</span>
+                      <span className={"cal-block-t" + (h >= 60 ? " two" : "")}>{(thin || n >= 2) && e.client ? e.client : e.title}</span>
                       <span className="cal-block-s ph-num">{timeLabel(e)}{wide && e.location ? `, ${e.location}` : ""}</span>
                       {wide && h >= 70 && e.detail ? <span className="cal-block-s">{e.detail}</span> : null}
                     </button>
+                  );
+                })}
+ {[...hidden.entries()].map(([k, hs]) => {
+                  const first = hs.reduce((a, b) => (a.time!.start <= b.time!.start ? a : b));
+                  return (
+                    <button key={`more-${k}`} type="button" className="cal-block-more" style={{ top: top(first.time!.start), left: `calc(${((CAL_MAX_SIDE_BY_SIDE - 1) / CAL_MAX_SIDE_BY_SIDE) * 100}% + 1px)`, width: `calc(${100 / CAL_MAX_SIDE_BY_SIDE}% - 8px)` }}
+                      title={hs.map((x) => `${x.title}, ${timeLabel(x)}`).join("\n")} aria-label={`${hs.length} more at this time. Open the day`}
+                      onClick={(ev) => { ev.stopPropagation(); onDay(d); }}>+{hs.length}</button>
                   );
                 })}
                 {d === t ? <div className="cal-now" style={{ top: (nowMin / 60) * HOUR_PX }} aria-label={`Now, ${ampm(localTimeOf(now))}`}><span /></div> : null}

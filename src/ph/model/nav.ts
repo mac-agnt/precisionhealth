@@ -38,8 +38,8 @@ export const PAGES: PageDef[] = [
     { id: "check", label: "Test run" }, { id: "changes", label: "Changes" }, { id: "impact", label: "Impact" }, { id: "questions", label: "To confirm" }] },
   { id: "Flu", section: "Services", label: "Flu", icon: "navFlu", hint: "Flu clinics and vaccine stock", tabs: [
     { id: "overview", label: "Overview" }, { id: "bookings", label: "Bookings" }, { id: "stock", label: "Vaccine stock" }, { id: "cold-chain", label: "Cold chain" }, { id: "contacts", label: "Contacts and notes" }] },
-  { id: "OccHealth", section: "Services", label: "Occupational Health", icon: "navOcc", hint: "OH clients, onboarding, Meddbase", tabs: [
-    { id: "clients", label: "Clients and onboarding" }, { id: "questionnaires", label: "Questionnaires" }, { id: "sessions", label: "Meddbase sessions" }, { id: "agreements", label: "Agreements" }] },
+  { id: "OccHealth", section: "Services", label: "Occupational Health", icon: "navOcc", hint: "OH clients, onboarding, MediBase", tabs: [
+    { id: "clients", label: "Clients and onboarding" }, { id: "questionnaires", label: "Questionnaires" }, { id: "sessions", label: "MediBase sessions" }, { id: "agreements", label: "Agreements" }] },
   { id: "Reporting", section: "Run the business", label: "Reporting", icon: "navReporting", hint: "Employer reports", tabs: [
     { id: "overview", label: "Overview" }, { id: "report-builder", label: "Report builder" }, { id: "exports", label: "Exports" }] },
   { id: "Work", section: "Run the business", label: "Work", icon: "navWork", hint: "Tasks and approvals", tabs: [
@@ -74,6 +74,8 @@ export interface NavTarget {
 /* Old tab ids that now open a different tab, so earlier deep links keep working. */
 const TAB_ALIASES: Partial<Record<PageId, Record<string, string>>> = {
   Dashboard: { "clinic-operations": "operations", "clinical-delivery": "operations" },
+  /* #/Sales/retention opens the Retention tab (its id stays "recall"). */
+  Sales: { retention: "recall" },
 };
 /* A page can choose its own default tab, for example by who is signed in. Registered by the page module. */
 const TAB_DEFAULTS: Partial<Record<PageId, () => string | undefined>> = {};

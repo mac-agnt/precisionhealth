@@ -11,26 +11,24 @@ import {
 } from "../../model";
 import type { SalesFlowInbound, SalesLead, SalesProposal } from "../../model";
 import { useNav } from "../../nav-context";
-import { dispatch, getState, usePhState } from "../../store";
+import { dispatch, usePhState } from "../../store";
 import { Button, DemoTag, Icon, Pill, TextInput, Textarea } from "../../ui";
 import { salesAct } from "./actions";
 import { flowAct } from "./flowActions";
 import { liveNowIso, useLiveNow } from "./liveClock";
 import { useSalesRights } from "./shared";
-import { onbForLead, onbSuggestedKind } from "./onbSelect";
-import { onbAct } from "./onbActions";
+import { onbForLead } from "./onbSelect";
 
 /* ---------------------------------------------------------------- mark as won */
 
-/** Marks the lead as won, starts its onboarding (linked back to the lead) and opens it. */
+/** Marks the lead as won and opens Onboarding on it, where a person chooses Occupational Health or
+    Wellness. The onboarding itself only starts once that choice is made. */
 export function useMarkWon(): (leadId: string) => boolean {
   const nav = useNav();
   return (leadId: string) => {
     const r = dispatch(flowAct.markWon(leadId));
     if (!r.ok) return false;
-    const lead = getState().sales.leads.find((l) => l.id === leadId);
-    const o = lead ? dispatch(onbAct.start(onbSuggestedKind(lead), leadId), { silent: true }) : null;
-    nav.go({ page: "Sales", tab: "onboarding", params: o?.ok && o.id ? { onb: o.id, step: "details" } : { lead: leadId } });
+    nav.go({ page: "Sales", tab: "onboarding", params: { lead: leadId } });
     return true;
   };
 }
@@ -125,7 +123,7 @@ export function NextStep({ lead, onBuild }: { lead: SalesLead; onBuild: () => vo
           <>
             <p>{p!.id} v{v.version} is ready as a draft: <b className="ph-num">{salesEurRange(net.netLow, net.netHigh)}</b>{net.discountPct ? ` after a ${net.discountPct}% discount` : ""}. Sending starts the weekly follow ups.</p>
             <div className="lf-actions">
-              <Button variant="primary" icon="send" onClick={() => dispatch(salesAct.sendProposal(p!.id))}>Send proposal (simulated)</Button>
+              <Button variant="primary" icon="send" onClick={() => dispatch(salesAct.sendProposal(p!.id))}>Send proposal</Button>
               <Button icon="edit" onClick={onBuild}>Edit in builder</Button>
               <Button variant="ghost" icon="eye" onClick={() => nav.go({ page: "Sales", tab: "proposals", params: { proposal: p!.id } })}>View document</Button>
             </div>
@@ -181,7 +179,7 @@ function FirstReplyEditor({ lead, onCancel }: { lead: SalesLead; onCancel: () =>
         {!files.length ? <button type="button" className="ph-link" style={{ fontSize: 12 }} onClick={() => setFiles(draft.attachments)}>Attach the brochure again</button> : null}
       </div>
       <div className="lf-actions">
-        <Button variant="primary" icon="send" onClick={send}>Send (simulated)</Button>
+        <Button variant="primary" icon="send" onClick={send}>Send</Button>
         <Button variant="ghost" onClick={onCancel}>Cancel</Button>
         <span className="ph-grow" /><DemoTag>Simulated</DemoTag>
       </div>
@@ -276,7 +274,7 @@ export function FollowUps({ leadId }: { leadId: string }) {
               {open === st.n ? <div className="lf-fu-body">{st.body}</div> : null}
               {actionable && (st.status === "due" || st.status === "scheduled") && isNext ? (
                 <div className="lf-fu-act">
-                  <Button size="sm" variant="primary" icon="send" onClick={() => dispatch(flowAct.followUp(leadId, st.n, "send"))}>Send now (simulated)</Button>
+                  <Button size="sm" variant="primary" icon="send" onClick={() => dispatch(flowAct.followUp(leadId, st.n, "send"))}>Send now</Button>
                   <Button size="sm" variant="ghost" onClick={() => dispatch(flowAct.followUp(leadId, st.n, "skip"))}>Skip</Button>
                 </div>) : null}
             </li>);

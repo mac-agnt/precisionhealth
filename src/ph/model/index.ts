@@ -26,6 +26,7 @@ export * from "./portalAdmin";
 export * from "./onboarding";
 export * from "./scheduledActions";
 export * from "./portalsHub";
+export * from "./companyDirectory";
 export * from "./programmeRegistry";
 export * from "./rota";
 export { createInitialState } from "./fixtures";

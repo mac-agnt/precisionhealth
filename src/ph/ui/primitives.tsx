@@ -31,8 +31,10 @@ export function Pill({ tone = "neutral", children, icon, title, style }: { tone?
 }
 
 /** Marks fictional or simulated content at the right level. */
-export function DemoTag({ children = "Simulated", title }: { children?: ReactNode; title?: string }) {
-  return <span className="ph-demo-tag" title={title || "Demo content. Nothing here is real or sent."}>{children}</span>;
+/* Per-screen "Simulated" and "Sample data" tags are retired: the single "Demo · synthetic data" chip
+   in the footer says it once for the whole app. Kept as a no-op so existing call sites still compile. */
+export function DemoTag(_props: { children?: ReactNode; title?: string }) {
+  return null;
 }
 
 export function Button({ variant = "secondary", size, icon, children, ...rest }: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: "primary" | "secondary" | "ghost" | "danger"; size?: "sm"; icon?: GlyphName }) {

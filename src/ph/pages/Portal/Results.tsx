@@ -101,8 +101,8 @@ function ReadyCard({ d, ep, v, versions, onOpen }: { d: PortalData; ep: Episode;
         </div>
       </div>
       <ul className="pp-msglist" style={{ margin: "12px 0" }}>
-        <li><Icon name="mail" size={14} /><span>{notice ? `We told you by ${notice.channel === "sms" ? "text" : "email"} on ${fmtDateTime(notice.at)} that a report was available (simulated). That message held no results.` : "The report available notice holds no results."}</span></li>
-        <li><Icon name="eye" size={14} /><span>{v.accessedAt ? `You opened this report on ${fmtDateTime(v.accessedAt)}.` : "You have not opened this report yet. Opening it is recorded separately from the message."}</span></li>
+        <li><Icon name="mail" size={14} /><span>{notice ? `We told you by ${notice.channel === "sms" ? "text" : "email"} on ${fmtDateTime(notice.at)} that a report was available. That message held no results.` : "The report available notice holds no results."}</span></li>
+        <li><Icon name="eye" size={14} /><span>{v.accessedAt ? `You opened this report on ${fmtDateTime(v.accessedAt)}.` : "You have not opened this report yet."}</span></li>
       </ul>
       <Button variant="primary" icon="eye" onClick={onOpen}>Open my report</Button>
     </section>
@@ -194,7 +194,7 @@ export function DeliveryNote({ delivery, go }: { delivery: ReportDelivery; go: (
     <Card>
       <h3 className="pp-h3">How your report is delivered</h3>
       <p className="pp-small" style={{ marginTop: 0 }}>In Pulse your report is here in the portal, once a doctor releases it. Today's process, an encrypted PDF by email with an access code by text (Esendex), can stay available as an option.</p>
-      <p className="pp-small" style={{ margin: 0 }}>Your choice: <strong style={{ color: "var(--ink)" }}>{DELIVERY_LABEL[delivery]}</strong> (simulated). <button type="button" className="ph-link" onClick={() => go("account")}>Change in Account</button></p>
+      <p className="pp-small" style={{ margin: 0 }}>Your choice: <strong style={{ color: "var(--ink)" }}>{DELIVERY_LABEL[delivery]}</strong>. <button type="button" className="ph-link" onClick={() => go("account")}>Change in Account</button></p>
     </Card>
   );
 }

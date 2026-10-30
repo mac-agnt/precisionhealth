@@ -66,7 +66,7 @@ function RoomsView({ onSelect }: { onSelect: (id: string) => void }) {
     state.sessions.filter((s) => s.date === d && s.status !== "cancelled" && (kind === "room" ? s.room === resources.find((r) => r.id === resId)?.name : s.printerId === resId)).sort(sortSessions);
   return (
     <Card>
-      <CardHeader title="Rooms and resources" sub="Which clinic uses each room and fictional label printer on each clinic day. Each session offers 25 slots from its own day configuration. Select a cell to open the session." />
+      <CardHeader title="Rooms and resources" sub="Which clinic uses each room and label printer on each clinic day. Each session offers 25 slots from its own day configuration. Select a cell to open the session." />
       <div className="clx-dayscroll">
         <table className="clx-matrix" aria-label="Resource use by date">
           <thead>

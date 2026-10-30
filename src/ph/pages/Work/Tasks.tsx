@@ -1,16 +1,17 @@
 /* Work, Tasks: owner, absolute due date and time, priority, team, status and linked record for
-   every task, as a table or a board. Story tasks take their status from the underlying item, so
-   closing a wrapper never bypasses an identity or clinical requirement. Clinical tasks are
-   visible to clinical roles only. */
+   every task, as a table or a board. Some tasks close only when the work they point at is done
+   (internally a "story"), so ticking a task never skips an identity or clinical step. The story
+   layer stays internal: no story ids or filters are shown. Clinical tasks are visible to clinical
+   roles only. */
 import { useMemo, useState } from "react";
-import { act, addDays, dublinToUtc, fmtDateTime, fmtShortDateTime, fmtWhen, staffName, storyViews, taskViews, today } from "../../model";
+import { act, addDays, dublinToUtc, fmtDateTime, fmtShortDateTime, staffName, taskViews, today } from "../../model";
 import type { PhState, StaffId, TaskView } from "../../model";
 import { dispatch, usePersona, usePhState } from "../../store";
 import { useNav } from "../../nav-context";
 import { Button, Card, Chip, DataTable, EmptyState, EntityLink, Field, Icon, PageHeader, Pill, RestrictedNotice, SearchBox, Segmented, Select, TextInput, Drawer } from "../../ui";
 import type { Column } from "../../ui";
 import {
-  PRIORITY, PriorityPill, StaffCell, TEAM_NAME, Tag, TaskStatusPill, WIDE_MIN, isClinicalViewer, mergeParams, openTarget, refLabel, relDue, storyLabel, storyVisible,
+  PRIORITY, PriorityPill, StaffCell, TEAM_NAME, Tag, TaskStatusPill, WIDE_MIN, isClinicalViewer, mergeParams, openTarget, refLabel, relDue,
   taskStatusRank, useMeasure } from "./shared";
 
 type StatusFilter = "open" | "overdue" | "blocked" | "done" | "all";
@@ -39,22 +40,19 @@ export default function Tasks() {
   const [view, setView] = useState<View>(nav.params.view === "board" ? "board" : "table");
   const [groupBy, setGroupBy] = useState<GroupBy>("team");
   const [status, setStatus] = useState<StatusFilter>(isStatusFilter(nav.params.status) ? nav.params.status : "open");
-  const [story, setStory] = useState<string>(nav.params.story || "all");
   const [owner, setOwner] = useState<string>("all");
   const [q, setQ] = useState("");
   const [adding, setAdding] = useState(false);
 
   const all = useMemo(() => taskViews(state), [state]);
   const visible = useMemo(() => all.filter((t) => t.visible), [all]);
-  const stories = storyViews(state).filter(storyVisible);
   const now = state.clock.nowUtc;
 
   const query = q.trim().toLowerCase();
   const base = visible.filter((t) => {
-    if (story !== "all" && (story === "routine" ? !!t.task.storyId : t.task.storyId !== story)) return false;
     if (owner === "me" && t.task.ownerId !== p.id) return false;
     if (owner !== "all" && owner !== "me" && t.task.ownerId !== owner) return false;
-    if (query && !`${t.title} ${t.task.id} ${t.ownerName} ${t.task.detail} ${t.task.storyId || ""}`.toLowerCase().includes(query)) return false;
+    if (query && !`${t.title} ${t.ownerName} ${t.task.detail} ${refLabel(state, t.task.linked)}`.toLowerCase().includes(query)) return false;
     return true;
   });
   const counts: Record<StatusFilter, number> = {
@@ -74,7 +72,6 @@ export default function Tasks() {
 
   const openTask = (id: string) => nav.setParams(mergeParams(nav.params, { task: id }));
   const closeTask = () => nav.setParams(mergeParams(nav.params, { task: null }));
-  const storyName = (id: string) => { const sv = stories.find((s) => s.def.id === id); return sv ? storyLabel(sv) : id; };
 
   const columns: Column<TaskView>[] = [
     {
@@ -82,11 +79,7 @@ export default function Tasks() {
       cell: (t) => (
         <div style={{ minWidth: 220, maxWidth: 380 }}>
           <div style={{ color: "var(--ink)", fontWeight: 500, lineHeight: 1.35 }}>{t.title}</div>
-          <div className="ph-wrap" style={{ gap: 5, marginTop: 4 }}>
-            <span className="phf-id">{t.task.id}</span>
-            {t.task.storyId ? <Tag mono title={storyName(t.task.storyId)}>{t.task.storyId}</Tag> : <Tag>Routine</Tag>}
-            {t.task.clinical ? <Tag icon="lock" title="Visible to clinical roles only">Clinical</Tag> : null}
-          </div>
+          {t.task.clinical ? <div className="ph-wrap" style={{ gap: 5, marginTop: 4 }}><Tag icon="lock" title="Visible to clinical roles only">Clinical</Tag></div> : null}
         </div>
       ),
     },
@@ -118,11 +111,7 @@ export default function Tasks() {
       cell: (t) => (
         <div style={{ minWidth: 170 }}>
           <div style={{ color: "var(--ink)", fontWeight: 500, lineHeight: 1.35 }}>{t.title}</div>
-          <div className="ph-wrap" style={{ gap: 5, marginTop: 4 }}>
-            <span className="phf-id">{t.task.id}</span>
-            {t.task.storyId ? <Tag mono title={storyName(t.task.storyId)}>{t.task.storyId}</Tag> : <Tag>Routine</Tag>}
-            {t.task.clinical ? <Tag icon="lock" title="Visible to clinical roles only">Clinical</Tag> : null}
-          </div>
+          {t.task.clinical ? <div className="ph-wrap" style={{ gap: 5, marginTop: 4 }}><Tag icon="lock" title="Visible to clinical roles only">Clinical</Tag></div> : null}
           <div className="phf-note" style={{ marginTop: 4 }}>
             {t.task.dueAt ? <>Due <span className="ph-num" style={{ color: "var(--body)" }}>{fmtDateTime(t.task.dueAt)}</span>{t.status === "done" ? "" : <span style={{ color: t.overdue ? "var(--bad)" : undefined }}>{`, ${relDue(t.task.dueAt, now)}`}</span>}</> : "No due date"}
           </div>
@@ -139,7 +128,7 @@ export default function Tasks() {
       <PageHeader
         eyebrow="Work"
         title="Tasks"
-        sub="Story tasks close only when their underlying item is complete, so a wrapper can never bypass an identity or clinical step. Routine tasks can be marked done here."
+        sub="Everything the team has to do, with an owner and a due time. Tasks linked to a check close by themselves when that check is done."
         actions={
           <>
             <Segmented label="Task view" value={view} onChange={setView} options={[{ id: "table", label: "Table" }, { id: "board", label: "Board" }]} />
@@ -150,42 +139,13 @@ export default function Tasks() {
       <div className="ph-stack">
         {adding ? <AddTask state={state} narrow={!wide} onDone={() => setAdding(false)} /> : null}
 
-        <section aria-label="Stories">
-          <div className="phf-stories">
-            {stories.map((s) => {
-              const n = visible.filter((t) => t.task.storyId === s.def.id && t.status !== "done").length;
-              return (
-                <button key={s.def.id} type="button" className="phf-story" aria-pressed={story === s.def.id}
-                  title={`${storyLabel(s)}. Filter tasks to this story.`} onClick={() => setStory(story === s.def.id ? "all" : s.def.id)}>
-                  <span className="ph-row-flex" style={{ gap: 6 }}>
-                    <span className="phf-id">{s.def.id}</span>
-                    <span className="ph-grow" />
-                    {s.open ? <Pill tone="warn" icon="dot">Open</Pill> : <Pill tone="ok">Resolved</Pill>}
-                  </span>
-                  <span style={{ fontSize: 12.5, color: "var(--ink)", lineHeight: 1.35 }}>{s.headline}</span>
-                  <span className="ph-grow" />
-                  <span className="phf-note">{s.ownerName}</span>
-                  <span className="phf-note">
-                    {s.dueAt ? `Due ${fmtWhen(s.dueAt, now)}, ` : ""}{s.restricted ? "clinician owned" : `${n} open task${n === 1 ? "" : "s"}`}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        </section>
-
         <div className="phf-toolbar">
           {STATUS_FILTERS.map((f) => (
             <Chip key={f} on={status === f} count={counts[f]} onClick={() => setStatus(f)}>
-              {f === "open" ? "Open" : f === "overdue" ? "Overdue" : f === "blocked" ? "Blocked" : f === "done" ? "Done" : "All"}
+              {f === "open" ? "To do" : f === "overdue" ? "Overdue" : f === "blocked" ? "Blocked" : f === "done" ? "Done" : "All"}
             </Chip>
           ))}
           <span className="phf-spacer" />
-          <Select className="phf-sel" aria-label="Story" value={story} onChange={(e) => setStory(e.target.value)} style={{ maxWidth: 200 }}>
-            <option value="all">All stories</option>
-            {stories.map((s) => <option key={s.def.id} value={s.def.id}>{s.def.id}: {storyLabel(s)}</option>)}
-            <option value="routine">Routine work (no story)</option>
-          </Select>
           <Select className="phf-sel" aria-label="Owner" value={owner} onChange={(e) => setOwner(e.target.value)} style={{ maxWidth: 170 }}>
             <option value="all">Every owner</option>
             {p.staff ? <option value="me">Assigned to me</option> : null}
@@ -204,8 +164,8 @@ export default function Tasks() {
               selectedKey={nav.params.task || null}
               caption="Tasks"
               minWidth={wide ? 860 : undefined}
-              footerNote={clinical ? "tasks. Story tasks show the state of their underlying item." : "tasks. Clinical tasks are visible to clinical roles only."}
-              empty={<EmptyState title="No tasks match these filters" icon="filter">Change the status, story or owner filter, or clear the search.</EmptyState>}
+              footerNote={clinical ? "tasks." : "tasks. Clinical tasks are visible to clinical roles only."}
+              empty={<EmptyState title="No tasks match these filters" icon="filter">Change the status or owner filter, or clear the search.</EmptyState>}
             />
           </Card>
         ) : (
@@ -217,7 +177,7 @@ export default function Tasks() {
   );
 }
 
-/* ---- primary action: "Mark done" for routine work, "Open item" for story tasks ---- */
+/* ---- primary action: "Mark done", or "Open item" for a task that closes with its linked work ---- */
 function TaskAction({ state, tv, compact }: { state: PhState; tv: TaskView; compact?: boolean }) {
   const nav = useNav();
   if (tv.status === "done") {
@@ -247,7 +207,7 @@ function Board({ state, rows, groupBy, setGroupBy, onOpen, clinical }: { state: 
     ? state.teams.map((t) => ({ key: t.id, title: t.name, items: rows.filter((r) => r.task.team === t.id) }))
     : [
       { key: "overdue", title: "Overdue", items: rows.filter((r) => r.overdue && r.status === "open") },
-      { key: "open", title: "Open", items: rows.filter((r) => r.status === "open" && !r.overdue) },
+      { key: "open", title: "To do", items: rows.filter((r) => r.status === "open" && !r.overdue) },
       { key: "blocked", title: "Blocked by another step", items: rows.filter((r) => r.status === "blocked") },
       { key: "done", title: "Done", items: rows.filter((r) => r.status === "done") },
     ].filter((l) => l.items.length > 0);
@@ -261,7 +221,7 @@ function Board({ state, rows, groupBy, setGroupBy, onOpen, clinical }: { state: 
         <span className="phf-note">{clinical ? `${rows.length} task${rows.length === 1 ? "" : "s"} shown` : `${rows.length} task${rows.length === 1 ? "" : "s"} shown. Clinical tasks are visible to clinical roles only.`}</span>
       </div>
       {rows.length === 0 ? (
-        <Card pad={false}><EmptyState title="No tasks match these filters" icon="filter">Change the status, story or owner filter, or clear the search.</EmptyState></Card>
+        <Card pad={false}><EmptyState title="No tasks match these filters" icon="filter">Change the status or owner filter, or clear the search.</EmptyState></Card>
       ) : (
         <div className="phf-board">
           {lanes.map((l) => (
@@ -272,12 +232,11 @@ function Board({ state, rows, groupBy, setGroupBy, onOpen, clinical }: { state: 
               </div>
               {l.items.length === 0 ? <div className="phf-note" style={{ padding: "6px 4px 8px" }}>No tasks for this team with these filters.</div> : null}
               {l.items.map((t) => (
-                <button key={t.task.id} type="button" className="phf-card" onClick={() => onOpen(t.task.id)} aria-label={`${t.task.id}: ${t.title}`}>
+                <button key={t.task.id} type="button" className="phf-card" onClick={() => onOpen(t.task.id)} aria-label={t.title}>
                   <span style={{ color: "var(--ink)", fontWeight: 500, fontSize: 12.5, lineHeight: 1.35 }}>{t.title}</span>
                   <span className="ph-wrap" style={{ gap: 5 }}>
                     <TaskStatusPill tv={t} />
                     <PriorityPill p={t.task.priority} />
-                    {t.task.storyId ? <Tag mono>{t.task.storyId}</Tag> : null}
                   </span>
                   <span className="phf-small">
                     {t.task.dueAt ? <>Due <span className="ph-num" style={{ color: "var(--ink)" }}>{fmtDateTime(t.task.dueAt)}</span></> : "No due date"}
@@ -285,7 +244,6 @@ function Board({ state, rows, groupBy, setGroupBy, onOpen, clinical }: { state: 
                   </span>
                   <span className="ph-row-flex" style={{ gap: 8 }}>
                     <span className="ph-grow" style={{ minWidth: 0 }}><StaffCell state={state} id={t.task.ownerId} sub={groupBy === "status" ? TEAM_NAME(state, t.task.team) : undefined} size={20} /></span>
-                    <span className="phf-id">{t.task.id}</span>
                   </span>
                   <span className="phf-note ph-trunc">Linked: {refLabel(state, t.task.linked)}</span>
                 </button>
@@ -332,8 +290,8 @@ function AddTask({ state, narrow, onDone }: { state: PhState; narrow: boolean; o
     <Card>
       <div className="ph-row-flex" style={{ marginBottom: 10, gap: 8 }}>
         <Icon name="plus" size={14} style={{ color: "var(--accent)" }} />
-        <span className="ph-h2">Add a routine task</span>
-        <span className="phf-note">Recorded in the activity log. Story work is created by the underlying item, not here.</span>
+        <span className="ph-h2">Add a task</span>
+        <span className="phf-note">Recorded in the activity log.</span>
       </div>
       <form className={"phf-addform" + (narrow ? " narrow" : "")} onSubmit={(e) => { e.preventDefault(); submit(); }}>
         <Field label="Title" error={err} htmlFor="phf-add-title">
@@ -372,7 +330,7 @@ function TaskDrawer({ state, id, onClose }: { state: PhState; id: string; onClos
   }
   if (!tv.visible) {
     return (
-      <Drawer open onClose={onClose} title={tv.task.storyId === "ST-04" ? "Clinical action assigned" : "Restricted clinical task"} sub={tv.task.id}>
+      <Drawer open onClose={onClose} title={tv.task.storyId === "ST-04" ? "Clinical action assigned" : "Restricted clinical task"} >
         <RestrictedNotice title={tv.task.storyId === "ST-04" ? "Clinical action assigned" : "Restricted clinical task"}>
           A clinician owns this task. {p.name} ({p.roleLabel}) sees no clinical detail. The owner and the clinical team can open it.
         </RestrictedNotice>
@@ -380,11 +338,10 @@ function TaskDrawer({ state, id, onClose }: { state: PhState; id: string; onClos
     );
   }
   const t = tv.task;
-  const sv = t.storyId ? storyViews(state).find((s) => s.def.id === t.storyId) : undefined;
   const now = state.clock.nowUtc;
   return (
     <Drawer open onClose={onClose} width={560} title={tv.title}
-      sub={<span className="ph-wrap" style={{ gap: 6 }}><span className="phf-id">{t.id}</span>{t.storyId ? <Tag mono>{t.storyId}</Tag> : <Tag>Routine</Tag>}{t.clinical ? <Tag icon="lock">Clinical</Tag> : null}</span>}
+      sub={t.clinical ? <Tag icon="lock">Clinical</Tag> : undefined}
       footer={<><Button variant="ghost" onClick={onClose}>Close</Button><TaskAction state={state} tv={tv} /></>}>
       <div className="ph-stack">
         <div className="ph-wrap" style={{ gap: 8 }}>
@@ -395,7 +352,7 @@ function TaskDrawer({ state, id, onClose }: { state: PhState; id: string; onClos
         {tv.blockReason ? (
           <div className="phf-callout warn">
             <Icon name="lock" size={15} style={{ color: "var(--warn)", marginTop: 1 }} />
-            <span><span className="phf-strong">Closes with its underlying item.</span> {tv.blockReason} This task cannot be ticked off here, so no identity or clinical step is skipped.</span>
+            <span><span className="phf-strong">Closes by itself when the linked work is done.</span> {tv.blockReason}</span>
           </div>
         ) : null}
         {tv.status === "done" ? (
@@ -412,22 +369,6 @@ function TaskDrawer({ state, id, onClose }: { state: PhState; id: string; onClos
           <dt>Linked record</dt><dd><EntityLink kind={t.linked.kind} id={t.linked.id}>{refLabel(state, t.linked)}</EntityLink></dd>
           <dt>What to do</dt><dd>{t.detail}</dd>
         </dl>
-        {sv && storyVisible(sv) ? (
-          <Card flat pad="sm">
-            <div className="ph-row-flex" style={{ gap: 8, marginBottom: 6 }}>
-              <span className="phf-id">{sv.def.id}</span>
-              <span className="ph-grow ph-trunc" style={{ fontSize: 12.5, color: "var(--ink)", fontWeight: 500 }}>{storyLabel(sv)}</span>
-              {sv.open ? <Pill tone="warn" icon="dot">Open</Pill> : <Pill tone="ok">Resolved</Pill>}
-            </div>
-            <div style={{ fontSize: 12.5, color: "var(--ink)" }}>{sv.headline}</div>
-            <div className="phf-small" style={{ marginTop: 4 }}>{sv.detail}</div>
-            <div className="ph-wrap" style={{ marginTop: 8, gap: 8 }}>
-              <span className="phf-note">Owner {sv.ownerName}{sv.secondaryName ? `, with ${sv.secondaryName}` : ""}{sv.dueAt ? `, due ${fmtDateTime(sv.dueAt)}` : ""}</span>
-              <span className="ph-grow" />
-              <Button size="sm" variant="ghost" icon="arrow" onClick={() => nav.go(sv.target)}>Open story item</Button>
-            </div>
-          </Card>
-        ) : null}
       </div>
     </Drawer>
   );

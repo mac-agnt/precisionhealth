@@ -109,7 +109,7 @@ function addNurse(c: Ctx, a: { name: string; phone: string }): ActionResult {
   c.s.portalsHub.nurses.push({ id: st.id, phone: a.phone.trim(), addedAt: c.stamp(), addedBy: c.persona().name });
   c.inv();
   c.emit({ verb: "portals.nurse_added", entity: { kind: "staff", id: st.id }, simulated: true, summary: `${c.first()} added ${name} to the nursing team and sent a nurse portal invitation by text to ${a.phone.trim()} (simulated). Added on ${fmtDate(today(c.s))}.` });
-  return c.ok(`${name} added to the nursing team. They can now be put on screening days, flu clinics and Meddbase sessions.`, "ok", st.id);
+  return c.ok(`${name} added to the nursing team. They can now be put on screening days, flu clinics and MediBase sessions.`, "ok", st.id);
 }
 
 registerHandlers({

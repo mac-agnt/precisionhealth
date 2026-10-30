@@ -205,7 +205,7 @@ function JobDrawer({ state, id, onClose }: { state: PhState; id: string; onClose
           <dt>Next run</dt><dd className="ph-num">{j.nextRunAt ? `${fmtDateTime(j.nextRunAt)} (${fmtWhen(j.nextRunAt, state.clock.nowUtc)})` : "No further run"}</dd>
           <dt>Linked record</dt><dd>{j.linked ? <EntityLink kind={j.linked.kind} id={j.linked.id}>{refLabel(state, j.linked)}</EntityLink> : "None"}</dd>
           <dt>Automation</dt><dd>{auto ? <AutomationChip id={auto.id} withName /> : "Not part of a listed automation"}</dd>
-          {j.id === "JOB-REM-TODAY" ? (<><dt>Reminder cohort</dt><dd className="ph-num">{`${r.logical} logical reminders: ${r.delivered} delivered, ${r.failed} failed. ${r.attempts} provider attempts, counted separately.`}</dd></>) : null}
+          {j.id === "JOB-REM-TODAY" ? (<><dt>Reminder cohort</dt><dd className="ph-num">{`${r.logical} reminders: ${r.delivered} delivered, ${r.failed} failed. ${r.attempts} provider attempts, counted separately.`}</dd></>) : null}
         </dl>
         <div className="phf-note">Simulated job. It changes only local demo state and never contacts Esendex, Eurofins, Google Workspace or an email provider.</div>
       </div>

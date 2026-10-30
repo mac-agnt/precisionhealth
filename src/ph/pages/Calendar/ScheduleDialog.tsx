@@ -1,6 +1,6 @@
 /* "+ Schedule": one dialog to schedule anything the business does. First pick what, then a short
    form prefilled with the date and time that was clicked. Saving really creates it: a task in Work,
-   a flu clinic in Flu, a Meddbase session in Occupational Health, a meeting on the lead's timeline,
+   a flu clinic in Flu, a MediBase session in Occupational Health, a meeting on the lead's timeline,
    an email in the outbox. A screening day opens the Screening days agent with the request typed in. */
 import { useMemo, useState } from "react";
 import type { ReactNode } from "react";
@@ -21,7 +21,7 @@ const TYPES: Array<{ id: Pick; label: string; sub: string; icon: GlyphName; colo
   { id: "follow_up", label: "Follow up email", sub: "Sends at the time you pick", icon: "mail", color: "#5BAF7A" },
   { id: "retention", label: "Results out or rebooking", sub: "Email to the client's HR contact", icon: "send", color: "#D86A2B" },
   { id: "flu", label: "Flu clinic", sub: "Company, numbers and staff", icon: "shield", color: "#E0A030" },
-  { id: "oh", label: "Occupational health", sub: "A Meddbase session at a client", icon: "heart", color: "#A06CE0" },
+  { id: "oh", label: "Occupational health", sub: "A MediBase session at a client", icon: "heart", color: "#A06CE0" },
   { id: "task", label: "Task or reminder", sub: "Goes into Work, Tasks", icon: "check", color: "#7E8FA3" },
   { id: "team", label: "Training or leave", sub: "Leave blocks a nurse from clinics", icon: "flag", color: "#7A6FD0" },
 ];
@@ -206,7 +206,7 @@ export default function ScheduleDialog({ date, time, onClose, onCreated }: { dat
         <div className="sch-two">{timeField("Start", "start")}{timeField("End", "end")}</div>
       </div>
       <Field label="Location (optional)"><TextInput value={f.address} onChange={(e) => up({ address: e.target.value })} placeholder="Medical room at the client site" /></Field>
-      <div className="sch-preview"><Icon name="info" size={14} /><span>Creates 15 minute free slots in the Meddbase diary. <DemoTag>Simulated</DemoTag></span></div>
+      <div className="sch-preview"><Icon name="info" size={14} /><span>Creates 15 minute free slots in the MediBase diary. <DemoTag>Simulated</DemoTag></span></div>
     </>;
   } else if (type === "task") {
     body = <>

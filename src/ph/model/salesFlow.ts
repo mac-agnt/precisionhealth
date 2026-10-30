@@ -81,15 +81,15 @@ export function seedSalesFlow(state: PhState): void {
     const arrivedAt = addMinutes(now, -3);
     const lead: SalesLead = {
       id: SALES_INBOUND_LEAD_ID, company: "Brennan Build Group", fictionalCompany: true, services: ["health_screening", "flu"],
-      contact: { name: "Aoife Brennan", role: "HR and Safety Manager (fictional)", email: "aoife.brennan@example.com", phone: "+353 45 555 0188" },
+      contact: { name: "Aoife Brennan", role: "HR and Safety Manager", email: "aoife.brennan@example.com", phone: "+353 45 555 0188" },
       source: "website", sourceRef: "Website enquiry form", receivedOn: localDateOf(arrivedAt),
       enquiry: "Hi, we are a construction company with about 45 staff between our Naas office and a site in Kildare. We would like health screening for the team and flu vaccines if possible, ideally in November. Could someone call me back?",
       stage: "new", stageAt: arrivedAt, ownerId: "stephen", nextAction: "First reply within 10 minutes", nextActionOn: localDateOf(arrivedAt),
-      invoiceName: "Brennan Build Group Ltd (fictional)", invoiceEmail: "accounts.ld0020@example.com",
+      invoiceName: "Brennan Build Group Ltd", invoiceEmail: "accounts.ld0020@example.com",
       companyDetails: "Fictional construction company for the demo. Office in Naas and one site in Kildare.",
       qualifier: { headcount: 45, sites: 2, dates: "November", budget: "unknown" }, research: null, files: [],
       history: [
-        { at: arrivedAt, by: "Website form (simulated)", text: "Enquiry received from the website form." },
+        { at: arrivedAt, by: "Website form", text: "Enquiry received from the website form." },
         { at: arrivedAt, by: "Sales agent", text: "Added to New contact leads. First reply due within 10 minutes." },
       ],
       lostReason: null, handoverTaskId: null,
@@ -439,6 +439,31 @@ export function salesUpgradeIds(pkg: string, items: SalesPriceItem[]): string[] 
 
 export interface SalesUpsell { id: string; title: string; detail: string; delta: number; apply: Partial<SalesBuilderInput> }
 /** One-click suggestions for the builder, with what each adds to the total. */
+/* Names a client understands, with one line on what is in it. The price list code stays in brackets
+   so Stephen can still match it to the price list. */
+const PACKAGE_COPY: Record<string, [string, string]> = {
+  poc3: ["Point-of-care health check", "Finger-prick tests with results on the day. No lab visit needed."],
+  poc4: ["Point-of-care health check plus", "A wider point-of-care check. Contents to confirm."],
+  poc5: ["Point-of-care health check premium", "The widest point-of-care check. Contents to confirm."],
+  silver1: ["Silver health screening", "Lab bloods with a full health check and a doctor-reviewed report."],
+  silver2: ["Silver with heart rhythm check", "Silver, plus a quick screen for an irregular heartbeat."],
+  silver3: ["Silver with full ECG", "Silver, plus a full 12-lead ECG of the heart."],
+  gold1: ["Gold health screening", "Everything in Silver, plus a wider blood panel: blood count, iron, uric acid and kidneys."],
+  gold2: ["Gold with heart rhythm check", "Gold, plus a quick screen for an irregular heartbeat."],
+  gold3: ["Gold with full ECG", "Gold, plus a full 12-lead ECG of the heart."],
+  exec: ["Executive health assessment", "One hour each: 30 minutes with a practitioner and 30 with a doctor."],
+  flu: ["Flu vaccination", "Seasonal flu vaccine given on site."],
+};
+/** Client-facing package name, for example "Gold health screening (Gold 1)". */
+export function salesPackageTitle(it: Pick<SalesPriceItem, "id" | "code" | "name">): string {
+  const c = PACKAGE_COPY[it.id];
+  return c ? `${c[0]} (${it.code})` : it.name;
+}
+/** One plain line on what the package includes. */
+export function salesPackageBlurb(it: Pick<SalesPriceItem, "id" | "includes">): string {
+  return PACKAGE_COPY[it.id]?.[1] || it.includes;
+}
+
 export function salesUpsells(input: SalesBuilderInput, items: SalesPriceItem[]): SalesUpsell[] {
   const out: SalesUpsell[] = [];
   const by = (id: string) => items.find((i) => i.id === id);
@@ -452,9 +477,8 @@ export function salesUpsells(input: SalesBuilderInput, items: SalesPriceItem[]):
   const up = pkg ? next[pkg] : null;
   const upItem = up ? by(up) : undefined;
   if (pkg && upItem && upItem.price !== null && cost(up) > cost(pkg)) {
-    const from = by(pkg)?.name || pkg;
     const isSilver = pkg.startsWith("silver");
-    out.push({ id: `upgrade-${up}`, title: isSilver ? `Silver to Gold: ${upItem.name}` : `Upgrade ${from} to ${upItem.name}`, detail: upItem.includes, delta: cost(up) - cost(pkg), apply: { packageId: up } });
+    out.push({ id: `upgrade-${up}`, title: isSilver ? `Silver to Gold: ${salesPackageTitle(upItem)}` : `Upgrade to ${salesPackageTitle(upItem)}`, detail: salesPackageBlurb(upItem), delta: cost(up) - cost(pkg), apply: { packageId: up } });
   }
   const ex = by("exec");
   if (ex && ex.price !== null && input.execCount === 0) {

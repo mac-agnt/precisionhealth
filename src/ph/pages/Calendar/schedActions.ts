@@ -1,5 +1,5 @@
 /* Calendar scheduling actions, registered at import time. "+ Schedule" creates the real thing:
-   a task goes into Work, a flu clinic into Flu, a Meddbase session into Occupational Health, and the
+   a task goes into Work, a flu clinic into Flu, a MediBase session into Occupational Health, and the
    rest (meetings, calls, emails, training, leave) into state.scheduled. Every item keeps a history
    (who, when, what changed) and writes one activity event. Emails are simulated.
    Any staff member can schedule; the participant preview cannot. A failed check changes nothing. */
@@ -111,7 +111,7 @@ function create(c: Ctx, a: { form: SchedForm }): ActionResult {
       const x = newItem(c, { ...f, title: tpl.subject, template: tpl.id, staffIds: staffIds.length ? staffIds : [me(c)] }, {});
       leadNote(c, x.leadId, `Follow up email "${tpl.subject}" scheduled for ${when(x.date, x.start)} (in the calendar)`);
       c.emit({ verb: "calendar.scheduled", simulated: true, summary: `${c.first()} scheduled a follow up email ("${tpl.subject}") to ${client} for ${when(x.date, x.start)}. Simulated: nothing is sent.` });
-      return c.ok(`Follow up email to ${client} scheduled for ${when(x.date, x.start)}. Simulated.`, "ok", x.id);
+      return c.ok(`Follow up email to ${client} scheduled for ${when(x.date, x.start)}.`, "ok", x.id);
     }
     case "results_out": case "rebooking": {
       const bad = checkTimes(c, f, true); if (bad) return bad;
@@ -119,7 +119,7 @@ function create(c: Ctx, a: { form: SchedForm }): ActionResult {
       const tpl = RET_DEFAULT_TEMPLATES[f.kind];
       const x = newItem(c, { ...f, title: tpl.subject.replace("{company}", client), staffIds: staffIds.length ? staffIds : [me(c)] }, {});
       c.emit({ verb: "calendar.scheduled", simulated: true, summary: `${c.first()} scheduled the ${tpl.name.toLowerCase()} email to ${client} for ${when(x.date, x.start)}. Simulated: nothing is sent.` });
-      return c.ok(`${tpl.name} email to ${client} scheduled for ${when(x.date, x.start)}. It is listed in Retention. Simulated.`, "ok", x.id);
+      return c.ok(`${tpl.name} email to ${client} scheduled for ${when(x.date, x.start)}. It is listed in Retention.`, "ok", x.id);
     }
     case "task": {
       const bad = checkTimes(c, f, false); if (bad) return bad;
@@ -175,8 +175,8 @@ function create(c: Ctx, a: { form: SchedForm }): ActionResult {
       oh.diaries.push({ id, clinicianName: st.name, clinicianRole: st.title, clinicianStaffId: st.id, date: f.date, clientId: oc.id, location: (f.address || "").trim() || "At the client site",
         start: f.start!, end: f.end, slotMinutes: 15, meddbaseRef: `MB-DIARY-${24100 + oh.seq.meddbaseRef}`, slots });
       newItem(c, { ...f, client: oc.name, title: `${oc.name}: occupational health`, staffIds: [adv] }, { ref: { kind: "oh", id } });
-      c.emit({ verb: "oh.session_scheduled", simulated: true, summary: `${c.first()} scheduled an occupational health session for ${oc.name} on ${when(f.date, f.start!)} to ${f.end} with ${st.name}. ${slots.length} free 15 minute slots. Simulated: Meddbase is not connected.` });
-      return c.ok(`Occupational health session for ${oc.name} on ${when(f.date, f.start!)} with ${st.name}. It is in Occupational Health, Meddbase sessions.`, "ok", id);
+      c.emit({ verb: "oh.session_scheduled", simulated: true, summary: `${c.first()} scheduled an occupational health session for ${oc.name} on ${when(f.date, f.start!)} to ${f.end} with ${st.name}. ${slots.length} free 15 minute slots. Simulated: MediBase is not connected.` });
+      return c.ok(`Occupational health session for ${oc.name} on ${when(f.date, f.start!)} with ${st.name}. It is in Occupational Health, MediBase sessions.`, "ok", id);
     }
     case "training": case "leave": {
       const bad = checkTimes(c, f, false); if (bad) return bad;
@@ -258,8 +258,8 @@ function move(c: Ctx, a: { calId: string; date: LocalDate; start?: Hhmm | null; 
     d.slots = d.slots.map((sl) => ({ ...sl, start: shift(d.start, to, sl.start) }));
     d.end = shift(d.start, to, d.end); d.start = to; d.date = a.date;
     if (x) { x.date = a.date; x.start = d.start; x.end = d.end; hist(c, x, `Moved from ${before} to ${when(d.date, d.start)}`); }
-    c.emit({ verb: "oh.rescheduled", simulated: true, summary: `${c.first()} moved the occupational health session ${d.id} from ${before} to ${when(d.date, d.start)}. Simulated: Meddbase is not connected.` });
-    return c.ok(`Session moved to ${when(d.date, d.start)}. Simulated in Meddbase.`);
+    c.emit({ verb: "oh.rescheduled", simulated: true, summary: `${c.first()} moved the occupational health session ${d.id} from ${before} to ${when(d.date, d.start)}. Simulated: MediBase is not connected.` });
+    return c.ok(`Session moved to ${when(d.date, d.start)}. Simulated in MediBase.`);
   }
   if (kind === "lead") {
     const l = leadOf(c, rawId);
@@ -309,7 +309,7 @@ function cancel(c: Ctx, a: { id: string }): ActionResult {
     if (fc) fc.status = "cancelled";
   } else if (x.ref?.kind === "oh") {
     const d = c.s.occHealth.diaries.find((y) => y.id === x.ref!.id);
-    if (d && d.slots.some((sl) => sl.kind === "booked")) return c.fail("People are booked into that session. Move them in Meddbase first.");
+    if (d && d.slots.some((sl) => sl.kind === "booked")) return c.fail("People are booked into that session. Move them in MediBase first.");
     c.s.occHealth.diaries = c.s.occHealth.diaries.filter((y) => y.id !== x.ref!.id);
   }
   x.status = "cancelled";
@@ -341,9 +341,9 @@ function sendNow(c: Ctx, a: { id: string }): ActionResult {
   if (!x || !SCHED_EMAIL_KINDS.includes(x.kind)) return c.fail("That is not a scheduled email.");
   if (x.status !== "scheduled") return c.fail(x.status === "done" ? "Already sent." : "That email was cancelled.");
   x.status = "done"; x.doneAt = c.stamp();
-  hist(c, x, "Sent now (simulated)");
+  hist(c, x, "Sent now");
   if (x.kind === "follow_up") {
-    leadNote(c, x.leadId, `Email: "${x.title}" sent to ${x.contact || "the contact"} (simulated)`);
+    leadNote(c, x.leadId, `Email: "${x.title}" sent to ${x.contact || "the contact"}`);
   } else {
     const o = c.s.onboarding;
     o.seq.email += 1;
@@ -351,7 +351,7 @@ function sendNow(c: Ctx, a: { id: string }): ActionResult {
     o.emails.push({ id: `EM-${pad(o.seq.email, 4)}`, template: tpl.id, company: x.client || "", toName: x.contact || "HR contact", toEmail: x.contactEmail || "", subject: x.title, body: "", sentAt: x.doneAt, sentBy: c.persona().name, ref: x.id });
   }
   c.emit({ verb: "calendar.email_sent", simulated: true, summary: `${c.first()} sent "${x.title}" to ${x.contact || x.client || "the contact"}. Simulated: nothing left this demo.` });
-  return c.ok(`Sent to ${x.contact || x.client} (simulated).`);
+  return c.ok(`Sent to ${x.contact || x.client}.`);
 }
 
 /** Log a call against a lead from its calendar event, optionally moving the next step date. */

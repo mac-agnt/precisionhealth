@@ -39,7 +39,7 @@ export const SALES_SOURCE_LABEL: Record<SalesSource, string> = {
   website: "Website",
   referral: "Referral",
   irish_life: "Irish Life",
-  recall: "Recall",
+  recall: "Retention",
   tender: "Tender",
 };
 
@@ -544,7 +544,7 @@ export function salesQualifierSizing(lead: SalesLead, items: SalesPriceItem[]): 
     const e = by("exec");
     if (e && e.price !== null) out.push(`Executive Health Assessment: ${salesEurRange(n * e.price, n * (e.priceMax ?? e.price))} for ${n}, up to ${salesCapacity(e).perDay} a day.`);
   }
-  if (lead.services.includes("occupational_health")) out.push("Occupational health is quoted as a service proposal with a Meddbase appendix, not from this price list.");
+  if (lead.services.includes("occupational_health")) out.push("Occupational health is quoted as a service proposal with a MediBase appendix, not from this price list.");
   if (lead.services.includes("wellness_talk")) out.push("Wellness talks are not on the price list. Quote the agreed rate.");
   return out;
 }
@@ -688,8 +688,8 @@ const RESEARCH_EXTRA: Record<string, string> = {
   "ibec": "The enquiry is flu only and the numbers are large enough for a dedicated clinic day. Ask whether staff work from one office, and whether a second date is needed for people who miss the first.",
   "aryzta ireland": "Shift work across two sites means early clinics. Ask for shift start times so the vaccinators arrive before the first break.",
   "collen construction": "Site and office staff suggests a POC3 day at the office plus a site visit. Ask about a room at the site compound and parking for the clinic vehicle.",
-  "utmost": "Occupational health, not screening: pre-employment medicals and management referrals. Send the OH brochure, then a service proposal with the Meddbase appendix and the onboarding link.",
-  "corrib air charter": "Recruitment testing for flight crew: psychological assessment and drug testing, delivered as occupational health. Brochure, meeting, then a service proposal with the Meddbase appendix.",
+  "utmost": "Occupational health, not screening: pre-employment medicals and management referrals. Send the OH brochure, then a service proposal with the MediBase appendix and the onboarding link.",
+  "corrib air charter": "Recruitment testing for flight crew: psychological assessment and drug testing, delivered as occupational health. Brochure, meeting, then a service proposal with the MediBase appendix.",
   "comreg": "A single lunchtime talk during a wellbeing week. A good route to a screening day later in the year.",
   "issu": "Audience is student officers, so a talk rather than screening. Keep the content general.",
   "limerick twenty thirty": "Referred through Irish Life. A small team suits one POC3 day.",
@@ -718,7 +718,7 @@ export function salesResearchText(lead: SalesLead): string {
 
 const at = (d: LocalDate, t: Hhmm): Iso => dublinToUtc(d, t);
 const STEPHEN = "Stephen Kelly";
-const HS = "Help Scout (simulated)";
+const HS = "Help Scout";
 
 export const SALES_PRICE_SEED: SalesPriceItem[] = [
   { id: "poc3", code: "POC3", name: "POC3 programme", family: "poc", includes: "Point-of-care screening day. No laboratory needed.", unit: "day", price: 1910, priceMax: null, minutes: null, perDay: 25, status: "confirmed",
@@ -753,74 +753,74 @@ interface LeadSeed {
 }
 
 const LEAD_SEEDS: LeadSeed[] = [
-  { id: "LD-0001", company: "IBEC", services: ["flu"], contact: ["Gráinne Lacey", "HR Manager (fictional)", "grainne.lacey@example.com", "+353 1 555 0141"], source: "helpscout", ref: "HS-58731", on: "2026-10-01",
+  { id: "LD-0001", company: "IBEC", services: ["flu"], contact: ["Gráinne Lacey", "HR Manager", "grainne.lacey@example.com", "+353 1 555 0141"], source: "helpscout", ref: "HS-58731", on: "2026-10-01",
     enquiry: "We would like to run flu vaccinations for our staff this autumn. We have about 115 employees, mostly in our Dublin office. Could you send pricing and the dates you have in October or November?",
     stage: "new", stageOn: "2026-10-01", next: "Reply with flu pricing and confirm when vaccine supply is expected", nextOn: "2026-10-05",
     details: "Dublin office. About 115 employees (from the enquiry). Registered details to confirm.", q: [115, 1, "October or November", "unknown"] },
-  { id: "LD-0002", company: "ARYZTA Ireland", services: ["flu"], contact: ["Ciarán Mulvey", "Facilities and Safety Lead (fictional)", "ciaran.mulvey@example.com", "+353 1 555 0147"], source: "website", ref: null, on: "2026-09-29",
+  { id: "LD-0002", company: "ARYZTA Ireland", services: ["flu"], contact: ["Ciarán Mulvey", "Facilities and Safety Lead", "ciaran.mulvey@example.com", "+353 1 555 0147"], source: "website", ref: null, on: "2026-09-29",
     enquiry: "Looking for onsite flu vaccination across two sites for shift staff, including an early-morning clinic. Roughly 180 staff in total.",
     stage: "new", stageOn: "2026-09-29", next: "Ask for site addresses and shift start times", nextOn: "2026-10-06",
     details: "Two sites with shift work (from the enquiry). Addresses to confirm.", q: [180, 2, "Late October, early shifts", "within_range"] },
-  { id: "LD-0003", company: "Collen Construction", services: ["health_screening"], contact: ["Aoibheann Tracey", "HR Advisor (fictional)", "aoibheann.tracey@example.com", "+353 1 555 0152"], source: "helpscout", ref: "HS-58702", on: "2026-09-24",
+  { id: "LD-0003", company: "Collen Construction", services: ["health_screening"], contact: ["Aoibheann Tracey", "HR Advisor", "aoibheann.tracey@example.com", "+353 1 555 0152"], source: "helpscout", ref: "HS-58702", on: "2026-09-24",
     enquiry: "We are interested in health screening for site and office staff, around 60 people, possibly across our Dublin office and one site compound.",
     stage: "new", stageOn: "2026-09-24", next: "Finish the draft proposal (POC3, 3 days) and send", nextOn: "2026-10-07",
     details: "Office plus one site compound (from the enquiry).", q: [60, 2, "November", "unknown"] },
-  { id: "LD-0004", company: "Utmost", services: ["occupational_health"], contact: ["Lorcan Breslin", "Head of People (fictional)", "lorcan.breslin@example.com", "+353 1 555 0158"], source: "referral", ref: null, on: "2026-09-18",
+  { id: "LD-0004", company: "Utmost", services: ["occupational_health"], contact: ["Lorcan Breslin", "Head of People", "lorcan.breslin@example.com", "+353 1 555 0158"], source: "referral", ref: null, on: "2026-09-18",
     enquiry: "We need an occupational health provider for pre-employment medicals and management referrals. Can you outline how onboarding works?",
     stage: "new", stageOn: "2026-09-18", next: "Send the OH brochure and book an introductory meeting", nextOn: "2026-10-02",
     details: "Referral from an existing client contact. Headcount to confirm.", q: [null, 1, "From January 2027", "unknown"] },
-  { id: "LD-0005", company: "Corrib Air Charter", fictional: true, services: ["occupational_health"], contact: ["Saoirse Kinsella", "Recruitment Manager (fictional)", "saoirse.kinsella@example.com", "+353 91 555 0163"], source: "helpscout", ref: "HS-58690", on: "2026-09-22",
+  { id: "LD-0005", company: "Corrib Air Charter", fictional: true, services: ["occupational_health"], contact: ["Saoirse Kinsella", "Recruitment Manager", "saoirse.kinsella@example.com", "+353 91 555 0163"], source: "helpscout", ref: "HS-58690", on: "2026-09-22",
     enquiry: "We are recruiting flight crew and need psychological assessment and drug testing as part of recruitment. About 20 candidates per intake.",
     stage: "new", stageOn: "2026-09-22", next: "Meeting to scope recruitment testing", nextOn: "2026-10-09",
     details: "Fictional aviation business for the demo. Recruitment intakes several times a year.", q: [20, 1, "Next intake in November", "within_range"],
     files: [["Occupational health brochure.pdf", "brochure", "2026-09-23"]] },
-  { id: "LD-0006", company: "ComReg", services: ["wellness_talk"], contact: ["Méabh Carolan", "Wellbeing Committee Chair (fictional)", "meabh.carolan@example.com", "+353 1 555 0169"], source: "website", ref: null, on: "2026-09-30",
+  { id: "LD-0006", company: "ComReg", services: ["wellness_talk"], contact: ["Méabh Carolan", "Wellbeing Committee Chair", "meabh.carolan@example.com", "+353 1 555 0169"], source: "website", ref: null, on: "2026-09-30",
     enquiry: "Could you deliver a lunchtime wellness talk on heart health during our wellbeing week in November?",
     stage: "new", stageOn: "2026-09-30", next: "Propose two talk dates in wellbeing week", nextOn: "2026-10-08",
     details: "Dublin office. Wellbeing week in mid November (from the enquiry).", q: [80, 1, "Wellbeing week, mid November", "unknown"] },
-  { id: "LD-0007", company: "ISSU", services: ["wellness_talk"], contact: ["Tomás Breathnach", "Welfare Officer (fictional)", "tomas.breathnach@example.com", "+353 1 555 0172"], source: "helpscout", ref: "HS-58719", on: "2026-09-28",
+  { id: "LD-0007", company: "ISSU", services: ["wellness_talk"], contact: ["Tomás Breathnach", "Welfare Officer", "tomas.breathnach@example.com", "+353 1 555 0172"], source: "helpscout", ref: "HS-58719", on: "2026-09-28",
     enquiry: "We are planning a wellbeing event for student officers and would like a talk on looking after your health, with information about screening.",
     stage: "new", stageOn: "2026-09-28", next: "Reply with talk options and confirm audience size", nextOn: "2026-10-06",
     details: "Event for student officers. Venue to confirm.", q: [null, 1, "", "unknown"] },
-  { id: "LD-0008", company: "Limerick Twenty Thirty", services: ["health_screening"], contact: ["Clíodhna Hartigan", "Office Manager (fictional)", "cliodhna.hartigan@example.com", "+353 61 555 0178"], source: "irish_life", ref: "Irish Life referral", on: "2026-09-26",
+  { id: "LD-0008", company: "Limerick Twenty Thirty", services: ["health_screening"], contact: ["Clíodhna Hartigan", "Office Manager", "cliodhna.hartigan@example.com", "+353 61 555 0178"], source: "irish_life", ref: "Irish Life referral", on: "2026-09-26",
     enquiry: "Irish Life suggested we contact you about health screening for our team of about 30.",
     stage: "new", stageOn: "2026-09-26", next: "Call to qualify package and dates", nextOn: "2026-10-05",
     details: "Limerick office. About 30 staff (from the enquiry).", q: [30, 1, "", "unknown"] },
-  { id: "LD-0009", company: "O'Callaghan Collection", services: ["health_screening", "flu"], contact: ["Bríd Fennelly", "Group HR Manager (fictional)", "brid.fennelly@example.com", "+353 1 555 0183"], source: "helpscout", ref: "HS-58544", on: "2026-09-15",
+  { id: "LD-0009", company: "O'Callaghan Collection", services: ["health_screening", "flu"], contact: ["Bríd Fennelly", "Group HR Manager", "brid.fennelly@example.com", "+353 1 555 0183"], source: "helpscout", ref: "HS-58544", on: "2026-09-15",
     enquiry: "We would like a health screening day for our hotel teams, around 40 to 45 people, and flu vaccines at the same visit if possible.",
     stage: "proposal_sent", stageOn: "2026-09-18", next: "Follow up on proposal v2 and confirm flu numbers", nextOn: "2026-10-06",
     details: "Hotel group. One site for the clinic, room to confirm.", q: [45, 1, "Early November", "within_range"],
     extra: [["2026-09-25", "15:10", STEPHEN, "Client asked to add flu vaccines at the same visit. Proposal v2 to follow."]] },
-  { id: "LD-0010", company: "RWE", services: ["executive"], contact: ["Hugh Dempsey", "HR Director (fictional)", "hugh.dempsey@example.com", "+353 1 555 0187"], source: "referral", ref: null, on: "2026-09-10",
+  { id: "LD-0010", company: "RWE", services: ["executive"], contact: ["Hugh Dempsey", "HR Director", "hugh.dempsey@example.com", "+353 1 555 0187"], source: "referral", ref: null, on: "2026-09-10",
     enquiry: "Executive health assessments for our senior leadership team, about 8 people, ideally before year end.",
     stage: "proposal_sent", stageOn: "2026-09-21", next: "Chase a decision on executive assessments", nextOn: "2026-10-03",
     details: "Senior leadership team of about 8 (from the enquiry).", q: [8, 1, "Before year end", "approved"] },
-  { id: "LD-0011", company: "IQ Resource", services: ["health_screening"], contact: ["Eimear Cosgrave", "Operations Director (fictional)", "eimear.cosgrave@example.com", "+353 1 555 0191"], source: "website", ref: null, on: "2026-09-08",
+  { id: "LD-0011", company: "IQ Resource", services: ["health_screening"], contact: ["Eimear Cosgrave", "Operations Director", "eimear.cosgrave@example.com", "+353 1 555 0191"], source: "website", ref: null, on: "2026-09-08",
     enquiry: "Enhanced health screening with bloods for about 25 staff.",
     stage: "proposal_sent", stageOn: "2026-09-17", next: "Call to discuss Gold 1 against Silver 2", nextOn: "2026-10-08",
     details: "One office, about 25 staff.", q: [25, 1, "October", "price_sensitive"] },
-  { id: "LD-0012", company: "PJ Edwards", services: ["health_screening", "flu"], contact: ["Diarmuid Lenihan", "Health and Safety Manager (fictional)", "diarmuid.lenihan@example.com", "+353 1 555 0194"], source: "helpscout", ref: "HS-58611", on: "2026-09-16",
+  { id: "LD-0012", company: "PJ Edwards", services: ["health_screening", "flu"], contact: ["Diarmuid Lenihan", "Health and Safety Manager", "diarmuid.lenihan@example.com", "+353 1 555 0194"], source: "helpscout", ref: "HS-58611", on: "2026-09-16",
     enquiry: "Screening and flu for our site staff, 60 to 70 people.",
     stage: "proposal_sent", stageOn: "2026-09-25", next: "Confirm site access and parking for the clinic days", nextOn: "2026-10-12",
     details: "Site staff. Access and parking to confirm.", q: [70, 1, "November", "within_range"] },
-  { id: "LD-0013", company: "LinkedIn", services: ["health_screening"], contact: ["Orlagh Prendergast", "Wellbeing Lead (fictional)", "orlagh.prendergast@example.com", "+353 1 555 0136"], source: "referral", ref: null, on: "2026-08-27",
+  { id: "LD-0013", company: "LinkedIn", services: ["health_screening"], contact: ["Orlagh Prendergast", "Wellbeing Lead", "orlagh.prendergast@example.com", "+353 1 555 0136"], source: "referral", ref: null, on: "2026-08-27",
     enquiry: "Cardiac health screening for staff in October.",
     stage: "won", stageOn: "2026-09-09", next: "Booking page live. Clinic on 16 Oct", nextOn: "2026-10-16",
     details: "Dublin office. Cardiac screening, booking by time slot.", q: [40, 1, "16 October", "approved"] },
-  { id: "LD-0014", company: "IRFU", services: ["health_screening"], contact: ["Colm Brannigan", "Operations Manager (fictional)", "colm.brannigan@example.com", "+353 1 555 0131"], source: "referral", ref: null, on: "2026-09-03",
+  { id: "LD-0014", company: "IRFU", services: ["health_screening"], contact: ["Colm Brannigan", "Operations Manager", "colm.brannigan@example.com", "+353 1 555 0131"], source: "referral", ref: null, on: "2026-09-03",
     enquiry: "A Gold 3 screening day on 1 December.",
     stage: "won", stageOn: "2026-09-19", next: "Confirm room and parking for 1 Dec, 09:30 start", nextOn: "2026-11-17",
     details: "One site. Gold 3, 09:30 start.", q: [20, 1, "1 December", "approved"] },
-  { id: "LD-0015", company: "Dornan Group", services: ["health_screening"], contact: ["Rhona Keaveney", "HR Partner (fictional)", "rhona.keaveney@example.com", "+353 1 555 0127"], source: "helpscout", ref: "HS-58377", on: "2026-08-12",
+  { id: "LD-0015", company: "Dornan Group", services: ["health_screening"], contact: ["Rhona Keaveney", "HR Partner", "rhona.keaveney@example.com", "+353 1 555 0127"], source: "helpscout", ref: "HS-58377", on: "2026-08-12",
     enquiry: "Bespoke male and female screening across several sites.",
     stage: "won", stageOn: "2026-09-02", next: "Site schedule agreed with Martina", nextOn: "2026-10-20",
     details: "Several sites. Bespoke male and female packages.", q: [140, 4, "October and November", "approved"],
     files: [["Bespoke proposal, sent before Pulse.pdf", "proposal", "2026-08-21"]] },
-  { id: "LD-0016", company: "Shannon Estuary Foods", fictional: true, services: ["health_screening"], contact: ["Gerry Mullane", "Plant Manager (fictional)", "gerry.mullane@example.com", "+353 61 555 0123"], source: "website", ref: null, on: "2026-07-14",
+  { id: "LD-0016", company: "Shannon Estuary Foods", fictional: true, services: ["health_screening"], contact: ["Gerry Mullane", "Plant Manager", "gerry.mullane@example.com", "+353 61 555 0123"], source: "website", ref: null, on: "2026-07-14",
     enquiry: "Health screening for about 100 production staff over two shifts.",
     stage: "lost", stageOn: "2026-08-20", next: "Revisit in spring 2027", nextOn: null,
     details: "Fictional company for the demo. Production site, two shifts.", q: [100, 1, "September", "price_sensitive"], lost: "Chose a lower-cost provider." },
-  { id: "LD-0017", company: "Kilbarry Data Services", fictional: true, services: ["flu"], contact: ["Ailbhe Rourke", "Office Manager (fictional)", "ailbhe.rourke@example.com", "+353 21 555 0119"], source: "helpscout", ref: "HS-58402", on: "2026-08-19",
+  { id: "LD-0017", company: "Kilbarry Data Services", fictional: true, services: ["flu"], contact: ["Ailbhe Rourke", "Office Manager", "ailbhe.rourke@example.com", "+353 21 555 0119"], source: "helpscout", ref: "HS-58402", on: "2026-08-19",
     enquiry: "Do you offer flu vaccination for a small office of about 25?",
     stage: "lost", stageOn: "2026-09-01", next: "Revisit next autumn", nextOn: null,
     details: "Fictional company for the demo. Cork office.", q: [25, 1, "October", "price_sensitive"], lost: "No budget this year. Revisit in 2027." },
@@ -874,21 +874,21 @@ const ENGAGEMENT_SEEDS: SalesEngagement[] = [
 ];
 
 const TENDER_SEEDS: SalesTender[] = [
-  { id: "TW-01", title: "Employee health screening framework (fictional notice)", buyer: "A national semi-state body (fictional)", service: "health_screening", publishedOn: "2026-09-21", closesOn: "2026-10-30", valueText: "Framework, value not stated", status: "watching", leadId: null },
-  { id: "TW-02", title: "Occupational health services, regional council (fictional notice)", buyer: "A regional local authority (fictional)", service: "occupational_health", publishedOn: "2026-09-28", closesOn: "2026-11-13", valueText: "Estimated value not stated", status: "watching", leadId: null },
-  { id: "TW-03", title: "Staff flu vaccination 2026 (fictional notice)", buyer: "A third-level institute (fictional)", service: "flu", publishedOn: "2026-09-14", closesOn: "2026-10-16", valueText: "About 600 staff", status: "preparing", leadId: null },
-  { id: "TW-04", title: "Wellness talks programme 2027 (fictional notice)", buyer: "A public agency (fictional)", service: "wellness_talk", publishedOn: "2026-10-01", closesOn: "2026-12-04", valueText: "12 talks over the year", status: "watching", leadId: null },
-  { id: "TW-05", title: "Executive health assessments (fictional notice)", buyer: "A state company (fictional)", service: "executive", publishedOn: "2026-08-24", closesOn: "2026-09-25", valueText: "Up to 40 assessments", status: "not_bidding", leadId: null },
+  { id: "TW-01", title: "Employee health screening framework", buyer: "A national semi-state body", service: "health_screening", publishedOn: "2026-09-21", closesOn: "2026-10-30", valueText: "Framework, value not stated", status: "watching", leadId: null },
+  { id: "TW-02", title: "Occupational health services, regional council", buyer: "A regional local authority", service: "occupational_health", publishedOn: "2026-09-28", closesOn: "2026-11-13", valueText: "Estimated value not stated", status: "watching", leadId: null },
+  { id: "TW-03", title: "Staff flu vaccination 2026", buyer: "A third-level institute", service: "flu", publishedOn: "2026-09-14", closesOn: "2026-10-16", valueText: "About 600 staff", status: "preparing", leadId: null },
+  { id: "TW-04", title: "Wellness talks programme 2027", buyer: "A public agency", service: "wellness_talk", publishedOn: "2026-10-01", closesOn: "2026-12-04", valueText: "12 talks over the year", status: "watching", leadId: null },
+  { id: "TW-05", title: "Executive health assessments", buyer: "A state company", service: "executive", publishedOn: "2026-08-24", closesOn: "2026-09-25", valueText: "Up to 40 assessments", status: "not_bidding", leadId: null },
 ];
 
 const INBOX_SEEDS: SalesInboxItem[] = [
-  { id: "HS-58744", receivedAt: at("2026-10-03", "14:20"), company: "Slaney Valley Credit Union", fictionalCompany: true, contactName: "Muireann Kehoe", contactRole: "Operations Manager (fictional)", contactEmail: "muireann.kehoe@example.com", phone: "+353 53 555 0114",
+  { id: "HS-58744", receivedAt: at("2026-10-03", "14:20"), company: "Slaney Valley Credit Union", fictionalCompany: true, contactName: "Muireann Kehoe", contactRole: "Operations Manager", contactEmail: "muireann.kehoe@example.com", phone: "+353 53 555 0114",
     subject: "Screening morning and a talk for our staff", body: "Could you quote for a health screening morning and a short wellness talk for 22 staff? We are flexible on dates before Christmas.",
     services: ["health_screening", "wellness_talk"], headcount: 22, status: "unassigned", leadId: null },
-  { id: "HS-58751", receivedAt: at("2026-10-04", "09:05"), company: "Tralee Bay Hotels", fictionalCompany: true, contactName: "Séamus Brosnan", contactRole: "General Manager (fictional)", contactEmail: "seamus.brosnan@example.com", phone: "+353 66 555 0117",
+  { id: "HS-58751", receivedAt: at("2026-10-04", "09:05"), company: "Tralee Bay Hotels", fictionalCompany: true, contactName: "Séamus Brosnan", contactRole: "General Manager", contactEmail: "seamus.brosnan@example.com", phone: "+353 66 555 0117",
     subject: "Flu jabs for hotel staff", body: "Are you able to do flu jabs for about 70 hotel staff in late October? Mornings suit us best.",
     services: ["flu"], headcount: 70, status: "unassigned", leadId: null },
-  { id: "HS-58753", receivedAt: at("2026-10-05", "07:48"), company: "Athenry Engineering", fictionalCompany: true, contactName: "Niall Furey", contactRole: "Health and Safety Officer (fictional)", contactEmail: "niall.furey@example.com", phone: "+353 91 555 0121",
+  { id: "HS-58753", receivedAt: at("2026-10-05", "07:48"), company: "Athenry Engineering", fictionalCompany: true, contactName: "Niall Furey", contactRole: "Health and Safety Officer", contactEmail: "niall.furey@example.com", phone: "+353 91 555 0121",
     subject: "Night worker assessments and skin surveillance", body: "We need a provider for night worker assessments and skin surveillance for about 40 staff. Can you tell us how you would set this up?",
     services: ["occupational_health"], headcount: 40, status: "unassigned", leadId: null },
 ];
@@ -949,7 +949,7 @@ export function initialSalesState(): SalesState {
       contact: { name: x.contact[0], role: x.contact[1], email: x.contact[2], phone: x.contact[3] },
       source: x.source, sourceRef: x.ref, receivedOn: x.on, enquiry: x.enquiry, stage: x.stage, stageAt: at(x.stageOn, "16:00"), ownerId: "stephen",
       nextAction: x.next, nextActionOn: x.nextOn,
-      invoiceName: x.fictional ? `${x.company} Ltd (fictional)` : `${x.company} (invoice entity to confirm)`,
+      invoiceName: x.fictional ? `${x.company} Ltd` : `${x.company} (invoice entity to confirm)`,
       invoiceEmail: `accounts.${x.id.toLowerCase().replace("-", "")}@example.com`,
       companyDetails: x.details, qualifier: { headcount: x.q[0], sites: x.q[1], dates: x.q[2], budget: x.q[3] },
       research: null, files, history, lostReason: x.lost || null, handoverTaskId: null,

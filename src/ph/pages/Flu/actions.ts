@@ -63,11 +63,11 @@ registerHandlers({
     if (a.live) {
       c.emit({ verb: "flu.precision_live", simulated: true, summary: `${c.first()} marked flu vaccine supply as arrived and opened Precision flu bookings. ${plural(waiting.length, "waiting request")} can now be slotted into weeks. Simulated: no booking link outside this demo was changed.` });
       return st.onHand > 0
-        ? c.ok(`Precision flu bookings are live (Simulated). ${plural(waiting.length, "request")} ready to slot on Bookings by week.`)
-        : c.ok(`Precision flu bookings are live (Simulated). No vaccines are recorded in stock yet: record the delivery on Vaccine stock so allocations are covered.`, "warn");
+        ? c.ok(`Precision flu bookings are live. ${plural(waiting.length, "request")} ready to slot on Bookings by week.`)
+        : c.ok(`Precision flu bookings are live. No vaccines are recorded in stock yet: record the delivery on Vaccine stock so allocations are covered.`, "warn");
     }
     c.emit({ verb: "flu.precision_paused", simulated: true, summary: `${c.first()} set Precision flu bookings back to waiting for vaccine supply. Simulated: booking links would show the waiting message.` });
-    return c.ok("Precision flu bookings are waiting for vaccine supply again (Simulated).", "info");
+    return c.ok("Precision flu bookings are waiting for vaccine supply again.", "info");
   },
 
   /* A submission from the Irish Life Health flu booking form lands on the Irish Life Flu board. */
@@ -87,7 +87,7 @@ registerHandlers({
     });
     f.intake.ilh += 1;
     c.emit({ verb: "flu.ilh_booking", simulated: true, summary: `ILH Flu booking form: ${sample.company} booked ${sample.projected} projected vaccinations for ${fmtWeekdayDate(sample.date)} at ${sample.start}. Added to the Irish Life Flu board under week beginning ${fmtWeekdayDate(startOfWeek(sample.date))}, nurse to assign. Simulated submission.` });
-    return c.ok(`ILH Flu booking received for ${sample.company}: ${sample.projected} projected on ${fmtWeekdayDate(sample.date)} (Simulated).`, "ok", id);
+    return c.ok(`ILH Flu booking received for ${sample.company}: ${sample.projected} projected on ${fmtWeekdayDate(sample.date)}.`, "ok", id);
   },
 
   /* A request through Precision's own flu booking link. Blocked until supply arrives. */
@@ -107,7 +107,7 @@ registerHandlers({
     });
     f.intake.precision += 1;
     c.emit({ verb: "flu.precision_request", simulated: true, summary: `Precision flu booking link: ${sample.company} asked for ${sample.projected} vaccinations in the week beginning ${fmtWeekdayDate(sample.preferredWeek)}. Waiting to be slotted. Simulated request.` });
-    return c.ok(`Precision flu request received from ${sample.company} (Simulated). Slot it into a week from the request list.`, "ok", id);
+    return c.ok(`Precision flu request received from ${sample.company}. Slot it into a week from the request list.`, "ok", id);
   },
 
   /* Slot a Precision request into a day and start time once bookings are live. */
@@ -207,7 +207,7 @@ registerHandlers({
     o.status = "delivered"; o.deliveredOn = a.deliveredOn;
     const st = fluStock(f, o.season);
     c.emit({ verb: "flu.delivery", simulated: true, summary: `${c.first()} recorded delivery of order ${o.id}: ${fmtInt(o.quantity)} doses, batch ${code} Exp ${exp}, received ${fmtWeekdayDate(a.deliveredOn)}. Stock on hand ${fmtInt(st.onHand)}, allocated ${fmtInt(st.allocated)}. Simulated: recorded from the delivery docket, no supplier system was contacted.` });
-    return c.ok(`Delivery recorded: ${fmtInt(o.quantity)} doses of batch ${code} Exp ${exp} (Simulated). Stock on hand ${fmtInt(st.onHand)}.`, st.onHand < st.allocated ? "warn" : "ok", id);
+    return c.ok(`Delivery recorded: ${fmtInt(o.quantity)} doses of batch ${code} Exp ${exp}. Stock on hand ${fmtInt(st.onHand)}.`, st.onHand < st.allocated ? "warn" : "ok", id);
   },
 
   /* A new line in the Flu Vaccine Order Records. */
@@ -222,7 +222,7 @@ registerHandlers({
     const id = fluNextId(`FVO-${yy(FLU_SEASON_CURRENT)}-`, f.orders.map((o) => o.id), 2);
     f.orders.push({ id, season: FLU_SEASON_CURRENT, supplier, quantity: a.quantity, orderedOn: today(c.s), expectedOn: a.expectedOn, status: "on_order", deliveredOn: null, sampleBatch: null, note: String(a.note || "").trim().slice(0, 200) });
     c.emit({ verb: "flu.order", simulated: true, summary: `${c.first()} added vaccine order ${id}: ${fmtInt(a.quantity)} doses from ${supplier}, expected ${fmtWeekdayDate(a.expectedOn)}. Simulated: no order was sent to a supplier.` });
-    return c.ok(`Order ${id} added: ${fmtInt(a.quantity)} doses expected ${fmtWeekdayDate(a.expectedOn)} (Simulated).`, "ok", id);
+    return c.ok(`Order ${id} added: ${fmtInt(a.quantity)} doses expected ${fmtWeekdayDate(a.expectedOn)}.`, "ok", id);
   },
 
   /* Doses lost: damaged, drawn up and not used, or discarded after an excursion. */

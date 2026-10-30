@@ -314,7 +314,7 @@ const at = (d: string, t = "10:00") => `${d}T${t}:00.000Z`;
 
 function seedOh(): Onboarding {
   const details: OnbDetails = {
-    companyName: "Shannon Aero Engineering (fictional)", croNumber: "684217", registeredAddress: "Demo address, Shannon Free Zone, Co. Clare",
+    companyName: "Shannon Aero Engineering", croNumber: "684217", registeredAddress: "Demo address, Shannon Free Zone, Co. Clare",
     sites: "Shannon hangar and Limerick office", headcount: "220",
     main: P("Nessa Farrell", "nessa.farrell@example.com", "+353 61 555 0142"),
     hr: P("Nessa Farrell", "nessa.farrell@example.com", "+353 61 555 0142"),
@@ -332,7 +332,7 @@ function seedOh(): Onboarding {
 }
 function seedWellness(): Onboarding {
   const details: OnbDetails = {
-    companyName: "Wicklow Biologics (fictional)", croNumber: "702955", registeredAddress: "Demo address, Arklow Business Park, Co. Wicklow",
+    companyName: "Wicklow Biologics", croNumber: "702955", registeredAddress: "Demo address, Arklow Business Park, Co. Wicklow",
     sites: "Arklow manufacturing site", headcount: "140",
     main: P("Aisling Doran", "aisling.doran@example.com", "+353 402 555 0117"),
     hr: P("Ruairí Byrne", "ruairi.byrne@example.com", "+353 402 555 0121"),

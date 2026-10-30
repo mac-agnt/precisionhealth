@@ -5,7 +5,7 @@
    knows who scheduled them and keeps one history.
 
    Emails are simulated. A scheduled email counts as sent once the demo clock passes its send time,
-   or straight away with "Send now (simulated)".
+   or straight away with "Send now".
 
    Pure module: no React, no dispatch. Handlers live in src/ph/pages/Calendar/schedActions.ts. */
 import type { Hhmm, Iso, LocalDate } from "./time";
@@ -43,7 +43,7 @@ export interface SchedItem {
   notes: string;
   /** Email template id (follow up emails) */
   template: string | null;
-  /** The record in another slice this created: a task, a flu clinic or a Meddbase session. */
+  /** The record in another slice this created: a task, a flu clinic or a MediBase session. */
   ref: { kind: "task" | "flu" | "oh"; id: string } | null;
   status: SchedStatus;
   doneAt: Iso | null;
@@ -51,7 +51,9 @@ export interface SchedItem {
   createdBy: StaffId;
   history: SchedHistory[];
 }
-export interface ScheduledState { seq: number; items: SchedItem[] }
+/** A calendar view someone saved with "Save this view": a name and the calendar's URL filters. */
+export interface CalSavedView { id: string; name: string; params: Record<string, string>; createdBy: StaffId; createdAt: Iso }
+export interface ScheduledState { seq: number; items: SchedItem[]; /** Saved calendar views. Optional so older states still load. */ views?: CalSavedView[] }
 
 /** Follow up email templates, in Stephen's soft check-in style. */
 export const SCHED_FOLLOW_TEMPLATES: Array<{ id: string; label: string; subject: string; body: string }> = [

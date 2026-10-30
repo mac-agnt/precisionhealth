@@ -1,5 +1,5 @@
 /* Agreements: the SLA and DSA generated from the master templates with the client's details
-   merged in, sent for signature through DocuSign (simulated), with version history. */
+   merged in, sent for signature through DocuSign, with version history. */
 import { OH_AGREEMENT_SHORT, OH_AGREEMENT_TITLE, fmtDateTime, ohAgreementFor, ohAgreementsStage, ohCurrentVersion, ohRenderAgreement } from "../../model";
 import type { OhAgreementDoc, OhAgreementKind } from "../../model";
 import { dispatch, usePhState } from "../../store";
@@ -20,7 +20,7 @@ function DocView({ doc }: { doc: OhAgreementDoc }) {
         </section>
       ))}
       <div className="oh-sigs">
-        {doc.signatures.map((s) => <div key={s.party}><strong>{s.party}</strong><span>{s.name}, {s.role}</span><span>{s.signedAt ? `Signed ${fmtDateTime(s.signedAt)} (Simulated)` : "Not signed"}</span></div>)}
+        {doc.signatures.map((s) => <div key={s.party}><strong>{s.party}</strong><span>{s.name}, {s.role}</span><span>{s.signedAt ? `Signed ${fmtDateTime(s.signedAt)}` : "Not signed"}</span></div>)}
       </div>
       <p className="oh-small">Sample wording. Precision Health's master templates replace this text; only the merge fields are filled from the onboarding form.</p>
     </article>
@@ -58,8 +58,8 @@ export default function Agreements() {
             <div className="ph-wrap" style={{ marginTop: 12 }}>
               <VersionPill status={cur ? cur.status : null} />
               <Button size="sm" icon="refresh" {...dis} onClick={() => dispatch(ohAct.generateAgreement(c.id, kind))}>{cur ? "Regenerate" : `Generate ${OH_AGREEMENT_SHORT[kind]}`}</Button>
-              <Button size="sm" icon="send" {...dis} onClick={() => dispatch(ohAct.sendAgreement(c.id, kind))}>Send via DocuSign (Simulated)</Button>
-              <Button size="sm" icon="check" {...dis} onClick={() => dispatch(ohAct.markSigned(c.id, kind))}>Record signature (Simulated)</Button>
+              <Button size="sm" icon="send" {...dis} onClick={() => dispatch(ohAct.sendAgreement(c.id, kind))}>Send via DocuSign</Button>
+              <Button size="sm" icon="check" {...dis} onClick={() => dispatch(ohAct.markSigned(c.id, kind))}>Record signature</Button>
               {doc ? <Button size="sm" icon="print" onClick={() => print(<DocView doc={doc} />)}>Print or save as PDF</Button> : null}
             </div>
           ) : null}

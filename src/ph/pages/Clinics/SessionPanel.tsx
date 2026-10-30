@@ -351,7 +351,7 @@ function SessionPreview({ session, next }: { session: ClinicSession; next: Clini
   const rows: Array<[string, string]> = [
     ["Questionnaire and clinical form", tpl ? `${tpl.name} v${tpl.currentVersion} for new bookings. Existing bookings keep their version.` : "To confirm"],
     ["Booking access", code ? `Invitation only, programme roster (${code.code})` : "Invitation only, programme roster"],
-    ["Reminder", `${state.settings.reminderLeadHours} hours before (simulated). Inside that window, a confirmation only.`],
+    ["Reminder", `${state.settings.reminderLeadHours} hours before. Inside that window, a confirmation only.`],
   ];
   return (
     <div style={{ marginTop: 14, paddingTop: 12, borderTop: "1px solid var(--border)" }}>

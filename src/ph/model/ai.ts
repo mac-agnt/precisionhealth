@@ -253,7 +253,7 @@ export function answerQuery(state: PhState, q: string): Answer {
       const failed = failedReminders(state);
       return {
         scenario: sc, supported: true, tool: "pulse_communications", effect: "read",
-        text: `${r.logical} logical reminders were due for today's clinics: ${r.delivered} delivered and ${r.failed} failed. The ${r.attempts} provider attempts are counted separately and never change the booking counts. Brenda owns the review by 08:45. Retrying one failed reminder moves one logical reminder from failed to delivered and adds an attempt to its history.`,
+        text: `${r.logical} reminders were due for today's clinics: ${r.delivered} delivered and ${r.failed} failed. Brenda owns the review by 08:45. Retrying one failed reminder moves one reminder from failed to delivered and adds an attempt to its history.`,
         cols: ["Reminder", "Participant", "Channel", "Reason"],
         rows: failed.map((m) => [m.logicalId, personName(I.personById.get(m.personId)), m.channel.toUpperCase(), m.attempts[m.attempts.length - 1].reason || ""]),
         actions: [{ label: "Open failed reminders", target: { page: "Participants", tab: "communications", params: { filter: "failed" } }, primary: true }],
@@ -357,11 +357,11 @@ export function agentThread(state: PhState, id: AgentId): ThreadItem[] {
   const stamp = (t: string): ThreadItem => ({ kind: "stamp", text: t });
   const agent = (text: string, lines?: ThreadLine[], links?: ThreadLink[]): ThreadItem => ({ kind: "agent", text, lines, links });
   const open = (label: string, target: NavTarget): ThreadLink => ({ label, target });
-  const sim = "Today 05:32 (simulated)";
+  const sim = "Today 05:32";
   switch (id) {
     case "briefing":
       return [
-        stamp("Today 06:45 (simulated)"), { kind: "routine", text: "Ran routine", routine: "Monday briefing" },
+        stamp("Today 06:45"), { kind: "routine", text: "Ran routine", routine: "Monday briefing" },
         agent(briefingText(state), undefined, toLinks(briefingActions(state))),
         agent("Linked to every queue:", [
           { k: "Imports", v: `${b.quarantined} held rows in ${b.batch.id}`, target: { page: "Results", tab: "imports", params: { batch: b.batch.id } } },
@@ -373,9 +373,9 @@ export function agentThread(state: PhState, id: AgentId): ThreadItem[] {
     case "watchdog": {
       const ibm = ibmToday(state);
       return [
-        stamp("Today 06:15 (simulated)"),
+        stamp("Today 06:15"),
         agent("checked today's three clinics: no nurse or room overlaps. Ian is a support resource, not a second booked nurse.", undefined, [open("Open the nurse rota", { page: "Clinics", tab: "team-resources" })]),
-        agent(`${plural(rem.failed, "reminder")} failed delivery of ${rem.logical} logical reminders. Task opened for Brenda, due 08:45. The ${rem.attempts} provider attempts are counted separately.`, undefined, [open("Open failed reminders", { page: "Participants", tab: "communications", params: { filter: "failed" } }), open("Open Work tasks", { page: "Work", tab: "tasks" })]),
+        agent(`${plural(rem.failed, "reminder")} failed delivery of ${rem.logical} reminders. Task opened for Brenda, due 08:45.`, undefined, [open("Open failed reminders", { page: "Participants", tab: "communications", params: { filter: "failed" } }), open("Open Work tasks", { page: "Work", tab: "tasks" })]),
         agent(`IBM has ${ibm ? sessionStats(state, ibm.id).available : 0} unused slots today. I raised it as available capacity. I do not cancel or move appointments.`, undefined, [open("Open clinics today", { page: "Clinics", tab: "overview" })]),
       ];
     }
@@ -383,7 +383,7 @@ export function agentThread(state: PhState, id: AgentId): ThreadItem[] {
       const d = state.invitationDrafts.find((x) => x.programmeId === "PRG-IBM-26");
       const n = programmeCounts(state, "PRG-IBM-26").drafts;
       return [
-        stamp("Fri 2 Oct, 15:12 (simulated)"),
+        stamp("Fri 2 Oct, 15:12"),
         agent(`drafted the IBM invitation message for Brenda${d ? `: ${d.recipientIds.length} recipients` : ""}. ${plural(n, "invitee")} with an in-progress questionnaire cannot reserve a confirmed slot until it is complete. Draft only, nothing sent.`, undefined, [open("Open invitation draft", { page: "Programmes", tab: "invitations", params: { draft: "INV-IBM-01" } })]),
         agent(d && d.status === "pending_approval" ? "waiting for Stephen to confirm the recipient list. Sending is simulated and needs his yes." : d && d.status === "approved_simulated_sent" ? "approved. a simulated send to the confirmed recipients was recorded." : "no invitation draft is waiting.", undefined, [open("Open approvals", { page: "Work", tab: "approvals" })]),
       ];
@@ -408,7 +408,7 @@ export function agentThread(state: PhState, id: AgentId): ThreadItem[] {
       const er = state.employerReports[0];
       const m = employerMetrics(state, er.programmeId, er.cohort, er.dataAsOf);
       return [
-        stamp("Fri 2 Oct, 15:12 (simulated)"),
+        stamp("Fri 2 Oct, 15:12"),
         agent(`prepared the aggregate snapshot for ${er.id}: ${m.reportEligible} released reports out of ${m.attendedOverall} attended. Small groups are suppressed with complementary suppression.`, undefined, [open("Open the report builder", linkFor("employer_report", er.id))]),
         agent("a filter returning six people (Site B, age 55+) is blocked for employer output. Use the programme-level view. My narrative drafts stay drafts until a clinician approves them.", undefined, [open("Open approvals", { page: "Work", tab: "approvals" })]),
       ];
@@ -416,7 +416,7 @@ export function agentThread(state: PhState, id: AgentId): ThreadItem[] {
     case "quality": {
       const openIssues = state.dqIssues.filter((d) => d.status === "open");
       return [
-        stamp("Today 05:40 (simulated)"),
+        stamp("Today 05:40"),
         ...(clinical
           ? openIssues.map((d) => (d.episodeId && !canViewEpisodeClinical(state, d.episodeId)
             ? agent("one data quality item is open on an episode outside your clinic assignments. Detail is limited to its clinical team.")

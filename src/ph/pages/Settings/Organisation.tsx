@@ -57,7 +57,7 @@ export default function Organisation() {
               { label: "Website", value: <span className="ph-mono">{BRAND.website}</span> },
               { label: "Public leadership", value: leaders.length ? leaders.map((c) => <div key={c.id}>{c.name}, {c.role}</div>) : "None listed" },
               { label: "Public services", value: SERVICES.map((x, i) => (i ? x.toLowerCase() : x)).join(", ") + "." },
-              { label: "Occupational-health platform", value: <>Meddbase is named on the public website. Its replacement or integration has not been agreed. <EntityLink kind="system" id="meddbase">See the systems register</EntityLink></> },
+              { label: "Occupational-health platform", value: <>MediBase is named on the public website. Its replacement or integration has not been agreed. <EntityLink kind="system" id="meddbase">See the systems register</EntityLink></> },
             ]} />
           </Card>
 

@@ -59,14 +59,20 @@ export function bookingUptake(state: PhState, programmeId: ProgrammeId): { weeks
   return { weeks: out, total: bookings.length, max: Math.max(1, ...out.map((w) => w.count || 0)), anySuppressed: out.some((w) => w.suppressed) };
 }
 
-export interface ClinicDay { id: string; date: LocalDate; site: string; room: string; slots: number; available: number; isToday: boolean; start: string; end: string; poc: boolean }
+export interface ClinicDay { id: string; date: LocalDate; site: string; room: string; slots: number; available: number; isToday: boolean; start: string; end: string; poc: boolean;
+  /** Outside the programme's original window: a date added later. */ added: boolean;
+  /** Published to the portal in the last seven days. */ isNew: boolean }
 /**
  * Upcoming clinic days with free capacity per site. Capacity only: who booked is never part of it.
  * A screening day still in draft (Clinics, Screening days) is never shown; it appears once published.
  */
 export function upcomingClinicDays(state: PhState, programmeId: ProgrammeId): ClinicDay[] {
   const t = today(state);
-  const drafts = new Set((state.screeningDays?.days || []).filter((d) => d.status !== "published").map((d) => d.sessionId));
+  const sdays = state.screeningDays?.days || [];
+  const drafts = new Set(sdays.filter((d) => d.status !== "published").map((d) => d.sessionId));
+  const p = PROGRAMME_BY_ID[programmeId];
+  const nowMs = Date.parse(state.clock.nowUtc);
+  const freshlyPublished = new Set(sdays.filter((d) => d.status === "published" && d.publishedAt && nowMs - Date.parse(d.publishedAt) < 7 * 86400000).map((d) => d.sessionId));
   return state.sessions
     .filter((s) => s.programmeId === programmeId && s.status === "scheduled" && s.date >= t && !drafts.has(s.id))
     .sort((a, b) => (a.date === b.date ? (a.start === b.start ? (a.siteName < b.siteName ? -1 : 1) : a.start < b.start ? -1 : 1) : a.date < b.date ? -1 : 1))
@@ -74,7 +80,7 @@ export function upcomingClinicDays(state: PhState, programmeId: ProgrammeId): Cl
       const st = sessionStats(state, s.id);
       const parts = s.siteName.split(", ");
       return { id: s.id, date: s.date, site: parts[0], room: s.siteName.includes(s.room) ? parts.slice(1).join(", ") || s.room : s.room, slots: st.slots, available: st.available, isToday: st.isToday,
-        start: s.start, end: s.end, poc: sessionUsesPoc(s) };
+        start: s.start, end: s.end, poc: sessionUsesPoc(s), added: s.date > p.windowEnd || s.date < p.windowStart, isNew: freshlyPublished.has(s.id) };
     });
 }
 

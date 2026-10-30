@@ -74,8 +74,8 @@ export function AgreementDoc({ doc, o, signedAt }: { doc: OnbRenderedDoc; o: Onb
         </section>
       ))}
       <div className="ob-sigs">
-        <div><strong>For {BRAND.org}</strong><span>Stephen Kelly, Sales and Operations Director</span><span>{signedAt ? `Signed ${longDate(signedAt)} (simulated)` : "Signature"}</span></div>
-        <div><strong>For {doc.clientName}</strong><span>{o.details.main.name}</span><span>{signedAt ? `Signed ${longDate(signedAt)} (simulated)` : "Signature"}</span></div>
+        <div><strong>For {BRAND.org}</strong><span>Stephen Kelly, Sales and Operations Director</span><span>{signedAt ? `Signed ${longDate(signedAt)}` : "Signature"}</span></div>
+        <div><strong>For {doc.clientName}</strong><span>{o.details.main.name}</span><span>{signedAt ? `Signed ${longDate(signedAt)}` : "Signature"}</span></div>
       </div>
       <p className="ob-doc-note">Sample wording for the demo. Highlighted text is filled in from the onboarding form.</p>
     </article>
@@ -86,7 +86,7 @@ export function AgreementDoc({ doc, o, signedAt }: { doc: OnbRenderedDoc; o: Onb
 export function agreementHtml(doc: OnbRenderedDoc, o: Onboarding, signedAt: string | null): string {
   const esc = (t: string) => t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   const body = doc.sections.map((s) => `<h3>${esc(s.heading)}</h3>${s.paragraphs.map((p) => `<p>${p.map((x) => ("t" in x ? esc(x.t) : `<b>${esc(x.v)}</b>`)).join("")}</p>`).join("")}`).join("");
-  const sig = (who: string, name: string) => `<div class="sig"><strong>${esc(who)}</strong><br>${esc(name)}<br>${signedAt ? `Signed ${esc(longDate(signedAt))} (simulated)` : "Signature: ____________________"}</div>`;
+  const sig = (who: string, name: string) => `<div class="sig"><strong>${esc(who)}</strong><br>${esc(name)}<br>${signedAt ? `Signed ${esc(longDate(signedAt))}` : "Signature: ____________________"}</div>`;
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>${esc(doc.title)}, ${esc(doc.clientName)}</title>
 <style>body{font-family:Georgia,serif;max-width:720px;margin:40px auto;color:#1d2b2a;line-height:1.6;padding:0 20px}
 .top{display:flex;justify-content:space-between;border-bottom:3px solid #2f716a;padding-bottom:10px;margin-bottom:24px;font-family:Arial,sans-serif}
