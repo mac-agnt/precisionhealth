@@ -34,7 +34,7 @@ const SIGN_OFF: Array<{ title: string; items: Item[] }> = [
 ];
 const PLATFORM: Item[] = [
   { title: "Home", what: "Ask Pulse anything. Answers link to the records behind them.", icon: "home", to: { page: "Home" } },
-  { title: "Doctor Review: Advice Codes", what: "The clinician viewer and NEW ADVICE box. Type a code like CHOL-HI to insert approved wording.", icon: "edit", to: { page: "Results", tab: "review", params: { episode: "PH-E-0201" } } },
+  { title: "Doctor Review: Advice Codes", what: "The clinician viewer and NEW ADVICE box. Type a code like CHOL-HI to insert approved wording.", icon: "edit", to: { page: "Results", tab: "review", params: { episode: "PH-E-1210" } } },
   { title: "Price list", what: "Every package with a quick quote calculator.", icon: "chart", to: { page: "Sales", tab: "price-list" } },
   { title: "Flu", what: "Weekly bookings, vaccine stock against allocations, and the cold chain.", icon: "shield", to: { page: "Flu", tab: "overview" } },
   { title: "Occupational Health", what: "Client onboarding, agreements, questionnaires and MediBase sessions.", icon: "users", to: { page: "OccHealth", tab: "clients" } },

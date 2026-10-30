@@ -37,7 +37,8 @@ interface Journey {
 const NAMED: Array<{ personId: string; story: StoryId | null; caseLabel: string; clinicalOnly: boolean }> = [
   { personId: "PH-P-0801", story: "ST-03", caseLabel: "Portal onboarding example", clinicalOnly: false },
   { personId: "PH-P-0001", story: "ST-02", caseLabel: "Routine release example", clinicalOnly: true },
-  { personId: "PH-P-0501", story: "ST-02", caseLabel: "Review required example", clinicalOnly: true },
+  { personId: "PH-P-0501", story: "ST-02", caseLabel: "Released after individual review", clinicalOnly: true },
+  { personId: "PH-P-0369", story: "ST-02", caseLabel: "Review required example", clinicalOnly: true },
   { personId: "PH-P-0002", story: "ST-01", caseLabel: "Date of birth mismatch", clinicalOnly: false },
   { personId: "PH-P-0502", story: "ST-01", caseLabel: "Unknown specimen identifier", clinicalOnly: false },
   { personId: "PH-P-0701", story: "ST-01", caseLabel: "Two candidate episodes", clinicalOnly: false },

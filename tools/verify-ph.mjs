@@ -20,13 +20,13 @@ try {
   /* ---------- baseline arithmetic ---------- */
   const T = M.totalCounts(s);
   eq("invited", T.invited, 850); eq("capacity", T.capacity, 539) /* 475 baseline + 64 on the three seeded screening days */; eq("booked", T.booked, 365); eq("attended", T.attended, 225);
-  eq("upcoming", T.upcoming, 140); eq("released", T.released, 184); eq("ready", T.ready, 21); eq("awaiting", T.awaiting, 15); eq("held", T.onHold, 5);
+  eq("upcoming", T.upcoming, 140); eq("released", T.released, 185); eq("ready", T.ready, 20); /* Ronan (PH-E-0201) is seeded as released by Neil: released 184 to 185, ready 21 to 20 */ eq("awaiting", T.awaiting, 15); eq("held", T.onHold, 5);
   eq("not started", T.notStarted, 480); eq("drafts", T.drafts, 5);
   eq("states partition", T.released + T.ready + T.awaiting + T.onHold, T.episodes);
   eq("booked pct", Math.round(T.bookedPct * 10) / 10, 67.7); // 76.8 before the seeded screening days added capacity
   const P = (id) => M.programmeCounts(s, id);
   eq("sisk", [P("PRG-SISK-26").invited, P("PRG-SISK-26").capacity, P("PRG-SISK-26").booked, P("PRG-SISK-26").attended, P("PRG-SISK-26").released, P("PRG-SISK-26").ready, P("PRG-SISK-26").awaiting, P("PRG-SISK-26").onHold], [500, 300, 240, 150, 126, 12, 9, 3]);
-  eq("sf", [P("PRG-SF-26").invited, P("PRG-SF-26").capacity, P("PRG-SF-26").booked, P("PRG-SF-26").attended, P("PRG-SF-26").released, P("PRG-SF-26").ready, P("PRG-SF-26").awaiting, P("PRG-SF-26").onHold], [200, 115, 80, 50, 40, 6, 3, 1]);
+  eq("sf", [P("PRG-SF-26").invited, P("PRG-SF-26").capacity, P("PRG-SF-26").booked, P("PRG-SF-26").attended, P("PRG-SF-26").released, P("PRG-SF-26").ready, P("PRG-SF-26").awaiting, P("PRG-SF-26").onHold], [200, 115, 80, 50, 41, 5, 3, 1]); // Ronan released: SF released 40 to 41, ready 6 to 5
   eq("ibm", [P("PRG-IBM-26").invited, P("PRG-IBM-26").capacity, P("PRG-IBM-26").booked, P("PRG-IBM-26").attended, P("PRG-IBM-26").released, P("PRG-IBM-26").ready, P("PRG-IBM-26").awaiting, P("PRG-IBM-26").onHold], [150, 124, 45, 25, 18, 3, 3, 1]);
   eq("sessions", [s.sessions.length, s.sessions.filter((x) => x.programmeId === "PRG-SISK-26").length, s.sessions.filter((x) => x.programmeId === "PRG-SF-26").length, s.sessions.filter((x) => x.programmeId === "PRG-IBM-26").length], [22, 12, 5, 5]); // 19 baseline + 3 seeded screening days
   check("25 slots per session", s.sessions.filter((x) => !s.screeningDays.days.some((d) => d.sessionId === x.id)).every((x) => M.sessionSlots(x).length === 25));
@@ -44,7 +44,8 @@ try {
   eq("reminders", [R.logical, R.delivered, R.failed, R.attempts], [45, 43, 2, 47]);
   const RS = M.reviewStats(s);
   /* Under Precision Health's reference ranges table more of the 21 ready reports carry a flag than under the old illustrative rules. */
-  eq("review", [RS.ready, RS.routine, RS.flagged, RS.aged], [21, 7, 14, 6]);
+  /* Ronan's flagged report is seeded as released, so ready 21 to 20 and flagged 14 to 13. */
+  eq("review", [RS.ready, RS.routine, RS.flagged, RS.aged], [20, 7, 13, 6]);
   const H = M.holdCounts(s);
   eq("holds", [H.total, H.identity, H.dataQuality, H.clinicalAction], [5, 3, 1, 1]);
   eq("held people", M.holdQueue(s).map((h) => h.person.family).sort(), ["Daly", "Doyle", "Keane", "Quinn", "Ryan"]);
@@ -114,7 +115,7 @@ try {
   const B2 = M.batchStats(s, "BATCH-20261002-01");
   eq("batch after ciara", [B2.imported, B2.duplicates, B2.quarantined], [115, 3, 2]);
   eq("ciara ready", s.episodes.find((e) => e.id === "PH-E-0102").reportState, "ready_for_review");
-  eq("totals after ciara", [M.totalCounts(s).ready, M.totalCounts(s).onHold, M.programmeCounts(s, "PRG-SISK-26").ready], [22, 4, 13]);
+  eq("totals after ciara", [M.totalCounts(s).ready, M.totalCounts(s).onHold, M.programmeCounts(s, "PRG-SISK-26").ready], [21, 4, 13]); // 22 to 21: Ronan seeded as released
   check("resolution is documented", s.importRows.find((r) => r.id === ciaraRow.id).resolution.reason.length > 5 && s.activity[s.activity.length - 1].verb === "import.resolved");
   check("row committed once", !run(act.resolveRow(ciaraRow.id, "PH-E-0102", ["specimen", "dob"], "Duplicate click should fail")).ok && s.observations.filter((o) => o.source.rowId === ciaraRow.id).length === 1);
   const rePost = M.reuploadPreview(s, "BATCH-20261002-01");
@@ -136,8 +137,8 @@ try {
   run(act.toggleReviewCheck("PH-E-0101", "advice"));
   run(act.toggleReviewCheck("PH-E-0101", "preview"));
   check("aisling released", run(act.releaseReport("PH-E-0101")).ok);
-  eq("totals after release", [M.totalCounts(s).released, M.totalCounts(s).ready], [185, 20]);
-  eq("review stats after release", [M.reviewStats(s).ready, M.reviewStats(s).routine], [20, 6]);
+  eq("totals after release", [M.totalCounts(s).released, M.totalCounts(s).ready], [186, 19]); // +1 / -1: Ronan seeded as released
+  eq("review stats after release", [M.reviewStats(s).ready, M.reviewStats(s).routine], [19, 6]); // ready 20 to 19: Ronan seeded as released
   check("release is idempotent", !run(act.releaseReport("PH-E-0101")).ok && M.currentReleased(s, "PH-E-0101") && s.reportVersions.filter((v) => v.episodeId === "PH-E-0101").length === 1);
   check("release event", s.activity.some((e) => e.summary === "Neil released report PH-E-0101 v1."));
   check("availability notice has no results", s.messages.filter((m) => m.episodeId === "PH-E-0101").every((m) => !/\d/.test(m.subject)));
@@ -149,15 +150,23 @@ try {
   run(act.viewReportInPortal("PH-E-0101"));
   check("access recorded", !!M.currentReleased(s, "PH-E-0101").accessedAt);
   run(act.setPersona("neil"));
-  check("routine shortcut blocked for ronan", !run(act.releaseRoutine("PH-E-0201")).ok);
+  /* Ronan (PH-E-0201) is the demo participant and is seeded as released, so the flagged release path runs on
+     Gráinne Mooney (PH-E-1210, raised cholesterol, LDL, triglycerides, BMI and waist), still in the review queue. */
+  const ronanRel = M.currentReleased(s, "PH-E-0201");
+  check("ronan seeded as released individually by Neil before the demo clock", !!ronanRel && ronanRel.releasedBy === "neil" && ronanRel.releaseMode === "individual" && ronanRel.flagAcknowledged && ronanRel.releasedAt < "2026-10-05T07:15:00.000Z" && ronanRel.accessedAt === null);
+  check("ronan's advice is approved snippet wording", M.adviceTrace(s.adviceLibrary, ronanRel.advice).source === "approved_snippets");
+  check("ronan was notified without results", s.messages.some((m) => m.episodeId === "PH-E-0201" && m.kind === "report_available" && m.status === "delivered" && !/\d/.test(m.subject)));
+  check("ronan's data quality item is resolved by the release", s.dqIssues.find((d) => d.id === "DQ-0001").status === "resolved");
+  check("ronan's released report is read only", !run(act.setAdvice("PH-E-0201", "Changed after release.")).ok);
+  check("routine shortcut blocked for flagged episode", !run(act.releaseRoutine("PH-E-1210")).ok);
   check("routine shortcut blocked for held", !run(act.releaseRoutine("PH-E-0103")).ok);
-  run(act.setAdvice("PH-E-0201", "Sample advice. Please discuss with your GP."));
-  run(act.toggleReviewCheck("PH-E-0201", "advice"));
-  run(act.toggleReviewCheck("PH-E-0201", "preview"));
-  check("ronan release needs flag acknowledgement", !run(act.releaseReport("PH-E-0201")).ok);
-  run(act.ackFlags("PH-E-0201"));
-  check("ronan released after acknowledgement", run(act.releaseReport("PH-E-0201")).ok);
-  eq("ronan release mode", M.currentReleased(s, "PH-E-0201").releaseMode, "individual");
+  run(act.setAdvice("PH-E-1210", "Sample advice. Please discuss with your GP."));
+  run(act.toggleReviewCheck("PH-E-1210", "advice"));
+  run(act.toggleReviewCheck("PH-E-1210", "preview"));
+  check("flagged release needs flag acknowledgement", !run(act.releaseReport("PH-E-1210")).ok);
+  run(act.ackFlags("PH-E-1210"));
+  check("flagged episode released after acknowledgement", run(act.releaseReport("PH-E-1210")).ok);
+  eq("flagged release mode", M.currentReleased(s, "PH-E-1210").releaseMode, "individual");
   const routine = M.reviewQueue(s).find((i) => i.routine);
   check("one-click routine release", run(act.releaseRoutine(routine.episode.id)).ok && M.currentReleased(s, routine.episode.id).releaseMode === "routine");
 
@@ -253,7 +262,7 @@ try {
   run(act.toggleChecklist(orlaNow.id, "labels"));
   const done = run(act.completeAppointment(orlaNow.id));
   check("appointment completed", done.ok, done.message);
-  eq("after completion", [M.totalCounts(s).attended, M.totalCounts(s).episodes, M.totalCounts(s).awaiting, M.totalCounts(s).released, M.totalCounts(s).booked], [226, 226, 16, 184, 366]);
+  eq("after completion", [M.totalCounts(s).attended, M.totalCounts(s).episodes, M.totalCounts(s).awaiting, M.totalCounts(s).released, M.totalCounts(s).booked], [226, 226, 16, 185, 366]); // released 184 to 185: Ronan seeded as released
   eq("not released", s.episodes.find((e) => e.bookingId === orlaNow.id).reportState, "awaiting_results");
   // Every expected test of the programme's panel stays pending and visible: the full Comprehensive (LAB) panel now, not five core tests.
   eq("pending tests stay visible", M.pendingTests(s, s.episodes.find((e) => e.bookingId === orlaNow.id)).length, M.COMPREHENSIVE_PANEL.length);
@@ -658,20 +667,22 @@ try {
     check("library codes approved by Neil", need.every((c) => { const x = M.findSnippet(lib(), c); const v = x && M.approvedVersion(x); return !!v && v.approvedBy === "neil" && !!v.approvedAt && x.ownerId === "neil"; }));
     check("library has a draft and a retired snippet", M.snippetStatus(M.findSnippet(lib(), "PEFR-RED")) === "draft" && M.snippetStatus(M.findSnippet(lib(), "TG-FAST")) === "retired");
     run(act.setPersona("martina"));
-    check("operations cannot edit, approve or prepare", !run(L.libAct.saveDraft("CHOL-HI", "A changed wording for raised cholesterol.")).ok && !run(L.libAct.approve("ALC-HIGH")).ok && !run(L.libAct.prepareDraft("PH-E-0201")).ok);
+    check("operations cannot edit, approve or prepare", !run(L.libAct.saveDraft("CHOL-HI", "A changed wording for raised cholesterol.")).ok && !run(L.libAct.approve("ALC-HIGH")).ok && !run(L.libAct.prepareDraft("PH-E-1210")).ok);
     run(act.setPersona("neil"));
-    const sg = LM.snippetSuggestions(s, "PH-E-0201").matches.map((m) => m.snippet.code);
-    check("suggested codes follow the flags", ["LDL-BORD", "BMI-OVER", "BP-MILD", "GP-REVIEW"].every((c) => sg.includes(c)) && !sg.includes("ROUTINE-ALL-NORMAL"));
+    // The advice codes demo episode is Gráinne Mooney (PH-E-1210); Ronan (PH-E-0201) is seeded as released.
+    const sg = LM.snippetSuggestions(s, "PH-E-1210").matches.map((m) => m.snippet.code);
+    check("suggested codes follow the flags", ["CHOL-HI", "LDL-BORD", "TG-HI", "BMI-OVER", "WAIST-HI", "GP-REVIEW"].every((c) => sg.includes(c)) && !sg.includes("ROUTINE-ALL-NORMAL"));
+    check("a released report suggests nothing to prepare", !run(L.libAct.prepareDraft("PH-E-0201")).ok);
     check("routine episode suggests the all normal code", LM.snippetSuggestions(s, "PH-E-0101").matches.some((m) => m.snippet.code === "ROUTINE-ALL-NORMAL"));
-    check("prepare draft writes a draft only", run(L.libAct.prepareDraft("PH-E-0201")).ok && M.draftVersion(s, "PH-E-0201").advice.startsWith("Ronan,") && s.episodes.find((e) => e.id === "PH-E-0201").reportState === "ready_for_review" && !M.draftVersion(s, "PH-E-0201").checklist.advice);
-    check("prepared draft traces to approved snippets", M.adviceTrace(lib(), M.draftVersion(s, "PH-E-0201").advice, [lib().prepared["PH-E-0201"].opening]).source === "approved_snippets");
-    check("prepared draft is never released without review", !run(act.releaseReport("PH-E-0201")).ok);
+    check("prepare draft writes a draft only", run(L.libAct.prepareDraft("PH-E-1210")).ok && M.draftVersion(s, "PH-E-1210").advice.startsWith("Gráinne,") && s.episodes.find((e) => e.id === "PH-E-1210").reportState === "ready_for_review" && !M.draftVersion(s, "PH-E-1210").checklist.advice);
+    check("prepared draft traces to approved snippets", M.adviceTrace(lib(), M.draftVersion(s, "PH-E-1210").advice, [lib().prepared["PH-E-1210"].opening]).source === "approved_snippets");
+    check("prepared draft is never released without review", !run(act.releaseReport("PH-E-1210")).ok);
     check("code insertion is recorded with its version", run(L.libAct.recordUse("PH-E-0101", "CHOL-HI", "code")).ok && lib().uses.some((u) => u.episodeId === "PH-E-0101" && u.code === "CHOL-HI" && u.version === 2));
     check("draft and retired codes do not insert", !run(L.libAct.recordUse("PH-E-0101", "PEFR-RED", "code")).ok && !run(L.libAct.recordUse("PH-E-0101", "TG-FAST", "code")).ok);
     check("exclamation marks rejected", !run(L.libAct.saveDraft("CHOL-HI", "Your cholesterol is high, act now!")).ok);
     check("draft keeps the approved version in use", run(L.libAct.saveDraft("CHOL-HI", "Your total cholesterol is above 5.0 mmol/L. Less saturated fat and more activity help. Discuss a repeat test with your GP.")).ok && M.approvedVersion(M.findSnippet(lib(), "CHOL-HI")).version === 2);
     check("approval creates the next version", run(L.libAct.approve("CHOL-HI")).ok && M.approvedVersion(M.findSnippet(lib(), "CHOL-HI")).version === 3 && M.findSnippet(lib(), "CHOL-HI").versions.length === 3);
-    check("reporter assignment keeps the review baseline", run(L.libAct.assignReporter("PH-E-1149", "liz")).ok && LM.reporterWorkload(s).find((r) => r.id === "liz").ready === 4 && JSON.stringify(Object.values(M.reviewStats(s)).slice(0, 4)) === JSON.stringify([21, 7, 14, 6]));
+    check("reporter assignment keeps the review baseline", run(L.libAct.assignReporter("PH-E-1149", "liz")).ok && LM.reporterWorkload(s).find((r) => r.id === "liz").ready === 4 && JSON.stringify(Object.values(M.reviewStats(s)).slice(0, 4)) === JSON.stringify([20, 7, 13, 6])); // ready 21 to 20, flagged 14 to 13: Ronan seeded as released
     run(act.setAiDrafting(false));
     check("ai off blocks prepare draft, codes still work", !run(L.libAct.prepareDraft("PH-E-0101")).ok && run(L.libAct.recordUse("PH-E-0101", "ECG-NORM", "slash")).ok);
     run(act.setPersona("liz"));
@@ -765,7 +776,7 @@ try {
 
   /* ---------- reset ---------- */
   s = createInitialState();
-  eq("reset restores the baseline", [M.totalCounts(s).released, M.totalCounts(s).ready, M.totalCounts(s).booked, M.batchStats(s, "BATCH-20261002-01").imported], [184, 21, 365, 114]);
+  eq("reset restores the baseline", [M.totalCounts(s).released, M.totalCounts(s).ready, M.totalCounts(s).booked, M.batchStats(s, "BATCH-20261002-01").imported], [185, 20, 365, 114]); // released +1, ready -1: Ronan seeded as released
   const s2 = createInitialState();
   eq("deterministic fixtures", JSON.stringify(s.persons.slice(0, 40)) + s.bookings.length, JSON.stringify(s2.persons.slice(0, 40)) + s2.bookings.length);
 
