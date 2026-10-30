@@ -19,8 +19,9 @@ import "./client.css";
 import type { ClientView } from "./data";
 import { ThemeToggle } from "../../shell/ThemeToggle";
 import {
-  CLIENT_PROGRAMMES, CLIENT_VIEWS, announcementText, bookingUptake, clientContact, isApprovedReport, precisionContacts, programmeFunnel, suppressionNotices, takeRequestedProgramme, upcomingClinicDays,
+  CLIENT_PROGRAMMES, CLIENT_VIEWS, announcementText, bookingUptake, clientContact, isApprovedReport, precisionContacts, programmeFunnel, suppressionNotices, takeRequestedCustom, takeRequestedProgramme, upcomingClinicDays,
 } from "./data";
+import { NewClientApp } from "../Portals/NewClientApp";
 
 type DeviceId = "desktop" | "tablet" | "phone";
 const DEVICES: Array<{ id: DeviceId; label: string; width: number }> = [
@@ -32,6 +33,10 @@ type Bp = "phone" | "tablet" | "desktop";
 
 export function ClientPortalPreview({ open, onClose }: { open: boolean; onClose: () => void }) {
   const [programmeId, setProgrammeId] = useState<ProgrammeId>("PRG-SISK-26");
+  /* A client portal created on the Portals page (no programme yet), shown instead of a programme. */
+  const [customId, setCustomId] = useState<string | null>(null);
+  const customs = usePhState().portalsHub?.clients || [];
+  const custom = customId ? customs.find((x) => x.id === customId) || null : null;
   const [device, setDevice] = useState<DeviceId>("desktop");
   const [views, setViews] = useState<Partial<Record<ProgrammeId, ClientView>>>({});
   const [optionsOpen, setOptionsOpen] = useState(false);
@@ -41,7 +46,7 @@ export function ClientPortalPreview({ open, onClose }: { open: boolean; onClose:
   const setOverlay = useCallback((el: HTMLDivElement | null) => { overlayEl.current = el; measureOverlay(el); }, [measureOverlay]);
 
   useEffect(() => { if (open) overlayEl.current?.focus(); }, [open]);
-  useEffect(() => { if (open) { const p = takeRequestedProgramme(); if (p) setProgrammeId(p); } }, [open]);
+  useEffect(() => { if (open) { const p = takeRequestedProgramme(); if (p) setProgrammeId(p); setCustomId(takeRequestedCustom()); } }, [open]);
   useEffect(() => {
     if (!open) return;
     const h = (e: KeyboardEvent) => {
@@ -80,8 +85,9 @@ export function ClientPortalPreview({ open, onClose }: { open: boolean; onClose:
             <div className="pp-chrome-group" role="group" aria-label="Client" style={compact ? { flexBasis: "100%" } : undefined}>
               <span className="ph-faint" style={{ fontSize: 11 }}>Client</span>
               {CLIENT_PROGRAMMES.map((id) => (
-                <Chip key={id} on={programmeId === id} onClick={() => { setProgrammeId(id); stageEl.current?.scrollTo({ top: 0 }); }}>{PROGRAMME_BY_ID[id].clientName}</Chip>
+                <Chip key={id} on={programmeId === id && !custom} onClick={() => { setProgrammeId(id); setCustomId(null); stageEl.current?.scrollTo({ top: 0 }); }}>{PROGRAMME_BY_ID[id].clientName}</Chip>
               ))}
+              {customs.map((x) => <Chip key={x.id} on={custom?.id === x.id} onClick={() => { setCustomId(x.id); stageEl.current?.scrollTo({ top: 0 }); }}>{x.company}</Chip>)}
             </div>
             <div className="pp-chrome-group" style={compact ? { flexBasis: "100%" } : { marginLeft: "auto" }}>
               <Segmented label="Device width" value={device} onChange={(v) => setDevice(v)} options={DEVICES.map((x) => ({ id: x.id, label: x.label }))} />
@@ -94,7 +100,7 @@ export function ClientPortalPreview({ open, onClose }: { open: boolean; onClose:
       <div className={"pp-stage" + (tight ? " tight" : "")} ref={stageEl}>
         <div className="pp-stage-row">
           <div className={`pp-device pp-device-${device}`} style={deviceW ? { width: deviceW } : undefined}>
-            <ClientApp key={programmeId} programmeId={programmeId} view={view} setView={setView} />
+            {custom ? <NewClientApp key={custom.id} portal={custom} /> : <ClientApp key={programmeId} programmeId={programmeId} view={view} setView={setView} />}
           </div>
         </div>
       </div>

@@ -6,7 +6,7 @@
    Clinic close with the specimen manifest. Every action writes to the shared store. */
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { PersonaId, StaffId } from "../../model";
-import { act, fmtWeekdayDate, ix, linkFor, persona, sessionUsesPoc } from "../../model";
+import { NURSE_ROLE_KEYS, act, fmtWeekdayDate, ix, linkFor, persona, sessionUsesPoc } from "../../model";
 import { dispatch, getState, usePhState } from "../../store";
 import { useNav } from "../../nav-context";
 import { BrandLogo } from "../../shell/Brand";
@@ -31,7 +31,8 @@ const DEVICES: Array<{ id: DeviceId; label: string; width: number }> = [
 ];
 type View = "clinic" | "participant" | "close";
 
-const isPortalNurse = (id: PersonaId | null | undefined): id is StaffId => !!id && (PORTAL_NURSES as string[]).includes(id);
+/* The demo nurses, plus any nurse added to the nursing team (Portals page, Add nurse). */
+const isPortalNurse = (id: PersonaId | null | undefined): id is StaffId => !!id && ((PORTAL_NURSES as string[]).includes(id) || getState().staff.some((s) => s.id === id && NURSE_ROLE_KEYS.includes(s.role)));
 
 export function NursePortalPreview({ open, onClose }: { open: boolean; onClose: () => void }) {
   const state = usePhState();

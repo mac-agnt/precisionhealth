@@ -82,6 +82,10 @@ export function upcomingClinicDays(state: PhState, programmeId: ProgrammeId): Cl
 let requested: ProgrammeId | null = null;
 export function requestClientPortalProgramme(id: ProgrammeId): void { requested = id; }
 export function takeRequestedProgramme(): ProgrammeId | null { const p = requested; requested = null; return p; }
+/* The Portals page asks the preview to open on a client portal created there (CP-001). */
+let requestedCustom: string | null = null;
+export function requestClientPortalCustom(id: string): void { requestedCustom = id; }
+export function takeRequestedCustom(): string | null { const p = requestedCustom; requestedCustom = null; return p; }
 
 export const isApprovedReport = (r: EmployerReport) => !!r.snapshot && (r.status === "approved" || r.status === "exported");
 

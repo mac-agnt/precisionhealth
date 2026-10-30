@@ -19,6 +19,7 @@ import OccHealth from "./OccHealth";
 import Screening from "./Screening";
 import Calendar from "./Calendar";
 import Clients from "./Journey";
+import Portals from "./Portals";
 import AgentsOverview from "./Agents/Overview";
 import AgentsActivity from "./Agents/AgentsActivity";
 import Companies from "./Records/Companies";
@@ -60,6 +61,7 @@ export default function PhRouter() {
     case "Screening": body = <Screening tab={tab} />; break;
     case "Calendar": body = <Calendar />; break;
     case "Clients": body = <Clients />; break;
+    case "Portals": body = <Portals />; break;
     case "Agents": body = tab === "activity" ? <AgentsActivity /> : <AgentsOverview />; break;
     case "Records": body = tab === "staff" ? <Staff /> : <Companies />; break;
   }

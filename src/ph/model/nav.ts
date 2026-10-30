@@ -6,7 +6,7 @@ import type { EntityKind } from "./types";
 export type PageId =
   | "Home" | "Agents" | "Dashboard" | "Programmes" | "Clinics" | "Participants"
   | "Results" | "Reporting" | "Work" | "Records" | "Activity" | "Settings"
-  | "Sales" | "Flu" | "OccHealth" | "Screening" | "Calendar" | "Clients";
+  | "Sales" | "Flu" | "OccHealth" | "Screening" | "Calendar" | "Clients" | "Portals";
 
 export interface TabDef { id: string; label: string }
 export interface PageDef { id: PageId; label: string; icon: string; hint: string; tabs: TabDef[]; /** Side-rail section heading; a labelled divider appears where it changes. */ section?: string }
@@ -30,6 +30,7 @@ export const PAGES: PageDef[] = [
     { id: "overview", label: "Today" }, { id: "days", label: "Screening days" }, { id: "schedule", label: "Schedule" }, { id: "appointments", label: "Appointments" }, { id: "board", label: "Bookings board" }, { id: "end-of-day", label: "End of day" }, { id: "team-resources", label: "Team and resources" }] },
   { id: "Participants", section: "Deliver screening", label: "Participants", icon: "navParticipants", hint: "People and messages", tabs: [
     { id: "directory", label: "Directory" }, { id: "screening-history", label: "Screening history" }, { id: "communications", label: "Communications" }, { id: "portal-admin", label: "Portal admin" }] },
+  { id: "Portals", section: "Deliver screening", label: "Portals", icon: "navPortals", hint: "Client, participant and nurse portals", tabs: [{ id: "all", label: "All portals" }] },
   { id: "Results", section: "Deliver screening", label: "Results", icon: "navResults", hint: "Lab imports and sign-off", tabs: [
     { id: "inbox", label: "Inbox" }, { id: "imports", label: "Lab imports" }, { id: "review", label: "Review" }, { id: "follow-up", label: "Follow-up" }, { id: "corrections", label: "Corrections" }] },
   { id: "Screening", section: "Deliver screening", label: "Health Screening", icon: "navScreening", hint: "Ranges and clinical rules", tabs: [
@@ -58,7 +59,7 @@ export function sectionOf(page: PageId): string {
 }
 /** True when this page and tab are rendered by a PH component rather than the original Pulse view. */
 export function isPhScreen(page: string, tab: string): boolean {
-  if (["Dashboard", "Programmes", "Clinics", "Participants", "Results", "Reporting", "Work", "Activity", "Settings", "Sales", "Flu", "OccHealth", "Screening", "Calendar", "Clients"].includes(page)) return true;
+  if (["Dashboard", "Programmes", "Clinics", "Participants", "Results", "Reporting", "Work", "Activity", "Settings", "Sales", "Flu", "OccHealth", "Screening", "Calendar", "Clients", "Portals"].includes(page)) return true;
   if (page === "Agents") return tab === "activity";
   if (page === "Records") return tab === "companies" || tab === "staff";
   return false;
