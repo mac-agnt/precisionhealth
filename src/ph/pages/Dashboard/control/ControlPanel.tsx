@@ -69,8 +69,8 @@ export default function ControlPanel() {
         <Card pad="sm">
           <div className="ctl-quick" role="toolbar" aria-label="Do it now">
             <span className="ctl-quick-label">Do it now</span>
-            <Button size="sm" variant="primary" icon="plus" onClick={() => nav.go({ page: "Screening", tab: "check", params: { new: "1" } })}>New screening</Button>
-            <Button size="sm" icon="edit" onClick={() => nav.go({ page: "Screening", tab: "check" })}>Enter results</Button>
+            <Button size="sm" variant="primary" icon="plus" onClick={() => nav.go({ page: "Screening", tab: "new" })}>New screening</Button>
+            <Button size="sm" icon="edit" onClick={() => nav.go({ page: "Screening", tab: "check", params: { show: "awaiting" } })}>Enter results</Button>
             <Button size="sm" icon="flask" onClick={() => nav.go({ page: "Results", tab: "imports" })}>Import lab file</Button>
             <Button size="sm" icon="calendar" onClick={() => nav.go({ page: "Clinics", tab: "days" })}>Set up screening day</Button>
             <Button size="sm" icon="shield" onClick={() => nav.go({ page: "Flu", tab: "bookings" })}>Add flu clinic</Button>
@@ -187,7 +187,7 @@ function Row({ r, open }: { r: CtlRow; open: (d: CtlDialog) => void }) {
     }
     case "enter":
       return line(r.name, `${r.client} · Bloods taken ${fmtDate(r.episode.collectedAt)}, results not back from the lab`,
-        [b("Enter results", go({ page: "Screening", tab: "check", params: { person: r.episode.personId } }), { primary: true, icon: "edit" })],
+        [b("Enter results", go({ page: "Screening", tab: "check", params: { episode: r.episode.id } }), { primary: true, icon: "edit" })],
         linkFor("person", r.episode.personId));
     case "day": {
       const d = r.day;

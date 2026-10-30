@@ -5,7 +5,9 @@ import { useState } from "react";
 import { SALES_SERVICE_LABEL, SALES_STAGE_LABEL, fmtDayMonth, fmtWeekdayDate, today } from "../../model";
 import type { NavTarget, SalesStage } from "../../model";
 import { useNav } from "../../nav-context";
-import { usePersona, usePhState } from "../../store";
+import { dispatch, usePersona, usePhState } from "../../store";
+import { flowAct } from "../Sales/flowActions";
+import { onbAct } from "../Sales/onbActions";
 import { Button, Card, CardHeader, PALETTE, Pill, Segmented } from "../../ui";
 import { TouchTimer } from "../Sales/LeadFlow";
 import { KpiBand } from "./KpiBand";
@@ -14,7 +16,7 @@ import {
   DASH_PERIOD_LABEL, ONB_STUCK_DAYS, eur, fmtSecs, onboardingRows, pipelineByStage, retentionStats, revenueStats, salesNeeds, salesPeriodStats, salesUpcomingDays,
 } from "./select";
 import type { DashPeriod } from "./select";
-import { ActRow, AsOf, BarRow, DASH_CSS, DayLine, Dots, Empty, Group, Stat } from "./shared";
+import { ActRow, ActRowWith, AsOf, BarRow, DASH_CSS, DayLine, Dots, Empty, Group, Stat } from "./shared";
 
 /** Next steps shown before "and N more", to keep the list short. */
 const NEXT_SHOWN = 5;
@@ -89,7 +91,8 @@ function NeedsCard() {
         {N.proposals.length ? N.proposals.map((w) => {
           const overdue = !!w.followDue && w.followDue < t;
           return (
-            <ActRow key={w.lead.id} onClick={() => nav.go(lead(w.lead.id))} title={w.lead.company} label={`Open ${w.lead.company}`}
+            <ActRowWith key={w.lead.id} onClick={() => nav.go(lead(w.lead.id))} title={w.lead.company} label={`Open ${w.lead.company}`}
+              acts={w.followDue && w.followN && w.followDueThisWeek ? <Button size="sm" variant={overdue ? "primary" : "secondary"} icon="send" onClick={() => dispatch(flowAct.followUp(w.lead.id, w.followN!, "send"))}>Send follow-up</Button> : null}
               sub={`${w.proposal.id} sent ${fmtDayMonth(w.sentOn)}, ${w.daysOut} ${w.daysOut === 1 ? "day" : "days"} ago. ${eur(w.value)}`}
               right={w.followDue ? (
                 <Pill tone={overdue ? "bad" : w.followDueThisWeek ? "warn" : "neutral"} icon="mail">
@@ -185,8 +188,10 @@ function RetentionCard() {
   const go = () => nav.go({ page: "Sales", tab: "recall" });
   const unreplaced = R.left.filter((x) => !x.replaced).length;
   const actions = [
-    ...R.resultsOut.map((x) => ({ key: `ro-${x.programmeId}`, title: x.company, sub: `${x.newReports} new ${x.newReports === 1 ? "report" : "reports"} released. Send the results-out email.`, pill: <Pill tone="info" icon="mail">Results out</Pill> })),
-    ...R.remindersDue.filter((r) => r.state !== "scheduled").map((r) => ({ key: `rm-${r.recall.id}`, title: r.recall.company, sub: r.state === "no_contact" ? "Contact left. Find the new HR contact first." : `Screened ${fmtDayMonth(r.recall.screenedOn)}. Rebooking reminder due ${fmtDayMonth(r.dueOn)}.`, pill: <Pill tone={r.state === "no_contact" ? "bad" : "warn"} icon={r.state === "no_contact" ? "user" : "calendar"}>{r.state === "no_contact" ? "No contact" : "Reminder due"}</Pill> })),
+    ...R.resultsOut.map((x) => ({ key: `ro-${x.programmeId}`, title: x.company, sub: `${x.newReports} new ${x.newReports === 1 ? "report" : "reports"} released. Send the results-out email.`, pill: <Pill tone="info" icon="mail">Results out</Pill>,
+      act: <Button size="sm" variant="primary" icon="send" onClick={() => dispatch(onbAct.sendResultsOut(x.programmeId))}>Send email</Button> })),
+    ...R.remindersDue.filter((r) => r.state !== "scheduled").map((r) => ({ key: `rm-${r.recall.id}`, title: r.recall.company, sub: r.state === "no_contact" ? "Contact left. Find the new HR contact first." : `Screened ${fmtDayMonth(r.recall.screenedOn)}. Rebooking reminder due ${fmtDayMonth(r.dueOn)}.`, pill: <Pill tone={r.state === "no_contact" ? "bad" : "warn"} icon={r.state === "no_contact" ? "user" : "calendar"}>{r.state === "no_contact" ? "No contact" : "Reminder due"}</Pill>,
+      act: r.state === "no_contact" ? null : <Button size="sm" icon="send" onClick={() => dispatch(onbAct.sendRebooking(r.recall.id))}>Send reminder</Button> })),
   ].slice(0, 5);
   return (
     <Card>
@@ -199,7 +204,7 @@ function RetentionCard() {
       </div>
       {actions.length ? (
         <Group title="To do">
-          {actions.map((a) => <ActRow key={a.key} onClick={go} title={a.title} sub={a.sub} right={a.pill} />)}
+          {actions.map((a) => <ActRowWith key={a.key} onClick={go} title={a.title} sub={a.sub} right={a.pill} acts={a.act} />)}
         </Group>
       ) : null}
     </Card>

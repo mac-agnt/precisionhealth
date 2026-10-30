@@ -82,6 +82,10 @@ export const DASH_CSS = `
 .dsh-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(128px, 1fr)); gap: 10px; }
 .dsh-stats-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .dsh-col { min-width: 0; }
+.dsh-actrow { display: flex; align-items: center; gap: 8px; border-top: 1px solid var(--border); }
+.dsh-actrow > .dsh-row { border-top: 0; flex: 1; width: auto; margin-right: 0; }
+.dsh-actrow > .dsh-row .dsh-row-chev { display: none; }
+.dsh-actrow-acts { flex: none; display: flex; gap: 6px; }
 .dsh-stat { display: block; text-align: left; padding: 12px 13px; border-radius: 14px; border: 1px solid var(--border); background: transparent; font: inherit; color: inherit; cursor: pointer; min-width: 0; transition: background .15s var(--ease); }
 .dsh-stat:hover { background: var(--surface-2); }
 .dsh-stat:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
@@ -111,6 +115,8 @@ export const DASH_CSS = `
   .dsh-bar-track { grid-column: 1 / -1; grid-row: 2; }
   .dsh-prog { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .dsh-stats-2 { grid-template-columns: minmax(0, 1fr); }
+  .dsh-actrow { flex-wrap: wrap; padding-bottom: 8px; }
+  .dsh-actrow > .dsh-row { flex-basis: 100%; }
 }
 `;
 
@@ -125,6 +131,16 @@ export function ActRow({ title, sub, right, onClick, label }: { title: ReactNode
       {right ? <span className="dsh-row-right">{right}</span> : null}
       <Icon name="arrow" size={13} className="dsh-row-chev" />
     </button>
+  );
+}
+
+/** A list row that opens its record, with its action button beside it. */
+export function ActRowWith({ acts, ...row }: { title: ReactNode; sub?: ReactNode; right?: ReactNode; onClick: () => void; label?: string; acts: ReactNode }) {
+  return (
+    <div className="dsh-actrow">
+      <ActRow {...row} />
+      <span className="dsh-actrow-acts">{acts}</span>
+    </div>
   );
 }
 
