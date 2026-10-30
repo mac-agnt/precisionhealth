@@ -19,7 +19,7 @@ import { AgreementDoc, BrandedEmail, StepTracker, agreementHtml, downloadHtml, u
 
 const KIND_ICON: Record<OnbKind, GlyphName> = { oh: "shield", wellness: "heart" };
 const KIND_BLURB: Record<OnbKind, string> = {
-  oh: "Pre-employment medicals, referrals and health surveillance. Set up in MediBase, billed as a monthly retainer.",
+  oh: "Pre-employment medicals, referrals and health surveillance. Set up in MediBase, billed as a yearly recurring fee (€525 or €1,050).",
   wellness: "Screening days, flu clinics and wellness talks. Invoiced once per programme.",
 };
 
@@ -456,7 +456,7 @@ function XeroStep({ o }: { o: Onboarding }) {
         <div className="ob-xero-box">
           <div className="ph-eyebrow">Billing</div>
           {o.kind === "oh" ? (
-            <Field label="Monthly retainer" htmlFor="ob-ret" help="Repeating invoice in Xero, on the 1st of each month.">
+            <Field label="Yearly recurring fee" htmlFor="ob-ret" help="Repeating invoice in Xero, once a year from the start date.">
               <Select id="ob-ret" value={o.xero.billing} disabled={made} onChange={(e) => dispatch(onbAct.setBilling(o.id, e.target.value as OnbBilling), { silent: true })}>
                 <option value="retainer_525">{ONB_BILLING_LABEL.retainer_525}</option>
                 <option value="retainer_1050">{ONB_BILLING_LABEL.retainer_1050}</option>

@@ -73,8 +73,8 @@ export interface OnbDoc {
 
 export type OnbBilling = "retainer_525" | "retainer_1050" | "per_programme";
 export const ONB_BILLING_LABEL: Record<OnbBilling, string> = {
-  retainer_525: "Monthly retainer, €525 a month",
-  retainer_1050: "Monthly retainer, €1,050 a month",
+  retainer_525: "Yearly recurring fee, €525 a year",
+  retainer_1050: "Yearly recurring fee, €1,050 a year",
   per_programme: "Invoice per programme",
 };
 export const ONB_RETAINER_EUR: Record<OnbBilling, number> = { retainer_525: 525, retainer_1050: 1050, per_programme: 0 };
@@ -83,7 +83,7 @@ export function onbBillingCodes(kind: OnbKind, billing: OnbBilling): OnbBillingC
   if (kind === "oh") {
     const r = billing === "retainer_1050" ? 1050 : 525;
     return [
-      { code: `OH-RET-${r}`, label: "Occupational health retainer", basis: `€${r === 1050 ? "1,050" : "525"} a month, repeating invoice` },
+      { code: `OH-RET-${r}`, label: "Occupational health retainer", basis: `€${r === 1050 ? "1,050" : "525"} a year, repeating invoice` },
       { code: "OH-MB", label: "MediBase account", basis: "Included in the retainer" },
       { code: "OH-XTRA", label: "Extra appointments", basis: "Billed as used, at the agreed rates" },
     ];
@@ -406,7 +406,7 @@ export function onbMergeFields(o: Onboarding, onDate: LocalDate): Record<string,
     teamName: ONB_TEAM[o.kind].name,
     serviceLevelLine: oh ? "Management referrals are offered an appointment within five working days, and reports are returned within two working days of the appointment."
       : "Screening days are confirmed at least four weeks ahead, and individual results are released to each employee within ten working days of their screening.",
-    feeLine: oh && retainer ? `A monthly retainer of €${retainer === 1050 ? "1,050" : "525"} covers the MediBase account and the agreed service. Extra appointments are billed as used.`
+    feeLine: oh && retainer ? `A yearly recurring fee of €${retainer === 1050 ? "1,050" : "525"} covers the MediBase account and the agreed service. Extra appointments are billed as used.`
       : "Each programme is invoiced once its results are out, at the prices in the agreed proposal.",
     invoiceDestination: d.invoiceTo === "ap_email" ? d.apEmail : "the Precision Health client portal",
     poLine: d.poNumber.trim() ? `Invoices quote purchase order ${d.poNumber.trim()}.` : "No purchase order is needed.",

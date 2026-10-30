@@ -159,7 +159,7 @@ registerHandlers({
     const o = get(c, a.id); if (!o) return c.fail("Unknown onboarding.");
     if (o.xero.contactRef) return c.fail("Already set up in Xero. Change the repeating invoice in Xero.");
     const allowed: OnbBilling[] = o.kind === "oh" ? ["retainer_525", "retainer_1050"] : ["per_programme"];
-    if (!allowed.includes(a.billing)) return c.fail(o.kind === "oh" ? "Choose the €525 or €1,050 monthly retainer." : "Wellness clients are invoiced per programme.");
+    if (!allowed.includes(a.billing)) return c.fail(o.kind === "oh" ? "Choose the €525 or €1,050 yearly recurring fee." : "Wellness clients are invoiced per programme.");
     o.xero.billing = a.billing;
     return c.ok();
   },
