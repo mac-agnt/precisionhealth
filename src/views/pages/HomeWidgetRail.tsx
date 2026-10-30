@@ -8,7 +8,7 @@ export default function HomeWidgetRail({ v }: Props) {
   return (
     <>
       <aside className="ph-home-rail" style={{"position":"relative","zIndex":"1","width":"352px","flex":"none","minHeight":"0","overflowY":"auto","display":"flex","flexDirection":"column","gap":"14px","padding":"2px 0 6px 20px"}}>
-        <div style={{"flex":"0 0 auto","minWidth":"0","overflow":"hidden","display":"flex","flexWrap":"nowrap","alignItems":"center","justifyContent":"space-between","gap":"4px","padding":"2px 0 4px","fontFamily":"var(--mono)"}}>
+        <div className="ph-flipclock" style={{"flex":"0 0 auto","minWidth":"0","overflow":"hidden","display":"flex","flexWrap":"nowrap","alignItems":"center","justifyContent":"space-between","gap":"4px","padding":"2px 0 4px","fontFamily":"var(--mono)"}}>
           {arr(v.flipUnits).map((u: any, i15: number) => (
             <Fragment key={i15}>
               <div style={{"display":"flex","flexWrap":"nowrap","alignItems":"center","gap":"3px"}}>

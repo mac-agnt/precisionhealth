@@ -1,0 +1,124 @@
+/* Phone shell: app bar, tab pills and the sliding menu (below 900px only). */
+
+/* App bar */
+.ph-mbar-wrap { position: relative; z-index: 4; flex: none; background: var(--panel, var(--bg)); border-bottom: 1px solid var(--border); padding-top: env(safe-area-inset-top, 0px); }
+.ph-mbar { display: flex; align-items: center; gap: 2px; height: 58px; padding: 0 8px 0 6px; }
+.ph-mbar-title { flex: 1; min-width: 0; margin: 0 0 0 4px; font-size: 18px; font-weight: 600; letter-spacing: -.3px; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ph-mbar-btn { flex: none; width: 44px; height: 44px; display: inline-flex; align-items: center; justify-content: center; border: 0; border-radius: 999px; background: none; color: var(--body, var(--ink)); cursor: pointer; -webkit-tap-highlight-color: transparent; transition: background .18s var(--ease); }
+.ph-mbar-btn:hover, .ph-mbar-btn:active { background: var(--surface-2); }
+.ph-mbar-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.ph-mbar-pulse { color: var(--accent); }
+.ph-mbar-persona { flex: none; margin-left: 2px; }
+.ph-mbar-persona .ph-btn { height: 44px !important; padding: 0 5px !important; }
+.ph-mbar-persona .ph-btn > svg { display: none; }
+
+/* Tabs: one sideways-scrolling pill row; the active pill is filled and kept in view. */
+.ph-mtabs { display: flex; gap: 6px; padding: 0 12px 10px; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; scroll-padding: 0 12px; -webkit-overflow-scrolling: touch; }
+.ph-mtabs::-webkit-scrollbar { display: none; }
+.ph-mtab { flex: none; display: inline-flex; align-items: center; gap: 7px; height: 40px; padding: 0 16px; border: 1px solid var(--border); border-radius: 999px; background: var(--surface); color: var(--dim); font: inherit; font-size: 14px; font-weight: 500; white-space: nowrap; cursor: pointer; -webkit-tap-highlight-color: transparent; transition: background .2s var(--ease), color .2s var(--ease), border-color .2s var(--ease); }
+.ph-mtab.on { background: var(--accent-soft); border-color: var(--accent-line); color: var(--ink); font-weight: 600; }
+.ph-mtab:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.ph-mtab-n { padding: 1px 7px; border-radius: 999px; background: var(--track); font-size: 11.5px; color: var(--dim); }
+.ph-mtab.on .ph-mtab-n { background: var(--accent-soft); color: var(--accent); }
+
+/* Drawer */
+.ph-mdrawer-root { position: fixed; inset: 0; z-index: 75; pointer-events: none; visibility: hidden; transition: visibility 0s linear .25s; }
+.ph-mdrawer-root.open { pointer-events: auto; visibility: visible; transition: visibility 0s; }
+.ph-mdrawer-scrim { position: absolute; inset: 0; background: var(--scrim, rgba(0,0,0,.55)); backdrop-filter: blur(2px); -webkit-backdrop-filter: blur(2px); opacity: 0; transition: opacity .25s var(--ease); -webkit-tap-highlight-color: transparent; }
+.ph-mdrawer-root.open .ph-mdrawer-scrim { opacity: 1; }
+.ph-mdrawer { position: absolute; top: 0; left: 0; bottom: 0; width: min(320px, 86vw); display: flex; flex-direction: column; background: var(--panel, var(--bg)); border-right: 1px solid var(--border-strong); box-shadow: 24px 0 70px rgba(0,0,0,.45); transform: translateX(-102%); transition: transform .25s cubic-bezier(.2,.8,.2,1); touch-action: pan-y; padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
+.ph-mdrawer-root.open .ph-mdrawer { transform: none; }
+/* Vertical scrolling stays with the browser; a sideways swipe is ours (swipe left to close). */
+.ph-mdrawer * { touch-action: pan-y; }
+.ph-mdrawer-head { flex: none; display: flex; align-items: center; justify-content: space-between; gap: 10px; height: 64px; padding: 0 8px 0 18px; }
+.ph-mdrawer-body { position: relative; flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 4px 10px 12px; scrollbar-width: none; }
+.ph-mdrawer-body::-webkit-scrollbar { display: none; }
+.ph-mdrawer-sec { padding: 16px 12px 6px; font-size: 11px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: var(--faint); }
+.ph-mdrawer-rule { height: 1px; margin: 8px 12px; background: var(--track); }
+.ph-mdrawer-item { position: relative; display: flex; align-items: center; gap: 14px; width: 100%; min-height: 46px; padding: 0 12px; border: 0; border-radius: 14px; background: none; color: var(--body, var(--ink)); font: inherit; font-size: 15px; font-weight: 500; text-align: left; cursor: pointer; -webkit-tap-highlight-color: transparent; transition: background .18s var(--ease), color .18s var(--ease); }
+.ph-mdrawer-item svg { flex: none; color: var(--mid); }
+.ph-mdrawer-item:active { background: var(--surface-2); }
+.ph-mdrawer-item.on { background: var(--rail-active, var(--accent-soft)); color: var(--ink); font-weight: 600; box-shadow: inset 3px 0 0 var(--accent); }
+.ph-mdrawer-item.on svg { color: var(--rail-active-ink, var(--accent)); }
+.ph-mdrawer-item:focus-visible, .ph-mdrawer-portal:focus-visible, .ph-mdrawer-switch button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.ph-mdrawer-label { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ph-mdrawer-dot { width: 7px; height: 7px; flex: none; border-radius: 50%; background: var(--accent); }
+.ph-mdrawer-portals { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; padding: 2px 2px 4px; }
+.ph-mdrawer-portal { display: flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 12px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); color: var(--ink); font: inherit; font-size: 13.5px; text-align: left; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.ph-mdrawer-portal svg { color: var(--accent); }
+.ph-mdrawer-portal:active { background: var(--accent-soft); }
+.ph-mdrawer-foot { flex: none; padding: 10px 10px 12px; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 6px; }
+.ph-mdrawer-account { padding: 12px; background: var(--surface); border: 1px solid var(--border); border-radius: 16px; }
+.ph-mdrawer-who { display: flex; align-items: center; gap: 12px; }
+.ph-mdrawer-name { display: block; font-size: 15px; font-weight: 600; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ph-mdrawer-role { display: block; margin-top: 2px; font-size: 12.5px; color: var(--faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ph-mdrawer-switch { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin-top: 12px; padding: 4px; border-radius: 999px; background: var(--track); }
+.ph-mdrawer-switch button { height: 40px; border: 0; border-radius: 999px; background: none; color: var(--dim); font: inherit; font-size: 14px; font-weight: 500; cursor: pointer; -webkit-tap-highlight-color: transparent; transition: background .2s var(--ease), color .2s var(--ease); }
+.ph-mdrawer-switch button.on { background: var(--surface-2); color: var(--ink); font-weight: 600; box-shadow: 0 1px 3px rgba(0,0,0,.2); }
+.ph-mdrawer-demo { display: flex; justify-content: center; padding: 16px 0 4px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .ph-mdrawer, .ph-mdrawer-scrim, .ph-mdrawer-root, .ph-mtab { transition: none !important; }
+}
+[data-reduce-motion="1"] .ph-mdrawer, [data-reduce-motion="1"] .ph-mdrawer-scrim { transition: none !important; }
+
+/* The shell itself on a phone: no rail, the main panel fills the screen edge to edge. */
+@media (max-width: 899.98px) {
+  [data-rail-nav] { display: none !important; }
+  .ph-main { margin: 0 !important; border: 0 !important; border-radius: 0 !important; box-shadow: none !important; }
+  .ph-main-fade { display: none !important; }
+  .ph-app-root { height: 100dvh !important; }
+}
+
+/* Phone pages (below 700px): roomier touch targets, readable inputs, stacked headers,
+   full-screen dialogs. Layout only; desktop is untouched. */
+@media (max-width: 699.98px) {
+  .ph-app-root .ph-page { padding: 0 16px 28px; }
+  .ph-app-root .ph-btn { min-height: 40px; }
+  .ph-app-root .ph-btn-sm { min-height: 36px; }
+  .ph-app-root .ph-btn-icon { min-width: 40px; }
+  .ph-app-root .ph-chip { height: 36px; padding: 0 14px; font-size: 13px; }
+  .ph-app-root .ph-tab { height: 36px; padding: 0 14px; font-size: 13px; }
+  .ph-app-root .ph-input, .ph-app-root select.ph-input { height: 44px; font-size: 16px; }
+  .ph-app-root textarea.ph-input { font-size: 16px; }
+  .ph-app-root .ph-table { font-size: 13px; }
+  .ph-app-root .ph-pagehead { flex-direction: column; align-items: stretch !important; gap: 12px; padding-top: 16px !important; }
+  .ph-app-root .ph-pagehead > .ph-grow { min-width: 0 !important; }
+  .ph-app-root .ph-pagehead > .ph-wrap { justify-content: flex-start !important; }
+  .ph-app-root .ph-pagehead .ph-h1 { font-size: 24px; }
+  .ph-app-root .ph-cardhead { flex-wrap: wrap; }
+  .ph-app-root .ph-cardhead > .ph-grow { flex-basis: 60%; }
+  .ph-app-root .ph-kpi-label { white-space: normal; overflow: visible; line-height: 1.35; }
+  /* Dialogs become full-screen sheets; side drawers already fill the width. */
+  .ph-app-root .ph-modal { inset: 0 !important; width: 100vw !important; max-width: 100vw !important; height: 100dvh !important; max-height: 100dvh !important; margin: 0 !important; border-radius: 0 !important; border: 0 !important; padding-bottom: env(safe-area-inset-bottom, 0px); animation: phSheetUp .25s var(--ease) both; }
+  .ph-app-root .ph-drawer { width: 100vw !important; border-left: 0; }
+  .ph-app-root .ph-toasts { top: 66px; }
+  .ph-app-root .ph-flipclock { display: none !important; }
+}
+@keyframes phSheetUp { from { opacity: .4; transform: translateY(24px); } to { opacity: 1; transform: none; } }
+
+/* Search palette on a phone: a full-width sheet with a Cancel button. */
+.ph-palette-cancel { display: none; }
+@media (max-width: 899.98px) {
+  .ph-palette { left: 8px !important; right: 8px !important; top: 8px !important; width: auto !important; max-height: calc(100dvh - 16px) !important; transform: none !important; }
+  .ph-palette input { font-size: 16px !important; }
+  .ph-palette [role="option"] { min-height: 48px; }
+  .ph-palette-role { display: none !important; }
+  .ph-palette-cancel { display: inline-flex; align-items: center; flex: none; height: 40px; margin-right: -8px; padding: 0 10px; border: 0; border-radius: 999px; background: none; color: var(--accent); font: inherit; font-size: 15px; font-weight: 500; cursor: pointer; }
+}
+
+/* Page fixes for phones, kept here so the page stylesheets stay as they are on desktop. */
+@media (max-width: 699.98px) {
+  /* KPI tiles: two across instead of one tall column. */
+  .ph-app-root .ph-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .ph-app-root .ph-kpis .ph-num { font-size: 24px !important; }
+  /* Clinics, Screening days: date, then the details, with the status underneath. */
+  .ph-app-root .sd-row { grid-template-columns: 52px minmax(0, 1fr) !important; gap: 12px !important; }
+  .ph-app-root .sd-row-end { grid-column: 2; justify-content: space-between !important; }
+}
+@media (max-width: 699.98px) {
+  /* Agents: the agent list on top (its own short scroll), the conversation underneath. */
+  .ph-app-root .ph-agents { flex-direction: column; height: auto !important; min-height: 100%; }
+  .ph-app-root .ph-agents-list { width: auto !important; max-height: 46vh; border-right: 0 !important; border-bottom: 1px solid var(--border); }
+  .ph-app-root .ph-agents > :not(.ph-agents-list) { min-height: 70vh; }
+}

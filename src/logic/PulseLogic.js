@@ -85,7 +85,7 @@ export default class PulseLogic extends DCLogic {
             newRecOpen:false, newRecName:"", newRecTemplate:"Field sheet", newRecCat:"All",
             opsFilter:"all", opsOff:{}, opsOpen:null, opsScope:"week", opsDay:26, opsOrder:null, opsDrag:null,
             opsBuilderOpen:false, opsBuilderMode:"workflow", builderText:"", builderGenerated:false,
-            railOpen: typeof window === "undefined" || window.innerWidth >= 1100, barOpen:true, chatRailPinned:false, widgetEdit:false, widgets:["clinics","imports","review","capacity","work"],
+            railOpen: typeof window === "undefined" || window.innerWidth >= 1100, drawerOpen:false, barOpen:true, chatRailPinned:false, widgetEdit:false, widgets:["clinics","imports","review","capacity","work"],
             kpiEdit:false, kpiKeys:["revenue","cash","overdue","margin","jobs"],
             aspect:"sales", filterMenuOpen:false, customFilter:"", extraFilters:[],
             workWidget:"queue", miniOpen:false, miniThread:[], miniDraft:"", miniTab:"chat", miniTone:"plain", miniWorkOpen:"tasks",
@@ -1164,7 +1164,9 @@ export default class PulseLogic extends DCLogic {
     // Tablet widths give the nav room by collapsing the rail once, as the window crosses below 1100px.
     this._resize = () => this.setState(prev => {
       const w = window.innerWidth;
-      return prev.railOpen && w < 1100 && prev.w >= 1100 ? {w, railOpen:false} : {w};
+      const next = prev.railOpen && w < 1100 && prev.w >= 1100 ? {w, railOpen:false} : {w};
+      /* The phone drawer only exists below 900px; widening the window puts it away. */
+      return prev.drawerOpen && w >= 900 ? {...next, drawerOpen:false} : next;
     });
     window.addEventListener("resize", this._resize);
     this._key = (e) => {
@@ -1482,6 +1484,15 @@ export default class PulseLogic extends DCLogic {
          enter: (e) => { if (!railOpen) this.hover(idx, n.label, n.hint || "", e); else this.setState({railHov:idx}); },
          leave: () => { if (this.state.railHov === idx) this.setState({railHov:null}); this.unhover(idx); },
          go: () => this.go(n.page)});
+    /* Phone (below 900px): the same rail, with section headings always shown, inside a sliding drawer.
+       Tapping an item navigates and puts the drawer away. */
+    const closeDrawer = () => this.setState({drawerOpen:false});
+    const drawerNav = NAV_SHOWN.map((n) => n.divider
+      ? {isDivider:true, label:n.label || ""}
+      : {isItem:true, label:n.label, d:ICONS[n.icon], active:n.page === page, dot: n.dot === true && this.phDot(n.page),
+         go: () => { this.setState({drawerOpen:false}); this.go(n.page); }});
+    const pageDef = NAV.find(n => !n.divider && n.page === page);
+    const pageTitle = page === "Settings" ? "Settings" : (pageDef && pageDef.label) || page;
 
     const workSec = WORK_SECTIONS.find(s => s.id === st.workSection) || WORK_SECTIONS[0];
     
@@ -2906,7 +2917,16 @@ export default class PulseLogic extends DCLogic {
       composerWidthStyle: "width:100%;margin:0 auto;"
         + "max-width:" + (st.thread.length ? (st.chatRailPinned ? "760px" : "880px") : "600px") + ";"
         + "transition:max-width .38s var(--ease)",
-      goSettings: () => this.go("Settings")
+      goSettings: () => this.go("Settings"),
+      /* phone shell */
+      isMobile: st.w < 900,
+      drawerOpen: st.drawerOpen && st.w < 900,
+      openDrawer: () => this.setState({drawerOpen:true, showNotifs:false}),
+      closeDrawer,
+      drawerNav,
+      pageTitle,
+      settingsActive: page === "Settings",
+      goSettingsFromDrawer: () => { this.setState({drawerOpen:false}); this.go("Settings"); }
     };
   }
 }

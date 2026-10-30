@@ -57,7 +57,7 @@ export function Card({ children, style, flat, pad = true, className, onClick }: 
 
 export function CardHeader({ title, sub, right, eyebrow }: { title: ReactNode; sub?: ReactNode; right?: ReactNode; eyebrow?: ReactNode }) {
   return (
-    <div className="ph-row-flex" style={{ alignItems: "flex-start", marginBottom: 12 }}>
+    <div className="ph-row-flex ph-cardhead" style={{ alignItems: "flex-start", marginBottom: 12 }}>
       <div className="ph-grow">
         {eyebrow ? <div className="ph-eyebrow" style={{ marginBottom: 4 }}>{eyebrow}</div> : null}
         <h3 className="ph-h2">{title}</h3>
@@ -85,7 +85,7 @@ function useBreadcrumb(eyebrow: ReactNode): ReactNode {
 export function PageHeader({ title, sub, actions, eyebrow }: { title: ReactNode; sub?: ReactNode; actions?: ReactNode; eyebrow?: ReactNode }) {
   eyebrow = useBreadcrumb(eyebrow);
   return (
-    <div className="ph-row-flex" style={{ alignItems: "flex-end", padding: "20px 0 16px", flexWrap: "wrap" }}>
+    <div className="ph-row-flex ph-pagehead" style={{ alignItems: "flex-end", padding: "20px 0 16px", flexWrap: "wrap" }}>
       <div className="ph-grow" style={{ minWidth: 220 }}>
         {eyebrow ? <div className="ph-eyebrow" style={{ marginBottom: 6 }}>{eyebrow}</div> : null}
         <h1 className="ph-h1">{title}</h1>
@@ -102,7 +102,7 @@ export function Kpi({ label, value, sub, tone, onClick, hint, icon }: { label: s
   const inner = (
     <>
       <div className="ph-row-flex" style={{ gap: 7 }}>
-        <span className="ph-eyebrow ph-trunc ph-grow">{label}</span>
+        <span className="ph-eyebrow ph-trunc ph-grow ph-kpi-label">{label}</span>
         {icon ? <Icon name={icon} size={13} style={{ color: t ? t.fg : "var(--faint)" }} /> : null}
         {t && !icon ? <Icon name={t.icon} size={12} stroke={2} style={{ color: t.fg }} /> : null}
       </div>
