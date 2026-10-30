@@ -15,7 +15,7 @@ import ProposalBuilder from "./ProposalBuilder";
 import { useSalesRights } from "./shared";
 import { JourneyStrip } from "../Journey/JourneyStrip";
 
-const STATUS_TONE: Record<SalesProposalVersion["status"], Tone> = { draft: "neutral", sent: "warn", accepted: "ok", declined: "bad" };
+const STATUS_TONE: Record<SalesProposalVersion["status"], Tone> = { draft: "neutral", sent: "info", accepted: "ok", declined: "bad" };
 
 export default function ProposalDoc() {
   const s = usePhState();

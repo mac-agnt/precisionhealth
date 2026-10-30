@@ -5,7 +5,7 @@
 import { PAGE_BY_ID, defaultTab, hashFor, parseHash, isPhScreen, tabLabel } from "../ph/model/nav";
 import {
   navAttention, storyViews, reviewStats, batchStats, followUpList, reminderStats, taskViews, approvalViews, persona as phPersona, answerQuery, suggestedPrompts,
-  AUTOMATIONS, visibleFiles, linkFor, greetingFor, fmtDateLong, fmtTime, todayStats, todaySessions, sessionStats, visibleTasks, fmtWhen, ontologyModel, ONTO_CLUSTER_DEFS, PH_FILES,
+  AUTOMATIONS, salesHomeFor, salesOpenLeads, salesPendingInbound, SALES_HOME_SUBLINE, visibleFiles, linkFor, greetingFor, fmtDateLong, fmtTime, todayStats, todaySessions, sessionStats, visibleTasks, fmtWhen, ontologyModel, ONTO_CLUSTER_DEFS, PH_FILES,
 } from "../ph/model";
 import { phStore } from "../ph/store";
 
@@ -102,7 +102,12 @@ function homeOverrides(logic, state, p) {
   const quar = state.importRows.filter(r => r.state === "quarantined").length;
   const D = todayStats(state);
   const first = p.name.split(" ")[0];
-  const pill = p.perms.has("clinical.review")
+  const salesHome = salesHomeFor(state);
+  const salesDue = salesHome ? salesOpenLeads(state).filter(v => v.overdue || v.dueToday).length : 0;
+  const salesNew = salesHome ? salesPendingInbound(state).length : 0;
+  const pill = salesHome
+    ? (salesNew ? salesNew + " NEW " + (salesNew === 1 ? "LEAD" : "LEADS") + " · " : "") + salesDue + " LEAD ACTIONS TODAY"
+    : p.perms.has("clinical.review")
     ? rv.ready + " REPORTS TO REVIEW · " + quar + " IMPORT EXCEPTIONS"
     : p.role === "operations" ? quar + " IMPORT EXCEPTIONS · " + rem.failed + " FAILED REMINDERS"
     : D.booked + " APPOINTMENTS TODAY · " + D.available + " SLOTS FREE";
@@ -113,7 +118,7 @@ function homeOverrides(logic, state, p) {
   return {
     greetingPrefix: greetingFor(state.clock.nowUtc),
     greetingName: first,
-    homeSubline: fmtDateLong(state.clock.nowUtc) + ", " + fmtTime(state.clock.nowUtc) + " in Dublin. Ask about clinics, lab imports, reviews or programme reports.",
+    homeSubline: fmtDateLong(state.clock.nowUtc) + ", " + fmtTime(state.clock.nowUtc) + " in Dublin. " + (salesHome ? SALES_HOME_SUBLINE : "Ask about clinics, lab imports, reviews or programme reports."),
     approvalsPill: pill,
     goApprovals: () => logic.ask(prompts[0]),
     phPrompts: prompts.map(label => ({label, run: () => logic.ask(label)})),

@@ -39,9 +39,9 @@ export default function Crm() {
   const rights = useSalesRights();
   const t = today(s);
   const views = useMemo(() => salesLeadViews(s), [s]);
-  const [mode, setMode] = useState<"board" | "list">("board");
+  const [mode, setMode] = useState<"board" | "list">(STAGES.includes(nav.params.stage as SalesStage) ? "list" : "board");
   const [q, setQ] = useState("");
-  const [stage, setStage] = useState<SalesStage | "all">("all");
+  const [stage, setStage] = useState<SalesStage | "all">(STAGES.includes(nav.params.stage as SalesStage) ? (nav.params.stage as SalesStage) : "all");
   const [service, setService] = useState<SalesService | "all">("all");
   const [source, setSource] = useState<SalesSource | "all">("all");
   const [overdue, setOverdue] = useState(false);

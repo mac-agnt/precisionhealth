@@ -114,15 +114,14 @@ button.phr-check-box:focus-visible { outline: 2px solid var(--accent); outline-o
 /* results viewer: the clinician's Reporting Viewer as three label and value column pairs, in the
    client's row order. Severity sets the weight: normal values stay quiet, borderline and abnormal
    values carry the colour, anything not graded is hatched grey. Hues follow the shared report bands
-   (green, yellow, orange, grey) and are mixed against the theme ink, so the flag words stay readable
+   (green, amber, orange-red, grey; tokens in pulse.css) and are mixed against the theme ink, so the flag words stay readable
    in light and dark themes. Every banded cell also prints its flag word. */
 .phr-vw {
   container: phrvw / inline-size; padding: 16px 16px 14px; display: flex; flex-direction: column; gap: 12px;
-  --b-normal: #62B83C; --b-borderline: #E9C500; --b-abnormal: #FF8A1A; --b-na: #9AA0A6;
+  --b-normal: var(--band-normal); --b-borderline: var(--band-borderline); --b-abnormal: var(--band-abnormal); --b-na: var(--band-none);
   --t-normal: 9%; --t-borderline: 20%; --t-abnormal: 26%; --t-na: 14%; --fg-mix: 72%;
 }
 :is([data-theme="light"], [data-theme="mist"], [data-theme="sand"], [data-theme="warm"]) .phr-vw {
-  --b-normal: #4E9F2A; --b-borderline: #E0B800; --b-abnormal: #EE7A00;
   --t-normal: 9%; --t-borderline: 30%; --t-abnormal: 24%; --t-na: 15%; --fg-mix: 50%;
 }
 .phr-vw [data-band="normal"] { --band: var(--b-normal); --tint: var(--t-normal); }

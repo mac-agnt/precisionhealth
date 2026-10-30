@@ -6,7 +6,8 @@ import { useNav } from "../nav-context";
 import { usePhState } from "../store";
 import { Button, Icon, Pill } from "../ui";
 
-export default function LabMatchCard() {
+/** secondary: shown lower down for the sales owner, so it is not labelled top priority. */
+export default function LabMatchCard({ secondary }: { secondary?: boolean }) {
   const state = usePhState();
   const nav = useNav();
   const p = persona(state);
@@ -20,7 +21,7 @@ export default function LabMatchCard() {
       <div className="ph-row-flex" style={{ gap: 8, marginBottom: 4 }}>
         <Icon name="alert" size={15} style={{ color: "var(--warn)" }} />
         <div className="ph-grow" style={{ fontSize: 13.5, fontWeight: 600, color: "var(--ink)" }}>{items.length} lab {items.length === 1 ? "row needs" : "rows need"} matching</div>
-        <Pill tone="warn" icon={null}>Top priority</Pill>
+        <Pill tone="warn" icon={null}>{secondary ? "Waiting" : "Top priority"}</Pill>
       </div>
       <div className="ph-faint" style={{ fontSize: 11.5, lineHeight: 1.45, marginBottom: 6 }}>These results are not on any record yet. Name, date of birth and Precision ID must all agree before they attach.</div>
       {items.slice(0, 3).map((q) => {

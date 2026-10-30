@@ -4,7 +4,7 @@
    counts. The shell sets the persona to participant while it is open. */
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
-import { act, ix, personName, programmeCounts, reminderStats, sessionStats, todaySessions, todayStats, totalCounts } from "../../model";
+import { PROGRAMME_BY_ID, act, ix, personName, programmeCounts, reminderStats, sessionStats, todaySessions, todayStats, totalCounts } from "../../model";
 import type { PhState } from "../../model";
 import { dispatch, usePhState } from "../../store";
 import { Button, Card, CardHeader, Chip, Icon, Segmented, TextInput } from "../../ui";
@@ -75,18 +75,27 @@ export default function PortalPreview({ open, onClose }: { open: boolean; onClos
 
   const amended = state.reportVersions.find((v) => v.status === "superseded");
   const amendedPerson = amended ? ix(state).episodeById.get(amended.episodeId)?.personId : undefined;
-  const scenarios = [
-    { id: "PH-P-0801", hint: "onboarding" },
+  const scenarios: Array<{ id: string; hint: string; code?: boolean }> = [
+    { id: "PH-P-0801", hint: "booking", code: true },
     { id: "PH-P-0001", hint: "report release" },
     ...(amendedPerson ? [{ id: amendedPerson, hint: "amended report" }] : []),
+    ...(amendedPerson !== "PH-P-0501" ? [{ id: "PH-P-0501", hint: "results released" }] : []),
   ];
+  const inviteCodeFor = (id: string) => { const per = ix(state).personById.get(id); return per ? PROGRAMME_BY_ID[per.programmeId]?.inviteCode || "" : ""; };
+  const copyCode = (code: string) => {
+    const done = () => dispatch(act.toast("ok", `Copied the booking code ${code}`));
+    try {
+      if (navigator.clipboard && window.isSecureContext) { navigator.clipboard.writeText(code).then(done, done); return; }
+    } catch { /* fall through */ }
+    done();
+  };
   const deviceW = DEVICES.find((x) => x.id === device)!.width;
   const compact = !!overlayW && overlayW < 760;
   const tight = !!overlayW && overlayW < 480;
   const sideFits = !!overlayW && overlayW >= (device === "desktop" ? 1000 : deviceW + 290 + 18 + 40);
   const controlsVisible = !compact || optionsOpen;
   // The presenter panel shows by default when there is room beside the frame, and on request otherwise.
-  const showCounts = countsPref ?? !compact;
+  const showCounts = countsPref ?? false;
 
   return (
     <div className="pp-overlay" ref={setOverlay} tabIndex={-1} role="dialog" aria-modal="true" aria-label="Participant portal preview">
@@ -105,11 +114,21 @@ export default function PortalPreview({ open, onClose }: { open: boolean; onClos
           <>
             <div className="pp-chrome-group" role="group" aria-label="Scenario" style={compact ? { flexBasis: "100%" } : undefined}>
               <span className="ph-faint" style={{ fontSize: 11 }}>Scenario</span>
-              {scenarios.map((s) => (
-                <Chip key={s.id} on={personId === s.id} onClick={() => switchTo(s.id)}>
-                  {personName(ix(state).personById.get(s.id))}<span className="ph-faint" style={{ fontSize: 11 }}>{s.hint}</span>
-                </Chip>
-              ))}
+              {scenarios.map((s) => {
+                const code = s.code ? inviteCodeFor(s.id) : "";
+                return (
+                  <span key={s.id} style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+                    <Chip on={personId === s.id} onClick={() => switchTo(s.id)}>
+                      {personName(ix(state).personById.get(s.id))}<span className="ph-faint" style={{ fontSize: 11 }}>{s.hint}</span>
+                    </Chip>
+                    {code ? (
+                      <button type="button" className="pp-code-chip" onClick={() => copyCode(code)} title={`Copy the booking code ${code}`} aria-label={`Copy the booking code ${code}`}>
+                        <span className="ph-mono">{code}</span><Icon name="layers" size={11} />
+                      </button>
+                    ) : null}
+                  </span>
+                );
+              })}
               <form onSubmit={submitId} className="pp-chrome-group" style={{ gap: 6 }}>
                 <TextInput className="pp-id-input" value={idText} onChange={(e) => { setIdText(e.target.value); setIdErr(null); }} placeholder="Other ID, e.g. 0803" aria-label="Open another invitee by person ID" style={{ width: 150 }} />
                 <Button size="sm" type="submit">Open</Button>

@@ -18,10 +18,10 @@
   --dr-wash-n: rgba(146, 208, 80, .40);
   --dr-wash-b: rgba(255, 232, 0, .40);
 }
-.dr .b-normal { --fill: var(--dr-n); --edge: #4C7A1E; --ink-on: var(--dr-n-ink); }
-.dr .b-borderline { --fill: var(--dr-b); --edge: #7A7000; --ink-on: var(--dr-b-ink); }
-.dr .b-abnormal { --fill: var(--dr-a); --edge: #946200; --ink-on: var(--dr-a-ink); }
-.dr .b-not_tested { --fill: var(--dr-x); --edge: #6E6E6E; --ink-on: var(--dr-x-ink); }
+.dr .b-normal { --fill: var(--dr-n); --edge: color-mix(in oklab, var(--dr-n) 70%, #000); --ink-on: var(--dr-n-ink); }
+.dr .b-borderline { --fill: var(--dr-b); --edge: color-mix(in oklab, var(--dr-b) 70%, #000); --ink-on: var(--dr-b-ink); }
+.dr .b-abnormal { --fill: var(--dr-a); --edge: color-mix(in oklab, var(--dr-a) 70%, #000); --ink-on: var(--dr-a-ink); }
+.dr .b-not_tested { --fill: var(--dr-x); --edge: color-mix(in oklab, var(--dr-x) 70%, #000); --ink-on: var(--dr-x-ink); }
 
 .dr p { margin: 0; }
 .dr-grow { flex: 1 1 0; min-width: 0; }

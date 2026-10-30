@@ -45,7 +45,7 @@ import {
   buildGraph
 } from "./data";
 import { phStore, dispatch as phDispatch } from "../ph/store";
-import { act as phAct, defaultTab, hashFor, navAttention } from "../ph/model";
+import { act as phAct, defaultTab, hashFor, navAttention, resolveTab } from "../ph/model";
 import { phContext, phOverrides, applyHash, phFileTree } from "./phBridge";
 import { answerQuery as phAnswer, agentReply as phAgentReply, agentSuggestions as phAgentSuggestions, toDublin as phToDublin } from "../ph/model";
 
@@ -1229,7 +1229,7 @@ export default class PulseLogic extends DCLogic {
   }
   phGo(t){ this.phApply(t, true); }
   phApply(t, push){
-    const page = t.page, tab = t.tab || defaultTab(page);
+    const page = t.page, tab = resolveTab(page, t.tab);
     const order = NAV.filter(n => !n.divider).map(n => n.page).concat(["Settings"]);
     const from = order.indexOf(this.state.page), to = order.indexOf(page);
     this.setState(prev => {
@@ -2535,11 +2535,11 @@ export default class PulseLogic extends DCLogic {
         const id = "a" + Date.now();
         return {builderOpen:false, agentId:id,
           agents: [{id, name, initials:prev.agentSpec.initials, bg:prev.agentSpec.bg, role:prev.agentSpec.persona || prev.agentSpec.personality + " · " + prev.agentSpec.answer.toLowerCase(),
-            when:"now", preview:"ready when you are.",
+            when:"now", preview:"Ready when you are.",
             thread:[{kind:"stamp", text:"Just now"},
               {kind:"agent", text: prev.trained
-                ? "trained and ready. i read the ontology and wrote my own prompt from it. what should i pick up first?"
-                : "created. i have no context yet — train me from the ontology and i'll be useful."}]}].concat(prev.agents)};
+                ? "Trained and ready. I read the ontology and wrote my own prompt from it. What should I pick up first?"
+                : "Created. I have no context yet. Train me from the ontology and I will be useful."}]}].concat(prev.agents)};
       }),
       
       
@@ -2611,9 +2611,10 @@ export default class PulseLogic extends DCLogic {
       // Busy pages pack their tabs a little tighter so every tab stays in view.
       tabPad: tabPadPx === 18 ? "0 18px" : tabPadPx === 12 ? "0 12px" : "0 10px",
       
-      tabsLoose: !((st.w - (st.railOpen ? 252 : 68)) < 1000 && contextNav.length >= 4),
+      // NavThumb is always on: it measures the active tab and scrolls it into view on narrow screens.
+      tabsLoose: true,
       
-      tabActiveBg: ((st.w - (st.railOpen ? 252 : 68)) < 1000 && contextNav.length >= 4) ? "var(--surface-2)" : "none",
+      tabActiveBg: "none",
       searchWrapFlex: searchRoom ? "1 1 auto" : "0 0 auto",
       barLabel: st.barOpen ? "Collapse the bar" : "Expand the bar",
       barChevronStyle: "transition:transform .3s var(--ease);transform:rotate(" + (st.barOpen ? "0deg" : "180deg") + ")",
@@ -2624,8 +2625,7 @@ export default class PulseLogic extends DCLogic {
       // Tabs size to their own labels; NavThumb measures, so equal tracks aren't needed.
       navGroupStyle: "position:relative;display:inline-grid;grid-auto-flow:column;grid-auto-columns:max-content;"
         + "width:max-content;max-width:100%;align-items:center;padding:0;flex:" + (contextNav.length <= 3 ? "none" : "0 1 auto") + ";min-width:0;border-radius:999px;"
-        + "overflow-x:auto;overflow-y:hidden;scrollbar-width:none;overscroll-behavior-x:contain;"
-        + "-webkit-mask-image:linear-gradient(90deg,#000 calc(100% - 14px),transparent);mask-image:linear-gradient(90deg,#000 calc(100% - 14px),transparent)",
+        + "overflow-x:auto;overflow-y:hidden;scrollbar-width:none;overscroll-behavior-x:contain;",
       // Static look only. NavThumb measures the active tab and writes its own
       // width and offset, so long labels, counts or an overflowing group can't
       // push the pill off the tab it belongs to.
