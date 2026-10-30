@@ -110,4 +110,7 @@ Every item Stephen showed now has a working screen with actions. Persona: Stephe
 | Duty rota, calendar view | Clinics, Team & Resources (assignments across the window) and Calendar (`#/Calendar/all`) |
 | Finance reporting ("to come later") | Reporting, Overview: Finance reporting tile marked Phase 2 (`#/Reporting/overview`) |
 
-Not built as screens (named here so nothing is hidden): the Monday document boards "Brochures", "Sample occ health reports" and "Marketing material" (files, not workflows; brochures are attached in the lead's first reply), and Monday's map and timeline views (Calendar covers dates; there is no map).
+| Document boards: Brochures, Sample occ health reports, Marketing material, SLA and DSA MASTER templates | Records, Files: folders Brochures, Sample occupational health reports, Marketing material and Agreement templates (`#/Records/files`) |
+| Monday timeline view | Calendar, Programmes view: each programme as a bar across its days, screening days marked, overlaps shown (`#/Calendar/all?view=timeline`) |
+
+Not built (named here so nothing is hidden): Monday's map view. Calendar covers dates; there is no map.

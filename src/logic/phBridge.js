@@ -191,7 +191,7 @@ export function phFileTree(state) {
       if (f.id === "file-consent") body.push("Retention wording in this sample is flagged for review in Settings, Governance. It is not applied to future records.");
       rows.push({type:"file", id:f.id, name:f.name, depth:1, parent:"f-" + folder, indexed:true, path:folder + " / " + f.type, title:f.name,
         facts:[["TYPE", f.type], ["OWNER", f.owner], ["VERSION", f.version], ["VISIBILITY", VIS[f.visibility]]],
-        body, links:[[f.linked.label, f.linked.kind, f.linked.id]]});
+        body, links: f.linked ? [[f.linked.label, f.linked.kind, f.linked.id]] : []});
     });
   });
   return rows;

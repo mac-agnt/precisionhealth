@@ -102,7 +102,7 @@ export interface PhFile {
   folder: string;
   type: string;
   owner: string;
-  linked: { kind: Parameters<typeof linkFor>[0]; id: string; label: string };
+  linked?: { kind: Parameters<typeof linkFor>[0]; id: string; label: string };
   version: string;
   visibility: "all_staff" | "clinical" | "reporting";
   summary: string;
@@ -120,6 +120,25 @@ export const PH_FILES: PhFile[] = [
     summary: "Draft employer programme report built from aggregate data only. Not approved for export." },
   { id: "file-consent", name: "booking_consent_sample.pdf", folder: "Consent", type: "PDF (sample)", owner: "Brenda Madden", linked: { kind: "programme", id: "PRG-SISK-26", label: "Sisk Autumn Screening" }, version: "BC-3", visibility: "all_staff",
     summary: "Sample booking consent. It names Esendex for SMS delivery. Retention wording is flagged for review in Governance." },
+  /* Document boards Stephen keeps in Monday today (2 Oct walkthrough): brochures, sample OH reports, marketing material, agreement masters. */
+  { id: "file-brochure-wellness", name: "Precision Health corporate wellness brochure 2026.pdf", folder: "Brochures", type: "PDF brochure", owner: "Stephen Kelly", version: "2026.1", visibility: "all_staff",
+    summary: "Corporate health screening brochure: packages (Point of care, Silver, Gold, Executive), what a screening day looks like, client references. Attached automatically to the first reply to a new lead." },
+  { id: "file-brochure-oh", name: "Occupational health services brochure.pdf", folder: "Brochures", type: "PDF brochure", owner: "Stephen Kelly", version: "2026.1", visibility: "all_staff",
+    summary: "Occupational health: pre-employment medicals, management referrals, health surveillance, drug and alcohol testing. Sent to occupational health enquiries." },
+  { id: "file-brochure-flu", name: "Workplace flu vaccination brochure.pdf", folder: "Brochures", type: "PDF brochure", owner: "Stephen Kelly", version: "2026", visibility: "all_staff",
+    summary: "Onsite flu clinics: how booking links work, projected numbers, the €15 per vaccine price and what the client needs to provide on the day." },
+  { id: "file-oh-sample-1", name: "Sample management referral report.pdf", folder: "Sample occupational health reports", type: "PDF (sample)", owner: "Neil Reddy", version: "1", visibility: "all_staff",
+    summary: "An example management referral report with invented details, sent to prospective occupational health clients to show the format." },
+  { id: "file-oh-sample-2", name: "Sample health surveillance summary.pdf", folder: "Sample occupational health reports", type: "PDF (sample)", owner: "Neil Reddy", version: "1", visibility: "all_staff",
+    summary: "An example aggregate health surveillance summary (hearing, lung function, skin) with no individual data." },
+  { id: "file-mkt-case", name: "Case study: construction health screening.pdf", folder: "Marketing material", type: "PDF", owner: "Stephen Kelly", version: "1", visibility: "all_staff",
+    summary: "A one-page case study for construction clients: participation, findings in aggregate, and the follow-up approach. Used in sector references." },
+  { id: "file-mkt-deck", name: "Precision Health capabilities deck.pptx", folder: "Marketing material", type: "Slide deck", owner: "Stephen Kelly", version: "3", visibility: "all_staff",
+    summary: "Capabilities deck for client meetings: services, team, accreditation, reporting and the client portal." },
+  { id: "file-dsa-master", name: "Data sharing agreement MASTER.docx", folder: "Agreement templates", type: "Template", owner: "Stephen Kelly", version: "2026", visibility: "all_staff",
+    summary: "The master DSA. Sales, Onboarding fills in the client's details and generates the agreement from this." },
+  { id: "file-sla-master", name: "Service level agreement MASTER.docx", folder: "Agreement templates", type: "Template", owner: "Stephen Kelly", version: "2026", visibility: "all_staff",
+    summary: "The master SLA. Sales, Onboarding generates each client's SLA from this after the proposal is accepted." },
 ];
 /** All staff files for every staff role; reporting files for roles that build employer reports; clinical files for clinical roles. */
 export function fileVisible(state: PhState, f: PhFile): boolean {
