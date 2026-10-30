@@ -12,7 +12,7 @@ type Props = { v: { closePalette?: () => void; phPaletteGo?: (t: NavTarget) => v
 
 const PAGE_ICON: Record<string, GlyphName> = {
   Home: "home", Agents: "spark", Dashboard: "chart", Programmes: "layers", Clinics: "calendar", Participants: "users", Results: "flask",
-  Reporting: "file", Work: "list", Records: "file", Activity: "clock", Settings: "filter",
+  Reporting: "file", Work: "list", Records: "file", Activity: "clock", Settings: "filter", Calendar: "calendar",
 };
 
 interface Item { key: string; group: string; title: string; subtitle?: string; icon: GlyphName; run: () => void }

@@ -16,6 +16,7 @@ export * from "./adviceLibrary";
 export * from "./referenceRanges";
 export * from "./referenceRangesData";
 export * from "./screeningDays";
+export * from "./calendar";
 export * from "./selectors";
 export * from "./ai";
 export * from "./automations";

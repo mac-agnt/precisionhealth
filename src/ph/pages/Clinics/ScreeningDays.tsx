@@ -75,7 +75,8 @@ export default function ScreeningDays() {
   return (
     <div className="ph-page">
       <div className="sd">
-        <PageHeader title="Screening days" sub="Describe the day in a sentence. The agent fills in the form, you check it and save. Publish it and the client's HR team sees it in their portal." />
+        <PageHeader title="Screening days" sub="Describe the day in a sentence. The agent fills in the form, you check it and save. Publish it and the client's HR team sees it in their portal."
+          actions={<Button size="sm" icon="calendar" onClick={() => nav.go({ page: "Calendar", tab: "all", params: { view: "month", date: (sorted.find((d) => d.date >= t) || sorted[0])?.date || t, types: "clinics" } })}>Open in Calendar</Button>} />
 
         <section className="sd-hero" aria-labelledby="sd-ask-title">
           <div className="sd-hero-top">
