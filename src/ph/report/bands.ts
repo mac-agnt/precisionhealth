@@ -1,6 +1,6 @@
 /* Result band colours, shared by the clinician viewer, the participant report and the nurse
-   portal. They follow the clinician's current spreadsheet viewer: green normal, yellow
-   borderline, orange abnormal or raised, grey not tested. Colour is never the only signal:
+   portal. The hues are theme tokens in src/styles/pulse.css (--band-*): green normal, amber
+   borderline, orange-red abnormal or raised, grey not tested. Colour is never the only signal:
    every use also prints the flag word or status text. */
 import type { Band } from "../model";
 
@@ -14,16 +14,17 @@ export interface BandLook {
 }
 
 export const BAND_LOOK: Record<Band, BandLook> = {
-  normal: { fill: "#92D050", ink: "#16340A", label: "Normal" },
-  borderline: { fill: "#FFF200", ink: "#3A3500", label: "Borderline" },
-  abnormal: { fill: "#FFC000", ink: "#3D2600", label: "Outside range" },
-  not_tested: { fill: "#BFBFBF", ink: "#2E2E2E", label: "Not tested" },
+  normal: { fill: "var(--band-normal, #4FAE7E)", ink: "var(--band-normal-ink, #062417)", label: "Normal" },
+  borderline: { fill: "var(--band-borderline, #E2A83E)", ink: "var(--band-borderline-ink, #2E1C00)", label: "Borderline" },
+  abnormal: { fill: "var(--band-abnormal, #E2683F)", ink: "var(--band-abnormal-ink, #2B0C02)", label: "Outside range" },
+  not_tested: { fill: "var(--band-none, #8C9693)", ink: "var(--band-none-ink, #151918)", label: "Not tested" },
 };
 
-/** Softer screen variants for dense dark or glass layouts, with the same hue order. */
+/** Softer screen variants for dense dark or glass layouts, with the same hues. */
+const soft = (v: string) => ({ bg: `color-mix(in oklab, var(${v}) 22%, transparent)`, fg: `color-mix(in oklab, var(${v}) 78%, var(--ink))`, edge: `color-mix(in oklab, var(${v}) 60%, transparent)` });
 export const BAND_SOFT: Record<Band, { bg: string; fg: string; edge: string }> = {
-  normal: { bg: "rgba(146, 208, 80, 0.22)", fg: "#9BD66A", edge: "rgba(146, 208, 80, 0.55)" },
-  borderline: { bg: "rgba(255, 242, 0, 0.18)", fg: "#E9DD3A", edge: "rgba(255, 242, 0, 0.5)" },
-  abnormal: { bg: "rgba(255, 192, 0, 0.22)", fg: "#FFB020", edge: "rgba(255, 192, 0, 0.6)" },
-  not_tested: { bg: "rgba(191, 191, 191, 0.14)", fg: "#A6A6A6", edge: "rgba(191, 191, 191, 0.35)" },
+  normal: soft("--band-normal"),
+  borderline: soft("--band-borderline"),
+  abnormal: soft("--band-abnormal"),
+  not_tested: soft("--band-none"),
 };

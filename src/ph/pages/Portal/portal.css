@@ -290,3 +290,8 @@
 .pp-ranges-name { display: flex; align-items: center; gap: 7px; color: var(--ink); min-width: 0; overflow-wrap: anywhere; }
 .pp-ranges-name > i { width: 10px; height: 10px; border-radius: 3px; flex: none; }
 .pp-ranges-range { color: var(--body); text-align: right; overflow-wrap: anywhere; }
+
+/* Booking code beside the Orla scenario chip: click to copy. */
+.pp-code-chip { display: inline-flex; align-items: center; gap: 5px; height: 26px; padding: 0 9px; border-radius: 999px; border: 1px dashed var(--accent-line, var(--border-strong)); background: var(--accent-faint, transparent); color: var(--accent); font-size: 11px; cursor: pointer; }
+.pp-code-chip:hover { background: var(--accent-soft); }
+.pp-code-chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }

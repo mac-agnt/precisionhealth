@@ -1,7 +1,10 @@
 /* Who the demo is signed in as. Switching persona re-filters navigation, search, drawers,
-   files, agents and exports. It is a frontend visibility simulation, not production security. */
+   files, agents and exports. It is a frontend visibility simulation, not production security.
+   The top bar clips its overflow, so the menu is portalled to the themed app root and fixed
+   under the button. */
 import { useEffect, useRef, useState } from "react";
-import { ROLE_LABEL, act } from "../model";
+import { createPortal } from "react-dom";
+import { act } from "../model";
 import { dispatch, usePersona, usePh } from "../store";
 import { useNav } from "../nav-context";
 import { Avatar, Button, Icon } from "../ui";
@@ -15,33 +18,49 @@ const PORTALS: Array<{ id: "participant" | "nurse" | "client"; title: string; su
 
 export function PersonaMenu({ compact }: { compact?: boolean }) {
   const [open, setOpen] = useState(false);
+  const [pos, setPos] = useState<{ top: number; right: number }>({ top: 0, right: 0 });
+  const [host, setHost] = useState<HTMLElement | null>(null);
   const ref = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
   const p = usePersona();
   const staff = usePh((s) => s.staff);
   const nav = useNav();
   useEffect(() => {
     if (!open) return;
-    const h = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
+    const h = (e: MouseEvent) => {
+      const n = e.target as Node;
+      if (ref.current && !ref.current.contains(n) && !(menuRef.current && menuRef.current.contains(n))) setOpen(false);
+    };
+    const close = () => setOpen(false);
+    window.addEventListener("resize", close);
     const k = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
     document.addEventListener("mousedown", h);
     window.addEventListener("keydown", k);
-    return () => { document.removeEventListener("mousedown", h); window.removeEventListener("keydown", k); };
+    return () => { document.removeEventListener("mousedown", h); window.removeEventListener("keydown", k); window.removeEventListener("resize", close); };
   }, [open]);
+  const toggle = () => {
+    if (!open && ref.current) {
+      const r = ref.current.getBoundingClientRect();
+      setHost((ref.current.closest("[data-theme]") as HTMLElement | null) || document.body);
+      setPos({ top: r.bottom + 8, right: Math.max(8, window.innerWidth - r.right) });
+    }
+    setOpen(!open);
+  };
   return (
     <div ref={ref} style={{ position: "relative", flex: "none" }}>
-      <button type="button" className="ph-btn ph-btn-ghost" onClick={() => setOpen(!open)} aria-haspopup="menu" aria-expanded={open}
+      <button type="button" className="ph-btn ph-btn-ghost" onClick={toggle} aria-haspopup="menu" aria-expanded={open}
         style={{ height: 42, padding: "0 10px 0 6px", borderRadius: 999, gap: 9, color: "var(--ink)" }} title="Preview a role">
         <Avatar name={p.name} tint={p.staff?.tint} size={30} />
         {!compact ? (
           <span style={{ textAlign: "left", lineHeight: 1.2 }}>
             <span style={{ display: "block", fontSize: 12, fontWeight: 500, whiteSpace: "nowrap" }}>{p.displayName}</span>
-            <span style={{ display: "block", fontSize: 10.5, color: "var(--faint)", whiteSpace: "nowrap" }}>{p.roleLabel}</span>
+            <span style={{ display: "block", fontSize: 10.5, color: "var(--faint)", whiteSpace: "nowrap" }}>{p.title}</span>
           </span>
         ) : null}
         <Icon name="chevronDown" size={13} style={{ color: "var(--faint)" }} />
       </button>
-      {open ? (
-        <div role="menu" className="ph-card" style={{ position: "absolute", top: 48, right: 0, width: 330, zIndex: 80, padding: 8, background: "var(--overlay)", boxShadow: "0 24px 70px rgba(0,0,0,.5)", animation: "popIn .22s var(--ease) both" }}>
+      {open && host ? createPortal(
+        <div ref={menuRef} role="menu" className="ph-card" style={{ position: "fixed", top: pos.top, right: pos.right, width: "min(330px, calc(100vw - 16px))", maxHeight: `calc(100vh - ${pos.top + 12}px)`, overflowY: "auto", zIndex: 90, padding: 8, background: "var(--overlay)", boxShadow: "0 24px 70px rgba(0,0,0,.5)", animation: "popIn .22s var(--ease) both" }}>
           <div className="ph-eyebrow" style={{ padding: "8px 10px 6px" }}>Preview role</div>
           {staff.map((s) => (
             <button key={s.id} type="button" role="menuitemradio" aria-checked={p.id === s.id} className="ph-row"
@@ -50,7 +69,7 @@ export function PersonaMenu({ compact }: { compact?: boolean }) {
               <Avatar name={s.name} tint={s.tint} size={26} />
               <span style={{ flex: 1, minWidth: 0 }}>
                 <span style={{ display: "block", fontSize: 12.5, color: "var(--ink)" }}>{s.displayName}</span>
-                <span style={{ display: "block", fontSize: 11, color: "var(--faint)" }}>{ROLE_LABEL[s.role]}</span>
+                <span style={{ display: "block", fontSize: 11, color: "var(--faint)" }}>{s.title}</span>
               </span>
               {p.id === s.id ? <Icon name="check" size={14} style={{ color: "var(--accent)" }} /> : null}
             </button>
@@ -71,11 +90,9 @@ export function PersonaMenu({ compact }: { compact?: boolean }) {
               </button>
             );
           })}
-          <div className="ph-faint" style={{ fontSize: 11, lineHeight: 1.45, padding: "8px 10px 6px" }}>
-            A frontend visibility simulation. It does not change authentication and is not production security.
-          </div>
-          <div style={{ padding: "0 8px 6px" }}><Button size="sm" variant="ghost" onClick={() => { setOpen(false); nav.go({ page: "Settings", tab: "permissions" }); }}>See the role matrix</Button></div>
-        </div>
+          <div style={{ padding: "6px 8px 6px" }}><Button size="sm" variant="ghost" onClick={() => { setOpen(false); nav.go({ page: "Settings", tab: "permissions" }); }}>See the role matrix</Button></div>
+        </div>,
+        host,
       ) : null}
     </div>
   );

@@ -19,7 +19,7 @@ export const CLOCK_PRESETS: Array<{ id: string; label: string; iso: string }> = 
 handlers["session/setPersona"] = (c, a: { personaId: PersonaId }) => {
   c.s.session.personaId = a.personaId;
   c.inv();
-  return c.ok(`Previewing as ${c.persona().name}. This is a frontend visibility simulation, not production security.`, "info");
+  return c.ok(`Now viewing as ${c.persona().name}`, "info");
 };
 
 handlers["session/setPortalPerson"] = (c, a: { personId: string }) => {
@@ -39,7 +39,8 @@ handlers["session/setClock"] = (c, a: { preset: string }) => {
 
 handlers["ui/toast"] = (c, a: { tone: "ok" | "info" | "warn" | "bad"; text: string }) => {
   const n = c.nextNo("toast");
-  c.s.toasts = c.s.toasts.concat([{ id: n, tone: a.tone, text: a.text }]).slice(-4);
+  // At most two toasts: the newest replaces the oldest.
+  c.s.toasts = c.s.toasts.concat([{ id: n, tone: a.tone, text: a.text }]).slice(-2);
   return { ok: true };
 };
 handlers["ui/dismissToast"] = (c, a: { id: number }) => {

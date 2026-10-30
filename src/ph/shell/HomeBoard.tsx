@@ -9,6 +9,7 @@ import { Icon, Pill, ProgressBar } from "../ui";
 import { labQueue } from "../model";
 import LabMatchCard from "./LabMatchCard";
 import InboundLeadCard from "../pages/Sales/InboundCard";
+import { SALES_STAGE_LABEL, salesHomeFor, salesOpenLeads } from "../model";
 
 const REASON: Record<string, string> = { dob_mismatch: "Date of birth mismatch", unknown_specimen: "Unknown specimen ID", multiple_candidates: "Two candidate episodes" };
 
@@ -101,7 +102,7 @@ function ReviewCard({ state, edit, remove }: { state: PhState; edit: boolean; re
           </div>
         </Row>
       ))}
-      {!clinical ? <div className="ph-dim" style={{ fontSize: 12.5, padding: "8px 0 2px", lineHeight: 1.5 }}>{rv.ready} reports are with the clinical reviewer. Counts only for {p.roleLabel.toLowerCase()}.</div> : null}
+      {!clinical ? <div className="ph-dim" style={{ fontSize: 12.5, padding: "8px 0 2px", lineHeight: 1.5 }}>{rv.ready} reports are with the clinical reviewer. Counts only for {p.title}.</div> : null}
     </Card>
   );
 }
@@ -169,17 +170,50 @@ function ActivityCard({ state, edit, remove }: { state: PhState; edit: boolean; 
   );
 }
 
+/** For the sales owner: open leads in order of urgency, each opening in the Pipeline. */
+function PipelineCard({ state }: { state: PhState }) {
+  const nav = useNav();
+  const open = salesOpenLeads(state);
+  const urgent = open.filter((v) => v.overdue || v.dueToday).length;
+  const sent = open.filter((v) => v.lead.stage === "proposal_sent").length;
+  return (
+    <Card title="Pipeline" count={`${urgent} due today`} tone={urgent ? "warn" : "ok"} edit={false} onRemove={() => {}}
+      footer={<>{open.length} open leads, {sent} with a proposal out. <button type="button" className="ph-link" onClick={() => nav.go({ page: "Sales", tab: "pipeline" })}>Open the pipeline</button></>}>
+      {open.slice(0, 4).map((v) => (
+        <Row key={v.lead.id} onClick={() => nav.go({ page: "Sales", tab: "pipeline", params: { lead: v.lead.id } })}>
+          <div className="ph-row-flex" style={{ fontSize: 12.5 }}>
+            <span className="ph-grow ph-trunc" style={{ color: "var(--ink)" }}>{v.lead.company}</span>
+            {v.overdue ? <Pill tone="bad" icon={null}>Overdue</Pill> : v.dueToday ? <Pill tone="warn" icon={null}>Today</Pill> : <span className="ph-faint" style={{ fontSize: 11 }}>{SALES_STAGE_LABEL[v.lead.stage]}</span>}
+          </div>
+          <div className="ph-faint ph-trunc" style={{ fontSize: 11, marginTop: 3 }}>{v.lead.nextAction}</div>
+        </Row>
+      ))}
+    </Card>
+  );
+}
+
 export default function HomeBoard({ v }: { v: { show?: Record<string, boolean>; widgetEdit?: boolean; removeWidget?: (id: string) => void } }) {
   const state = usePhState();
   const p = persona(state);
   const show = v.show || {};
   const edit = !!v.widgetEdit;
   const rm = (id: string) => () => v.removeWidget && v.removeWidget(id);
+  const sales = salesHomeFor(state);
   void PROGRAMME_BY_ID;
   return (
     <>
-      <LabMatchCard />
-      <InboundLeadCard />
+      {sales ? (
+        <>
+          <InboundLeadCard />
+          <PipelineCard state={state} />
+          <LabMatchCard secondary />
+        </>
+      ) : (
+        <>
+          <LabMatchCard />
+          <InboundLeadCard />
+        </>
+      )}
       {show.clinics && <ClinicsCard state={state} edit={edit} remove={rm("clinics")} />}
       {show.imports && p.perms.has("imports.view") && !labQueue(state).length && <ImportsCard state={state} edit={edit} remove={rm("imports")} />}
       {show.review && <ReviewCard state={state} edit={edit} remove={rm("review")} />}
