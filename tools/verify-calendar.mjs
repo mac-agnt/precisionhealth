@@ -106,7 +106,8 @@ try {
     { id: "b", allDay: false, time: { start: "09:30", end: "10:30" } },
     { id: "c", allDay: false, time: { start: "11:00", end: "12:00" } },
   ]);
-  eq("overlapping events share columns", [lay.get("a"), lay.get("b"), lay.get("c")], [{ col: 0, cols: 2 }, { col: 1, cols: 2 }, { col: 0, cols: 1 }]);
+  eq("overlapping events share columns", [lay.get("a"), lay.get("b"), lay.get("c")].map((x) => ({ col: x.col, cols: x.cols })), [{ col: 0, cols: 2 }, { col: 1, cols: 2 }, { col: 0, cols: 1 }]);
+  check("overlapping events share a cluster", lay.get("a").cluster === lay.get("b").cluster && lay.get("c").cluster !== lay.get("a").cluster);
 
   /* ---------- nav ---------- */
   const idx = M.PAGES.findIndex((p) => p.id === "Calendar");

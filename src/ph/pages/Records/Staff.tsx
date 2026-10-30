@@ -235,7 +235,6 @@ function StaffDetail({ x, state }: { x: StaffT; state: PhState }) {
             ))}
             {stories.map((sv) => (
               <li key={sv.def.id} className="phs-small">
-                <span className="ph-dim">{sv.def.id} </span>
                 <button type="button" className="ph-link" onClick={() => nav.go(sv.target)}>{sv.headline}</button>
                 <span className="ph-dim">{sv.open ? ", open" : ", resolved"}</span>
               </li>

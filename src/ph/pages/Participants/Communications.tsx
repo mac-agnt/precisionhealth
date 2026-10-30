@@ -204,7 +204,7 @@ function ExceptionCard({ m, onOpen }: { m: Message; onOpen: () => void }) {
       </div>
       <Facts rows={[
         ["Appointment", b && s ? <><EntityLink kind="booking" id={b.id} /> {fmtWeekdayDate(s.date)}, {b.slotStart}</> : "None"],
-        ["Channel", `${channelText(m)} (simulated)`],
+        ["Channel", `${channelText(m)}`],
         ["Verified destination", <span className="ph-row-flex" style={{ gap: 5 }}><Icon name="check" size={12} style={{ color: "var(--ok)" }} /><span className="ph-num">{m.destination}</span></span>],
         [isFailed ? "Failure reason" : "Earlier failure", lastFailureReason(m) || "None"],
         ["Attempts", (
@@ -344,7 +344,7 @@ function MessageDrawer({ id, onClose }: { id: Id; onClose: () => void }) {
           <SectionTitle>Report access</SectionTitle>
           <Facts rows={[
             ["Report version", v ? (m.episodeId && canViewEpisodeClinical(state, m.episodeId) ? <EntityLink kind="report" id={v.id}>{v.id}</EntityLink> : <span className="ph-mono">{v.id}</span>) : "Not found"],
-            ["Delivery receipt", m.status === "delivered" ? `Delivered ${fmtDateTime(m.attempts[m.attempts.length - 1].at)} (simulated)` : "Not delivered"],
+            ["Delivery receipt", m.status === "delivered" ? `Delivered ${fmtDateTime(m.attempts[m.attempts.length - 1].at)}` : "Not delivered"],
             ["Opened in the portal", v?.accessedAt ? fmtDateTime(v.accessedAt) : "Not opened yet"],
           ]} />
           <div className="ph-help">A delivery receipt is separate from report access. Access is recorded only when the participant opens the report in the portal.</div>

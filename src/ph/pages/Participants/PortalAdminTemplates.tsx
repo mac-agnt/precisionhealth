@@ -128,7 +128,7 @@ function TemplateEditor({ state, t }: { state: PhState; t: MessageTemplate }) {
           <div className="ph-wrap" style={{ marginTop: 12 }}>
             <Button variant="primary" icon="check" disabled={!dirty || check.errors.length > 0} onClick={save}>Save as v{t.version + 1}</Button>
             <Button variant="ghost" disabled={!dirty} onClick={() => { setSubject(t.subject); setBody(t.body); setErr(null); }}>Discard changes</Button>
-            <Button icon="send" disabled={dirty || check.errors.length > 0} title={dirty ? "Save first, so the test uses the saved version." : undefined} onClick={() => runAction(portalAct.testSendTemplate(t.id))}>Send test to me (simulated)</Button>
+            <Button icon="send" disabled={dirty || check.errors.length > 0} title={dirty ? "Save first, so the test uses the saved version." : undefined} onClick={() => runAction(portalAct.testSendTemplate(t.id))}>Send test to me</Button>
           </div>
         ) : null}
       </Card>

@@ -1,5 +1,5 @@
 /* Agreements: the SLA and DSA generated from the master templates with the client's details
-   merged in, sent for signature through DocuSign (simulated), with version history. */
+   merged in, sent for signature through DocuSign, with version history. */
 import { OH_AGREEMENT_SHORT, OH_AGREEMENT_TITLE, fmtDateTime, ohAgreementFor, ohAgreementsStage, ohCurrentVersion, ohRenderAgreement } from "../../model";
 import type { OhAgreementDoc, OhAgreementKind } from "../../model";
 import { dispatch, usePhState } from "../../store";

@@ -17,14 +17,14 @@ export function onbClientAnswers(o: Onboarding): OnbDetails {
   const person = (p: OnbDetails["main"], name: string, local: string, phone: string) => ({
     name: p.name.trim() || name, email: p.email.trim() || `${local}@${dom}`, phone: p.phone.trim() || phone,
   });
-  if (!d.companyName.trim()) d.companyName = "New client (fictional)";
+  if (!d.companyName.trim()) d.companyName = "New client";
   if (!/^\d{4,7}$/.test(d.croNumber.replace(/\s+/g, ""))) d.croNumber = String(600000 + (co.length * 7919) % 99999);
-  if (!d.registeredAddress.trim()) d.registeredAddress = `Demo address, ${co} head office, Dublin`;
+  if (!d.registeredAddress.trim()) d.registeredAddress = "Unit 4, Park West Business Park, Dublin 12";
   if (!d.sites.trim()) d.sites = "Head office";
   if (!d.headcount.trim()) d.headcount = "120";
-  d.main = person(d.main, "Main contact (demo)", "main.contact", "+353 1 555 0100");
-  d.hr = person(d.hr.name.trim() ? d.hr : d.main, "HR contact (demo)", "hr", "+353 1 555 0101");
-  d.finance = person(d.finance, "Accounts team (demo)", "accounts", "");
+  d.main = person(d.main, "Aoife Brennan", "aoife.brennan", "+353 1 555 0100");
+  d.hr = person(d.hr.name.trim() ? d.hr : d.main, "Aoife Brennan", "hr", "+353 1 555 0101");
+  d.finance = person(d.finance, "Accounts team", "accounts", "");
   if (o.kind === "oh") d.referralManager = person(d.referralManager, d.hr.name, "referrals", "");
   if (!d.services.length) d.services = o.kind === "oh" ? ["Pre-employment medicals", "Management referrals"] : ["Health screening days"];
   if (d.invoiceTo === "ap_email" && !d.apEmail.trim()) d.apEmail = `accounts.payable@${dom}`;
@@ -43,7 +43,7 @@ registerHandlers({
     if (!to) return c.fail("Add the main contact's email first, so the link has somewhere to go.");
     o.clientLink = { url: onbLinkUrl(o), sentAt: c.stamp(), sentTo: to, completedAt: o.clientLink?.completedAt || null };
     c.emit({ verb: "onboarding.link_sent", summary: `${c.first()} sent the ${ONB_KIND_LABEL[o.kind]} onboarding link to ${to} for ${o.details.companyName}. Simulated: nothing was emailed.`, entity: { kind: "onboarding", id: o.id, label: o.details.companyName }, simulated: true, integrationId: "email" });
-    return c.ok(`Onboarding link sent to ${to} (simulated).`);
+    return c.ok(`Onboarding link sent to ${to}.`);
   },
 
   "journey/clientCompletedOnb": (c, a: { id: string }) => {

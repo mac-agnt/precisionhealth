@@ -1,5 +1,5 @@
 /* One OH client: the owner steps with tick actions, billing, agreements, questionnaires, the
-   onboarding form answers and any Meddbase diaries at the client. */
+   onboarding form answers and any MediBase diaries at the client. */
 import { OH_AGREEMENT_SHORT, OH_AGREEMENT_TITLE, OH_QUESTIONNAIRE_BY_ID, OH_STEPS, act, fmtDate, fmtDateTime, fmtWeekdayDate, ohAgreementFor, ohAgreementsStage, ohClientById, ohCurrentVersion, ohDiaryStats, ohFmtEur, ohGroupOf, ohMeddbaseReady, ohStepsDone } from "../../model";
 import type { OhClient, OhStepId } from "../../model";
 import { dispatch, usePhState } from "../../store";
@@ -63,7 +63,7 @@ export default function ClientDrawer({ clientId, onClose }: { clientId: string |
         <section>
           <div className="oh-sec-head"><h3 className="ph-h2">Billing</h3><DemoTag>Demo figures</DemoTag></div>
           <Facts items={[
-            ["Yearly Meddbase fee", `${ohFmtEur(c.meddbaseFeeEur)} (${c.form.meddbaseUsers} user${c.form.meddbaseUsers === 1 ? "" : "s"})`],
+            ["Yearly MediBase fee", `${ohFmtEur(c.meddbaseFeeEur)} (${c.form.meddbaseUsers} user${c.form.meddbaseUsers === 1 ? "" : "s"})`],
             ["Invoice frequency", c.form.invoiceFrequency],
             ["Last annual invoice", c.lastAnnualInvoice ? `${c.lastAnnualInvoice.number}, ${fmtDate(c.lastAnnualInvoice.date)}, ${ohFmtEur(c.lastAnnualInvoice.amountEur)}${c.lastAnnualInvoice.simulated ? " (Simulated)" : ""}` : "Not yet invoiced"],
             ["Purchase order", c.form.poRequired ? c.form.poNumber : "Not required"],
@@ -95,16 +95,16 @@ export default function ClientDrawer({ clientId, onClose }: { clientId: string |
           {c.inviteLink ? (
             <div className="oh-linkbox">
               <span className="ph-mono oh-link-text">{c.inviteLink.url}</span>
-              <Button size="sm" icon="link" onClick={() => dispatch(act.toast("info", "Copied (simulated). Fictional address: the link does not open."))}>Copy link</Button>
+              <Button size="sm" icon="link" onClick={() => dispatch(act.toast("info", "Copied. Fictional address: the link does not open."))}>Copy link</Button>
             </div>
           ) : ohMeddbaseReady(c) ? (
             <Button size="sm" icon="link" disabled={!manage} title={manage ? undefined : VIEW_ONLY_TITLE} onClick={() => dispatch(ohAct.issueInviteLink(c.id))}>Issue questionnaire link</Button>
-          ) : <p className="oh-small" style={{ margin: 0 }}>A questionnaire link is issued once Sinead has set the client up in Meddbase.</p>}
+          ) : <p className="oh-small" style={{ margin: 0 }}>A questionnaire link is issued once Sinead has set the client up in MediBase.</p>}
         </section>
 
         {diaries.length ? (
           <section>
-            <div className="oh-sec-head"><h3 className="ph-h2">Meddbase sessions</h3></div>
+            <div className="oh-sec-head"><h3 className="ph-h2">MediBase sessions</h3></div>
             <ul className="oh-plain">
               {diaries.map((d) => {
                 const st = ohDiaryStats(state, d);
@@ -127,7 +127,7 @@ export default function ClientDrawer({ clientId, onClose }: { clientId: string |
 
         {ohMeddbaseReady(c) && nav.openClientPortal ? (
           <OhNote icon="users">
-            {c.name} can use the client portal. Its Meddbase guides show how to set up, trigger a referral, find a patient and get a report. <button type="button" className="ph-link" onClick={() => nav.openClientPortal?.()}>Open the client portal preview</button>, then choose Meddbase guides.
+            {c.name} can use the client portal. Its MediBase guides show how to set up, trigger a referral, find a patient and get a report. <button type="button" className="ph-link" onClick={() => nav.openClientPortal?.()}>Open the client portal preview</button>, then choose MediBase guides.
           </OhNote>
         ) : null}
       </div>
@@ -146,11 +146,11 @@ function FormAnswers({ c }: { c: OhClient }) {
       ["Contact nurse or person", `${f.contactName}${f.contactRole ? `, ${f.contactRole}` : ""}`],
       ["Contact email", f.contactEmail],
       ["Contact phone", f.contactPhone || "Not given"],
-      ["Meddbase users", String(f.meddbaseUsers)],
+      ["MediBase users", String(f.meddbaseUsers)],
       ["Sites", f.sites],
       ["Services", f.services.join(", ")],
       ["Referral managers", f.referralManagers || "Not given"],
-      ["Meddbase notes", f.meddbaseNotes || "None"],
+      ["MediBase notes", f.meddbaseNotes || "None"],
       ["VAT number", f.vatNumber || "Not given"],
     ]} />
   );

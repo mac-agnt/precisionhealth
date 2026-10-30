@@ -116,7 +116,7 @@ function Proposals() {
               { key: "status", header: "Status", cell: (r) => <ProposalStatusPill status={r.v.status} /> },
               { key: "basis", header: "Programme", nowrap: false, cell: (r) => { const t = salesVersionTotals(s, r.v); return <div className="ph-dim" style={{ fontSize: 12, maxWidth: 300 }}>{t.lines.map((l) => `${l.code} ${l.days} day${l.days === 1 ? "" : "s"} x ${salesEur(l.rate)} = ${salesEur(l.total)}`).join("; ")}{t.flu ? `; flu ${t.flu.lowQty} to ${t.flu.highQty} x ${salesEur(t.flu.rate)}` : ""}{t.exec ? `; executive ${t.exec.count} x ${salesEur(t.exec.rate)}` : ""}</div>; } },
               { key: "total", header: "Estimated total", align: "right", cell: (r) => { const t = salesVersionTotals(s, r.v); return salesEurRange(t.totalLow, t.totalHigh); } },
-              { key: "act", header: "", cell: (r) => !rights.manage ? null : r.v.status === "draft" ? <Button size="sm" icon="send" onClick={() => dispatch(salesAct.sendProposal(r.p.id))}>Send (simulated)</Button>
+              { key: "act", header: "", cell: (r) => !rights.manage ? null : r.v.status === "draft" ? <Button size="sm" icon="send" onClick={() => dispatch(salesAct.sendProposal(r.p.id))}>Send</Button>
                 : r.v.status === "sent" ? <span className="ph-wrap"><Button size="sm" icon="check" onClick={() => dispatch(salesAct.decideProposal(r.p.id, "accepted"))}>Accepted</Button><Button size="sm" icon="x" onClick={() => dispatch(salesAct.decideProposal(r.p.id, "declined"))}>Declined</Button><Button size="sm" onClick={() => dispatch(salesAct.newProposalVersion(r.p.id))}>New version</Button></span>
                 : r.v.status === "declined" ? <Button size="sm" onClick={() => dispatch(salesAct.newProposalVersion(r.p.id))}>New version</Button> : null },
             ]} />
@@ -170,7 +170,7 @@ function IrishLife() {
     { key: "inv", header: "Invoice", cell: (b) => b.invoice ? `${b.invoice.number}, ${salesEur(b.invoice.amount)}` : <span className="ph-faint">None</span> },
     { key: "pay", header: "Payment status", cell: (b) => <PaymentPill status={b.payment} /> },
     { key: "act", header: "", cell: (b) => !rights.ilh ? null : !b.screened ? (b.date <= today(state) ? <Button size="sm" onClick={() => dispatch(salesAct.ilhMarkScreened(b.id))}>Mark screened</Button> : null)
-      : !b.invoice ? <Button size="sm" icon="file" onClick={() => { const need = b.requested !== "poc3"; const v = need ? Number(window.prompt("Agreed amount in euro (rate not on the price list)", "") || "") : null; dispatch(salesAct.ilhDraftInvoice(b.id, v)); }}>Draft invoice in Xero (simulated)</Button>
+      : !b.invoice ? <Button size="sm" icon="file" onClick={() => { const need = b.requested !== "poc3"; const v = need ? Number(window.prompt("Agreed amount in euro (rate not on the price list)", "") || "") : null; dispatch(salesAct.ilhDraftInvoice(b.id, v)); }}>Draft invoice in Xero</Button>
       : b.payment === "in_draft" ? <Button size="sm" onClick={() => dispatch(salesAct.ilhSetPayment(b.id, "awaiting_payment"))}>Mark sent from Xero</Button>
       : b.payment === "awaiting_payment" ? <Button size="sm" icon="check" onClick={() => dispatch(salesAct.ilhSetPayment(b.id, "paid"))}>Mark paid</Button>
       : <Button size="sm" onClick={() => dispatch(salesAct.ilhArchive(b.id))}>Archive</Button> },

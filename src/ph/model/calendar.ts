@@ -57,6 +57,8 @@ export interface CalEvent {
   secondary?: { label: string; link: NavTarget };
   /** Clinic session behind the event, so the Schedule can open its session panel directly. */
   sessionId?: string;
+  /** Screening programme behind the event, so the event card can link to it. */
+  programmeId?: string;
   /** Draft and other not-yet-confirmed items are drawn with a dashed outline. */
   tentative?: boolean;
   /** Finished items are drawn quieter. */
@@ -76,11 +78,11 @@ export interface CalSource { id: string; kinds: CalKind[]; collect: (state: PhSt
 export const CAL_GROUPS: CalGroup[] = [
   { id: "clinics", label: "Clinics and screening days", color: "#3E9E93", hint: "Clinic sessions, screening days and client bookings" },
   { id: "flu", label: "Flu", color: "#E0A030", hint: "Flu clinics and vaccine deliveries" },
-  { id: "oh", label: "Occupational health", color: "#A06CE0", hint: "Meddbase clinic diaries" },
+  { id: "oh", label: "Occupational health", color: "#A06CE0", hint: "MediBase clinic diaries" },
   { id: "ilh", label: "Irish Life Health", color: "#E0608A", hint: "Partner screenings" },
   { id: "sales", label: "Sales", color: "#4FAE73", hint: "Lead actions, calls, follow ups and tenders" },
   { id: "onboarding", label: "Onboarding", color: "#2F8FB3", hint: "New clients being onboarded" },
-  { id: "retention", label: "Retention", color: "#EB7F3C", hint: "Recall and rebooking dates" },
+  { id: "retention", label: "Retention", color: "#EB7F3C", hint: "Rebooking dates for past clients" },
   { id: "tasks", label: "Tasks", color: "#7E8FA3", hint: "Work tasks with a due date" },
   { id: "reporting", label: "Report deadlines", color: "#5F7FE0", hint: "Employer report drafts due" },
   { id: "team", label: "Team, training and leave", color: "#7A6FD0", hint: "Staff training and leave. Leave blocks that person from clinics." },
@@ -129,7 +131,7 @@ export const CAL_SOURCES: CalSource[] = [
         const where = [s.room, s.siteName].filter(Boolean).join(", ");
         const base = {
           ...timed(s.date, s.start, s.end), client: st.programme.clientName, staffIds: [s.nurseId, ...s.supportIds], location: where,
-          detail: `${st.booked} of ${st.slots} booked`, sessionId: s.id, done: past,
+          detail: `${st.booked} of ${st.slots} booked`, sessionId: s.id, programmeId: s.programmeId, done: past,
         };
         const sessionLink: NavTarget = { page: "Clinics", tab: "schedule", params: { session: s.id, date: s.date } };
         if (day) {
@@ -191,7 +193,7 @@ export const CAL_SOURCES: CalSource[] = [
       return [...clinics, ...orders];
     },
   },
-  /* Occupational health clinic days in Meddbase. */
+  /* Occupational health clinic days in MediBase. */
   {
     id: "oh",
     kinds: [{ id: "oh_session", label: "Occupational health", group: "oh", color: "#A06CE0" }],
@@ -203,7 +205,7 @@ export const CAL_SOURCES: CalSource[] = [
         id: `oh:${d.id}`, kind: "oh_session", ...timed(d.date, d.start, d.end), title: `${client}: occupational health`, client,
         staffIds: d.clinicianStaffId ? [d.clinicianStaffId] : [], location: d.location,
         status: d.date < today(state) ? "Completed" : "Scheduled", tone: "neutral", detail: `${booked} booked, ${open} free, with ${d.clinicianName}`,
-        link: { page: "OccHealth", tab: "sessions", params: { diary: d.id } }, openLabel: "Open Meddbase session", done: d.date < today(state), movable: d.date >= today(state),
+        link: { page: "OccHealth", tab: "sessions", params: { diary: d.id } }, openLabel: "Open MediBase session", done: d.date < today(state), movable: d.date >= today(state),
       } as CalEvent;
     }),
   },
@@ -268,7 +270,7 @@ export const CAL_SOURCES: CalSource[] = [
   /* Retention: the date each client is due to be screened again. */
   {
     id: "recall",
-    kinds: [{ id: "recall", label: "Recall date", group: "retention", color: "#EB7F3C" }],
+    kinds: [{ id: "recall", label: "Rebooking date", group: "retention", color: "#EB7F3C" }],
     collect: (state) => salesRecalls(state).map((r) => ({
       id: `recall:${r.id}`, kind: "recall", ...timed(r.recallOn, null), title: `${r.company}: due for rebooking`, client: r.company, staffIds: ["stephen"],
       status: SALES_RECALL_STATUS_LABEL[r.status], tone: r.status === "overdue" ? "warn" : r.status === "rebooked" ? "ok" : r.status === "plan_now" ? "info" : "neutral",
@@ -318,7 +320,7 @@ export const CAL_SOURCES: CalSource[] = [
   },
   /* Things scheduled from the Calendar with "+ Schedule" that live nowhere else: client meetings and calls,
      follow up emails, results out and rebooking emails, staff training and leave (one event per day of leave).
-     Tasks, flu clinics and Meddbase sessions created there show through their own sources above. */
+     Tasks, flu clinics and MediBase sessions created there show through their own sources above. */
   {
     id: "scheduled",
     kinds: [
@@ -412,7 +414,7 @@ export function calendarEvents(state: PhState): CalEvent[] {
   const hit = cache.get(state);
   if (hit) return hit;
   const all = CAL_SOURCES.flatMap((s) => s.collect(state)).sort(calSort);
-  /* Tasks, flu clinics and Meddbase sessions created with "+ Schedule" carry who scheduled them. */
+  /* Tasks, flu clinics and MediBase sessions created with "+ Schedule" carry who scheduled them. */
   for (const e of all) {
     if (e.schedId || !/^(task|flu|oh):/.test(e.id)) continue;
     const x = schedForCalId(state, e.id);
@@ -471,6 +473,15 @@ export function calRange(view: CalView, date: LocalDate): { from: LocalDate; to:
   if (view === "agenda") return { from: first, to: last };
   return { from: startOfWeek(first), to: addDays(startOfWeek(last), 6) };
 }
+/** The dates that counts are taken over. Month view also draws the edges of the next and previous
+    months, but counts only the month itself, so Month and Agenda always give the same numbers. */
+export function calCountRange(view: CalView, date: LocalDate): { from: LocalDate; to: LocalDate } {
+  return view === "month" ? calRange("agenda", date) : calRange(view, date);
+}
+/** Week view: at most this many overlapping events side by side; more show two and a "+N" chip. */
+export const CAL_MAX_SIDE_BY_SIDE = 3;
+/** Narrowest an event block may be drawn in week view, in pixels. */
+export const CAL_MIN_BLOCK_PX = 80;
 export function addMonths(d: LocalDate, n: number): LocalDate {
   const [y, m, day] = d.split("-").map(Number);
   const t = new Date(Date.UTC(y, m - 1 + n, 1));
@@ -492,19 +503,20 @@ export function calClients(events: CalEvent[]): Array<{ name: string; n: number 
 }
 
 /** Side-by-side layout for timed events on one day: column index and column count per event. */
-export function calLayoutDay(events: CalEvent[]): Map<string, { col: number; cols: number }> {
+export function calLayoutDay(events: CalEvent[]): Map<string, { col: number; cols: number; cluster: number }> {
   const timedEv = events.filter((e) => !e.allDay && e.time).slice().sort((a, b) => (a.time!.start < b.time!.start ? -1 : a.time!.start > b.time!.start ? 1 : 0));
-  const out = new Map<string, { col: number; cols: number }>();
+  const out = new Map<string, { col: number; cols: number; cluster: number }>();
+  let clusterNo = 0;
   const endOf = (e: CalEvent) => e.time!.end || addMins(e.time!.start, 60);
   let cluster: CalEvent[] = [];
   let clusterEnd = "";
   let colsEnd: string[] = [];
-  const flush = () => { const n = colsEnd.length; for (const e of cluster) out.set(e.id, { col: out.get(e.id)!.col, cols: n }); cluster = []; colsEnd = []; clusterEnd = ""; };
+  const flush = () => { const n = colsEnd.length; for (const e of cluster) out.set(e.id, { col: out.get(e.id)!.col, cols: n, cluster: clusterNo }); clusterNo += 1; cluster = []; colsEnd = []; clusterEnd = ""; };
   for (const e of timedEv) {
     if (cluster.length && e.time!.start >= clusterEnd) flush();
     let col = colsEnd.findIndex((end) => end <= e.time!.start);
     if (col < 0) { col = colsEnd.length; colsEnd.push(endOf(e)); } else colsEnd[col] = endOf(e);
-    out.set(e.id, { col, cols: 1 });
+    out.set(e.id, { col, cols: 1, cluster: clusterNo });
     cluster.push(e);
     if (endOf(e) > clusterEnd) clusterEnd = endOf(e);
   }

@@ -1,7 +1,7 @@
 /* Settings, Integrations: the existing systems register. Each status is the exact
    simulated or unconfirmed text from the register. No credentials are requested, no live
    connection is claimed, FTP is not described as SFTP, no Gmail API or Microsoft Graph link is
-   claimed, and Meddbase has no records or sync events. Activity comes from the shared feed.
+   claimed, and MediBase has no records or sync events. Activity comes from the shared feed.
    Each system lists the automations that touch it (Work, Automations). Slack is added from the
    automation registry until it joins the register in constants. */
 import { useRef } from "react";
@@ -191,8 +191,8 @@ function Extras({ id, state }: { id: string; state: PhState }) {
       <Section title="From the 2 Oct walkthrough">
         <DefList items={[
           { label: "Holds today", value: "Occupational-health clinician diaries (for example a van day of 15-minute surveillance slots), patient records and OH reports." },
-          { label: "Wanted", value: "Pre-appointment questionnaires sent into Meddbase by API, and client onboarding videos: set up, trigger, find a patient, get a report." },
-          { label: "Connection", value: "No Meddbase records or sync events exist in this demo. Whether it is kept, replaced or integrated has not been agreed." },
+          { label: "Wanted", value: "Pre-appointment questionnaires sent into MediBase by API, and client onboarding videos: set up, trigger, find a patient, get a report." },
+          { label: "Connection", value: "No MediBase records or sync events exist in this demo. Whether it is kept, replaced or integrated has not been agreed." },
         ]} />
       </Section>
     );

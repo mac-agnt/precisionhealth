@@ -1,7 +1,7 @@
 /* Retention: keep clients coming back. The rebooking rate on top, then the outbox ("Results are out"
    emails queued when results are released for a programme), rebooking reminders three months before
    each anniversary to the named HR contact, client contacts (with "left the company"), the branded
-   email templates, and what has been sent. Every email is simulated.
+   email templates, and what has been sent. 
    Deep links: #/Sales/recall, #/Sales/recall?template=rebooking. */
 import { useMemo, useState } from "react";
 import { RET_MERGE_FIELDS, RET_TEMPLATE_IDS, fmtDate, fmtDateLong, retSampleValues } from "../../model";
@@ -22,6 +22,7 @@ import { useSalesRights } from "./shared";
 import { JourneyStrip } from "../Journey/JourneyStrip";
 import { nextYearLeadAction } from "../Journey/model";
 import SchedRetentionCard from "../Calendar/SchedRetentionCard";
+import { CompanyLink, ProgrammeLink } from "../links";
 
 type Preview = { to: string; subject: string; body: string; sentAt?: string | null; action?: { label: string; run: () => void } };
 
@@ -50,13 +51,13 @@ export default function Retention() {
 
   const previewRelease = (it: RetReleaseItem) => {
     const r = retRender(state, "results_out", retReleaseValues(state, it));
-    setPreview({ to: it.contact ? `${it.contact.name} <${it.contact.email}>` : "No contact chosen", ...r, action: it.contact && staff ? { label: "Send (simulated)", run: () => dispatch(onbAct.sendResultsOut(it.programmeId)) } : undefined });
+    setPreview({ to: it.contact ? `${it.contact.name} <${it.contact.email}>` : "No contact chosen", ...r, action: it.contact && staff ? { label: "Send", run: () => dispatch(onbAct.sendResultsOut(it.programmeId)) } : undefined });
   };
   const previewReminder = (r: RetReminder) => {
     const sent = r.emailId ? state.onboarding.emails.find((e) => e.id === r.emailId) : undefined;
     if (sent) { setPreview({ to: `${sent.toName} <${sent.toEmail}>`, subject: sent.subject, body: sent.body, sentAt: sent.sentAt }); return; }
     const m = retRender(state, "rebooking", retReminderValues(state, r));
-    setPreview({ to: r.contact ? `${r.contact.name} <${r.contact.email}>` : "No contact chosen", ...m, action: r.contact && staff ? { label: "Send (simulated)", run: () => dispatch(onbAct.sendRebooking(r.recall.id)) } : undefined });
+    setPreview({ to: r.contact ? `${r.contact.name} <${r.contact.email}>` : "No contact chosen", ...m, action: r.contact && staff ? { label: "Send", run: () => dispatch(onbAct.sendRebooking(r.recall.id)) } : undefined });
   };
   const previewSent = (e: RetEmail) => setPreview({ to: `${e.toName} <${e.toEmail}>`, subject: e.subject, body: e.body, sentAt: e.sentAt });
   const clientOf = (company: string) => clients.find((c) => c.company === company);
@@ -87,7 +88,7 @@ export default function Retention() {
               {rate.rows.map((r) => (
                 <div key={r.company} className="rt-rate-row">
                   <span className={"rt-dot" + (r.rebooked ? " on" : "")}>{r.rebooked ? <Icon name="check" size={10} stroke={2.4} /> : null}</span>
-                  <b className="ph-grow">{r.company}</b>
+                  <b className="ph-grow"><CompanyLink name={r.company} /></b>
                   <span className="ph-dim">Screened {fmtDate(r.screenedOn)}</span>
                   <span className={r.rebooked ? "rt-ok" : "ph-faint"}>{r.rebooked ? r.how : `Not yet. Anniversary ${fmtDate(r.anniversary)}`}</span>
                 </div>
@@ -99,20 +100,20 @@ export default function Retention() {
         {/* ---------------- outbox ---------------- */}
         <Card>
           <div id="rt-outbox" />
-          <CardHeader title={<>Outbox: results are out <DemoTag>Simulated sending</DemoTag></>} sub="When results are released for a programme, an email to the client's HR contact waits here: results are out, a feedback form link and a note that the invoice is coming." />
+          <CardHeader title="Outbox: results are out" sub="When results are released for a programme, an email to the client's HR contact waits here: results are out, a feedback form link and a note that the invoice is coming." />
           {queue.length ? (
             <div className="rt-list">
               {queue.map((it) => (
                 <div key={it.programmeId} className="rt-item">
                   <span className="rt-item-icon"><Icon name="mail" size={16} /></span>
                   <div className="ph-grow">
-                    <div className="rt-item-title">{it.company}: {it.programme}</div>
+                    <div className="rt-item-title"><CompanyLink name={it.company} />: <ProgrammeLink id={it.programmeId}>{it.programme}</ProgrammeLink></div>
                     <div className="rt-item-sub">{it.newReports} new report{it.newReports === 1 ? "" : "s"} released ({it.released} in total) · To {it.contact ? <b>{it.contact.name}</b> : <span className="rt-bad">no contact chosen</span>}</div>
                     <JourneyStrip programme={it.programmeId} at="retention" mini />
                   </div>
                   <div className="rt-item-act">
                     <Button size="sm" icon="eye" onClick={() => previewRelease(it)}>Preview</Button>
-                    {it.contact ? <Button size="sm" variant="primary" icon="send" disabled={!staff} onClick={() => dispatch(onbAct.sendResultsOut(it.programmeId))}>Send (simulated)</Button>
+                    {it.contact ? <Button size="sm" variant="primary" icon="send" disabled={!staff} onClick={() => dispatch(onbAct.sendResultsOut(it.programmeId))}>Send</Button>
                       : <Button size="sm" onClick={() => { const c = clientOf(it.company); if (c) setLeftFor({ client: c, mode: "choose" }); }}>Choose contact</Button>}
                   </div>
                 </div>
@@ -139,17 +140,17 @@ export default function Retention() {
                 <div key={r.recall.id} className="rt-item">
                   <div className="rt-date"><span>{fmtDate(r.dueOn).split(" ").slice(0, 2).join(" ")}</span><b>{r.dueOn.slice(0, 4)}</b></div>
                   <div className="ph-grow">
-                    <div className="rt-item-title">{r.recall.company} <Pill tone={look.tone}>{look.label}</Pill></div>
+                    <div className="rt-item-title"><CompanyLink name={r.recall.company} /> <Pill tone={look.tone}>{r.state === "due" && r.daysToDue < 0 ? "Overdue" : look.label}</Pill></div>
                     <div className="rt-item-sub">
                       Anniversary {longDate(r.recall.recallOn)} · {r.contact ? <>To <b>{r.contact.name}</b>, {r.contact.role}</> : <span className="rt-bad">contact left, choose a new one</span>}
-                      {r.state === "scheduled" ? ` · in ${r.daysToDue} day${r.daysToDue === 1 ? "" : "s"}` : r.state === "due" && r.daysToDue < 0 ? ` · ${-r.daysToDue} days late` : ""}
+                      {r.state === "scheduled" ? ` · in ${r.daysToDue} day${r.daysToDue === 1 ? "" : "s"}` : r.state === "due" && r.daysToDue < 0 ? ` · ${-r.daysToDue} ${r.daysToDue === -1 ? "day" : "days"} overdue` : ""}
                     </div>
                     <JourneyStrip company={r.recall.company} at="retention" mini />
                   </div>
                   <div className="rt-item-act">
                     {r.state === "no_contact" ? <Button size="sm" variant="primary" icon="user" onClick={() => { const c = clientOf(r.recall.company); if (c) setLeftFor({ client: c, mode: "choose" }); }}>Choose contact</Button> : null}
                     <Button size="sm" icon="eye" onClick={() => previewReminder(r)}>Preview</Button>
-                    {r.state === "due" || r.state === "scheduled" ? <Button size="sm" variant={r.state === "due" ? "primary" : "secondary"} icon="send" disabled={!staff} onClick={() => dispatch(onbAct.sendRebooking(r.recall.id))}>{r.state === "due" ? "Send (simulated)" : "Send early"}</Button> : null}
+                    {r.state === "due" || r.state === "scheduled" ? <Button size="sm" variant={r.state === "due" ? "primary" : "secondary"} icon="send" disabled={!staff} onClick={() => dispatch(onbAct.sendRebooking(r.recall.id))}>{r.state === "due" ? "Send" : "Send early"}</Button> : null}
                     <Button size="sm" variant={r.state === "sent" ? "primary" : "ghost"} icon="refresh" disabled={!staff} title="Creates a lead in the pipeline for next year's screening" onClick={() => { const x = dispatch(nextYearLeadAction(state, r.recall) as never); if (x.ok && x.id) nav.go({ page: "Sales", tab: "pipeline", params: { lead: x.id } }); }}>Start next year's screening</Button>
                   </div>
                 </div>
@@ -169,7 +170,7 @@ export default function Retention() {
             {(showAllContacts ? clients : clients.filter((c) => !c.current).concat(clients.filter((c) => c.current)).slice(0, 6)).map((c) => (
               <div key={c.key} className={"rt-contact" + (!c.current ? " missing" : "")}>
                 <div className="ph-grow">
-                  <div className="rt-contact-co">{c.company}</div>
+                  <div className="rt-contact-co"><CompanyLink name={c.company} /></div>
                   {c.current ? <div className="rt-contact-who"><b>{c.current.name}</b> · {c.current.role}<span>{c.current.email}</span></div> : <div className="rt-contact-who rt-bad">No contact. Reminders are on hold.</div>}
                   {c.left.length ? <div className="rt-contact-left">{c.left.map((x) => `${x.name} left ${fmtDate(x.leftOn)}`).join(" · ")}</div> : null}
                 </div>
@@ -203,7 +204,7 @@ export default function Retention() {
 
         {/* ---------------- sent ---------------- */}
         <Card>
-          <CardHeader title="Sent from Pulse" sub={<>Every client email sent here, newest first. <DemoTag>Simulated</DemoTag></>} />
+          <CardHeader title="Sent from Pulse" sub="Every client email sent from here, newest first." />
           <div className="rt-sent">
             {state.onboarding.emails.slice().reverse().slice(0, 12).map((e) => (
               <button key={e.id} type="button" className="rt-sent-row" onClick={() => previewSent(e)}>
@@ -331,7 +332,7 @@ function LapsedClients({ onPreview }: { onPreview: (p: Preview) => void }) {
         {lapsed.map((r) => (
           <div key={r.id} className="rt-item">
             <span className="rt-item-icon muted"><Icon name="clock" size={15} /></span>
-            <div className="ph-grow"><div className="rt-item-title">{r.company} {r.outreachId ? <Pill tone="ok">Email drafted</Pill> : null}</div><div className="rt-item-sub">Last screened {longDate(r.screenedOn)} · {r.packageText} · {r.contactName}</div></div>
+            <div className="ph-grow"><div className="rt-item-title"><CompanyLink name={r.company} /> {r.outreachId ? <Pill tone="ok">Email drafted</Pill> : null}</div><div className="rt-item-sub">Last screened {longDate(r.screenedOn)} · {r.packageText} · {r.contactName}</div></div>
             <div className="rt-item-act">
               {r.outreachId ? <Button size="sm" icon="eye" onClick={() => show(r.outreachId)}>View email</Button>
                 : rights.manage ? <Button size="sm" variant="primary" icon="mail" onClick={() => reach(r.id)}>Reach out</Button> : null}
@@ -339,7 +340,6 @@ function LapsedClients({ onPreview }: { onPreview: (p: Preview) => void }) {
           </div>
         ))}
       </div>
-      <div className="ph-faint" style={{ fontSize: 11.5, marginTop: 8 }}>Drafts only: nothing is sent. <DemoTag>Simulated</DemoTag></div>
     </Card>
   );
 }

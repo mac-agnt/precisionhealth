@@ -82,7 +82,7 @@ export function LostReasonModal({ company, onClose, onConfirm }: { company: stri
   return (
     <Modal open onClose={onClose} title={`Move ${company} to Lost`} width={480}
       footer={<><Button onClick={onClose}>Cancel</Button><Button variant="danger" icon="x" disabled={reason.trim().length < 3} onClick={() => onConfirm(reason.trim())}>Move to Lost</Button></>}>
-      <Field label="Why was it lost?" htmlFor="sl-lost" help="Kept on the lead. It helps the recall and tender lists later.">
+      <Field label="Why was it lost?" htmlFor="sl-lost" help="Kept on the lead. It helps the retention and tender lists later.">
         <Textarea id="sl-lost" rows={3} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="For example: chose a lower-cost provider" />
       </Field>
     </Modal>

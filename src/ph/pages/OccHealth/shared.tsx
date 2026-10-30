@@ -71,7 +71,7 @@ export function ReceivedPill({ received, chased }: { received: boolean; chased?:
   return <Pill tone="warn" icon="alert">{chased ? "No, chased" : "No"}</Pill>;
 }
 export function MeddbasePill({ sent }: { sent: boolean }) {
-  return sent ? <Pill tone="ok" icon="check" title="Simulated push. The Meddbase API is not agreed yet.">In Meddbase (Simulated)</Pill> : <Pill tone="neutral" icon="dot">Not sent</Pill>;
+  return sent ? <Pill tone="ok" icon="check" title="Simulated push. The MediBase API is not agreed yet.">In MediBase (Simulated)</Pill> : <Pill tone="neutral" icon="dot">Not sent</Pill>;
 }
 
 /** A note band for honest caveats: simulated integrations and sample wording. */

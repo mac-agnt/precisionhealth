@@ -1,6 +1,6 @@
 /* Clients and onboarding: the "Complete onboarding occ health" board rebuilt. One row per OH
    client, one column per owner (Aidan, Fiona, Stephen, Sinead), then Fully completed, the
-   yearly Meddbase fee and the last annual invoice. Groups: Onboarding and Fully completed. */
+   yearly MediBase fee and the last annual invoice. Groups: Onboarding and Fully completed. */
 import { useState } from "react";
 import { OH_STEPS, fmtDate, fmtDayMonth, ohAgreementsStage, ohFmtEur, ohGroupOf, ohStepsDone, ohSummary } from "../../model";
 import type { OhClient, OhGroup, OhStepId, PhState } from "../../model";
@@ -14,7 +14,7 @@ import OnboardingForm from "./OnboardingForm";
 
 const GROUPS: Array<{ id: OhGroup; title: string; sub: string }> = [
   { id: "onboarding", title: "Onboarding", sub: "Submitted the onboarding form. Each owner ticks their step; the client moves on when all four are done." },
-  { id: "fully_completed", title: "Fully completed", sub: "Every step done: in Xero, agreements signed, recurring invoice live and Meddbase set up." },
+  { id: "fully_completed", title: "Fully completed", sub: "Every step done: in Xero, agreements signed, recurring invoice live and MediBase set up." },
 ];
 
 function StepCell({ state, c, step }: { state: PhState; c: OhClient; step: OhStepId }) {
@@ -67,7 +67,7 @@ export default function Clients() {
       key: s.step, header: <span className="oh-colhead"><span>{s.owner}</span>{s.column}</span>, cell: (c) => <StepCell state={state} c={c} step={s.step} />,
     })),
     { key: "full", header: "Fully completed", sort: (a, b) => ohStepsDone(a) - ohStepsDone(b), cell: (c) => <FullyCell c={c} /> },
-    { key: "fee", header: <span className="oh-colhead"><span>Yearly</span>Meddbase fee</span>, align: "right", sort: (a, b) => a.meddbaseFeeEur - b.meddbaseFeeEur, cell: (c) => <span className="ph-num">{ohFmtEur(c.meddbaseFeeEur)}</span> },
+    { key: "fee", header: <span className="oh-colhead"><span>Yearly</span>MediBase fee</span>, align: "right", sort: (a, b) => a.meddbaseFeeEur - b.meddbaseFeeEur, cell: (c) => <span className="ph-num">{ohFmtEur(c.meddbaseFeeEur)}</span> },
     { key: "inv", header: "Last annual invoice", cell: (c) => <InvoiceCell c={c} /> },
   ];
 
@@ -89,7 +89,7 @@ export default function Clients() {
           <Kpi label="Onboarding" value={sum.onboarding} sub={`of ${sum.clients} OH clients`} icon="clock" />
           <Kpi label="Fully completed" value={sum.fullyCompleted} sub={`of ${sum.clients} OH clients`} tone="ok" icon="check" />
           <Kpi label="Open owner steps" value={sum.openSteps} sub={OH_STEPS.map((s) => `${s.owner} ${sum.openByStep[s.step]}`).join(", ")} icon="list" />
-          <Kpi label="Yearly Meddbase fees" value={ohFmtEur(sum.yearlyFees)} sub={`${sum.fullyCompleted} fully completed clients, demo figures`} icon="chart" />
+          <Kpi label="Yearly MediBase fees" value={ohFmtEur(sum.yearlyFees)} sub={`${sum.fullyCompleted} fully completed clients, demo figures`} icon="chart" />
         </KpiStrip>
 
         <div className="oh-toolbar">

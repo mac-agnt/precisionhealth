@@ -195,7 +195,7 @@ export function taskViews(state: PhState): TaskView[] {
       const overdue = d.status !== "done" && !!t.dueAt && Date.parse(t.dueAt) < Date.parse(state.clock.nowUtc);
       const supervisor = p.perms.has("bookings.manage") || p.perms.has("clinical.review");
       return {
-        task: t, title: taskTitle(state, t), status: d.status, statusLabel: d.status === "done" ? "Done" : d.status === "blocked" ? "Blocked" : overdue ? "Overdue" : "Open",
+        task: t, title: taskTitle(state, t), status: d.status, statusLabel: d.status === "done" ? "Done" : d.status === "blocked" ? "Blocked" : overdue ? "Overdue" : "To do",
         overdue, ownerName: staffName(state, t.ownerId), target: linkFor(t.linked.kind, t.linked.id),
         canMarkDone: !p.isParticipant && !d.derived && d.status !== "done" && (t.ownerId === p.id || supervisor), blockReason: d.derived && d.status !== "done" ? d.blockReason : null,
         visible: !p.isParticipant && (!t.clinical || clinicalViewer),

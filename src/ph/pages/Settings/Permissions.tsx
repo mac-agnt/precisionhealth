@@ -79,7 +79,7 @@ function liveRows(s: PhState): LiveRow[] {
     {
       surface: "Navigation",
       sees: <>All {PAGES.length} modules stay in the rail. Restricted content inside a page is replaced by a notice that says what this role can see. Attention dots: {dots.length ? dots.join(", ") : "none"}.</>,
-      withheld: clinical ? "Nothing at module level." : "Clinical review and follow-up stories raise no dots or notifications.",
+      withheld: clinical ? "Nothing at module level." : "Clinical review and follow-up items raise no dots or notifications.",
       target: { page: "Results" }, targetLabel: "Open Results",
     },
     {

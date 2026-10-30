@@ -9,7 +9,7 @@ import type { CSSProperties, DragEvent as ReactDragEvent, MouseEvent as ReactMou
 import { createPortal } from "react-dom";
 import type { CalDim, CalEvent, CalFilter, CalView, LocalDate } from "../../model";
 import {
-  CAL_DEFAULT_OFF, CAL_GROUPS, CAL_KIND_BY_ID, addDays, addMonths, calClients, calGroupFromParam, calGroupOf, calKindColor, calLayoutDay, calMatches, calRange, calStep,
+  CAL_DEFAULT_OFF, CAL_GROUPS, CAL_KIND_BY_ID, CAL_MAX_SIDE_BY_SIDE, CAL_MIN_BLOCK_PX, addDays, addMonths, calClients, calCountRange, calGroupFromParam, calGroupOf, calKindColor, calLayoutDay, calMatches, calRange, calStep,
   calendarEvents, dublinOffsetMinutes, dublinToUtc, fmtDateLong, fmtWeekdayDate, hhmmToMinutes, localTimeOf, minutesToHhmm, staffName, startOfWeek, today, weekdayOf,
 } from "../../model";
 import { dispatch, usePersona, usePhState } from "../../store";
@@ -120,7 +120,10 @@ export default function CalendarBoard({ scope, defaultView = "week", onEventClic
   const range = calRange(view, date);
   const inRange = useMemo(() => scoped.filter((e) => e.date >= range.from && e.date <= range.to), [scoped, range.from, range.to]);
   const shown = useMemo(() => inRange.filter((e) => calMatches(e, f)), [inRange, f.groups.join(), f.clients.join(), f.people.join(), f.q, f.mine, f.byMe, f.status]); // eslint-disable-line react-hooks/exhaustive-deps
-  const count = (dim: CalDim, pred: (e: CalEvent) => boolean) => inRange.filter((e) => pred(e) && calMatches(e, f, dim)).length;
+  /* Counts cover the month itself in Month view (not the edge days of the grid), so Month and Agenda agree. */
+  const cr = calCountRange(view, date);
+  const inCount = useMemo(() => inRange.filter((e) => e.date >= cr.from && e.date <= cr.to), [inRange, cr.from, cr.to]);
+  const count = (dim: CalDim, pred: (e: CalEvent) => boolean) => inCount.filter((e) => pred(e) && calMatches(e, f, dim)).length;
 
   const selected = P.ev ? scoped.find((e) => e.id === P.ev) || null : null;
   /* An event selected by link (or just created) has no click position: anchor it to its block once drawn. */
@@ -143,7 +146,7 @@ export default function CalendarBoard({ scope, defaultView = "week", onEventClic
 
   const side = (
     <FilterPanel
-      date={date} today={t} scoped={scoped} f={f} groupsAll={groupsAll} inRange={inRange} count={count} set={set} scopeOnly={!!scope}
+      date={date} today={t} scoped={scoped} f={f} groupsAll={groupsAll} inRange={inCount} count={count} set={set} scopeOnly={!!scope}
       persona={p.isParticipant ? null : { id: p.id, first: p.name.split(" ")[0] }} footer={sideFooter} onDate={(d) => set({ date: d, ev: null })}
       onReset={resetFilters} activeFilters={activeFilters} narrow={narrow}
       create={canSchedule && !narrow ? <button type="button" className="cal-create" onClick={() => setCreating({ date: date < t ? t : date, time: null })}><Icon name="plus" size={20} stroke={2.2} /><span>Schedule</span></button> : null}
@@ -417,7 +420,20 @@ function TimeGrid({ days, today: t, now, events, onPick, onDay, selectedId, wide
     const earliest = Math.min(...timedAll.map((e) => hhmmToMinutes(e.time!.start)), 7 * 60);
     el.scrollTop = Math.max(0, (earliest / 60) * HOUR_PX - 8);
   }, [days[0]]); // eslint-disable-line react-hooks/exhaustive-deps
-  const cols = { "--days": days.length } as CSSProperties;
+  /* Overlapping events sit side by side, never narrower than CAL_MIN_BLOCK_PX. With more than
+     CAL_MAX_SIDE_BY_SIDE at once, two are drawn and a "+N" chip opens the day. In week view each day
+     column is at least as wide as its busiest moment needs; the grid scrolls sideways only if the
+     week cannot fit. Day view is wide enough to show every event. */
+  const lays = byDay.map((evs) => calLayoutDay(evs));
+  const slotsFor = (cols: number) => (wide ? cols : cols > CAL_MAX_SIDE_BY_SIDE ? CAL_MAX_SIDE_BY_SIDE : cols);
+  const dayMin = lays.map((lay) => {
+    if (wide) return 0;
+    let most = 1;
+    lay.forEach((L) => { most = Math.max(most, slotsFor(L.cols)); });
+    return most > 1 ? most * CAL_MIN_BLOCK_PX + 6 : 0;
+  });
+  const minTotal = dayMin.reduce((a, b) => a + b, 0) + dayMin.filter((x) => !x).length * 64;
+  const cols = { "--days": days.length, gridTemplateColumns: `var(--gut) ${dayMin.map((m) => (m ? `minmax(${m}px, 1fr)` : "minmax(0, 1fr)")).join(" ")}`, minWidth: `calc(var(--gut) + ${minTotal}px)` } as CSSProperties;
   const minAt = (ev: { clientY: number; currentTarget: HTMLElement }, offset = 0) => {
     const r = ev.currentTarget.getBoundingClientRect();
     const m = ((ev.clientY - r.top) / HOUR_PX) * 60 - offset;
@@ -456,14 +472,17 @@ function TimeGrid({ days, today: t, now, events, onPick, onDay, selectedId, wide
           );
         })}
       </div>
-      <div className="cal-tg-scroll" ref={scroller}>
+      <div className="cal-tg-scroll" ref={scroller} style={{ minWidth: cols.minWidth }}>
         <div className="cal-tg-body" style={{ ...cols, height: 24 * HOUR_PX }}>
           <div className="cal-tg-gutter">
             {hours.map((h) => <div key={h} className="cal-tg-hour" style={{ top: h * HOUR_PX }}>{h ? hourLabel(h) : ""}</div>)}
           </div>
           {byDay.map((evs, i) => {
             const d = days[i];
-            const lay = calLayoutDay(evs);
+            const lay = lays[i];
+            /* Events past the second column of a crowded cluster fold into one "+N" chip per cluster. */
+            const hidden = new Map<number, CalEvent[]>();
+            for (const e of evs) { const L = lay.get(e.id); if (L && !wide && L.cols > CAL_MAX_SIDE_BY_SIDE && L.col >= CAL_MAX_SIDE_BY_SIDE - 1) hidden.set(L.cluster, [...(hidden.get(L.cluster) || []), e]); }
             return (
               <div key={d} className={"cal-tg-col" + (onCreate ? " can-create" : "")} onClick={(ev) => clickSlot(d, ev)}
                 onDragOver={onMove ? (ev) => { if (!dragging) return; ev.preventDefault(); const m = minAt(ev, dragging.offsetMin); setGhost((g) => (g && g.d === d && g.min === m ? g : { d, min: m })); } : undefined}
@@ -472,20 +491,31 @@ function TimeGrid({ days, today: t, now, events, onPick, onDay, selectedId, wide
                 {hours.map((h) => <div key={h} className="cal-tg-line" style={{ top: h * HOUR_PX }} />)}
                 {ghost && ghost.d === d ? <div className="cal-ghost" style={{ top: (ghost.min / 60) * HOUR_PX, height: HOUR_PX / 2 }}>{ampm(minutesToHhmm(ghost.min))}</div> : null}
                 {evs.filter((e) => !e.allDay && e.time).map((e) => {
-                  const L = lay.get(e.id) || { col: 0, cols: 1 };
+                  const L = lay.get(e.id) || { col: 0, cols: 1, cluster: -1 };
+                  if (hidden.get(L.cluster)?.includes(e)) return null;
+                  const n = slotsFor(L.cols);
                   const y = top(e.time!.start);
                   const h = Math.max(20, (e.time!.end ? top(e.time!.end) : y + HOUR_PX) - y - 2);
-                  const thin = !wide && (L.cols >= 3 || (narrow && L.cols >= 2));
-                  const st: CSSProperties = { top: y, height: h, left: `calc(${(L.col / L.cols) * 100}% + 1px)`, width: `calc(${100 / L.cols}% - ${L.col === L.cols - 1 ? 8 : 2}px)`, "--c": calKindColor(e.kind) } as CSSProperties;
+                  const thin = !!narrow && n >= 2;
+                  const last = L.col === n - 1;
+                  const st: CSSProperties = { top: y, height: h, left: `calc(${(L.col / n) * 100}% + 1px)`, width: `calc(${100 / n}% - ${last ? 8 : 2}px)`, "--c": calKindColor(e.kind) } as CSSProperties;
                   return (
                     <button key={e.id} type="button" data-ev={e.id} style={st} title={`${e.title}, ${timeLabel(e)}`}
                       className={"cal-block-ev" + (e.tentative ? " tentative" : "") + (e.done ? " done" : "") + (selectedId === e.id ? " sel" : "") + (thin ? " thin" : h < 36 ? " short" : "")}
                       draggable={!!onMove && !!e.movable} onDragStart={(ev) => startDrag(e, ev, HOUR_PX)}
                       onClick={(ev) => { ev.stopPropagation(); onPick(e, ev.currentTarget); }}>
-                      <span className={"cal-block-t" + (h >= 60 ? " two" : "")}>{thin && e.client ? e.client : e.title}</span>
+                      <span className={"cal-block-t" + (h >= 60 ? " two" : "")}>{(thin || n >= 2) && e.client ? e.client : e.title}</span>
                       <span className="cal-block-s ph-num">{timeLabel(e)}{wide && e.location ? `, ${e.location}` : ""}</span>
                       {wide && h >= 70 && e.detail ? <span className="cal-block-s">{e.detail}</span> : null}
                     </button>
+                  );
+                })}
+ {[...hidden.entries()].map(([k, hs]) => {
+                  const first = hs.reduce((a, b) => (a.time!.start <= b.time!.start ? a : b));
+                  return (
+                    <button key={`more-${k}`} type="button" className="cal-block-more" style={{ top: top(first.time!.start), left: `calc(${((CAL_MAX_SIDE_BY_SIDE - 1) / CAL_MAX_SIDE_BY_SIDE) * 100}% + 1px)`, width: `calc(${100 / CAL_MAX_SIDE_BY_SIDE}% - 8px)` }}
+                      title={hs.map((x) => `${x.title}, ${timeLabel(x)}`).join("\n")} aria-label={`${hs.length} more at this time. Open the day`}
+                      onClick={(ev) => { ev.stopPropagation(); onDay(d); }}>+{hs.length}</button>
                   );
                 })}
                 {d === t ? <div className="cal-now" style={{ top: (nowMin / 60) * HOUR_PX }} aria-label={`Now, ${ampm(localTimeOf(now))}`}><span /></div> : null}

@@ -56,7 +56,7 @@ function agentInfo(state: PhState, def: AgentDef, feed: ActivityView[], clinical
       itemsTitle = "Claims in today's briefing, each linked to its queue";
       const open = storyViews(state).filter((s) => s.open && storyVisible(s));
       open.forEach((s) => items.push({ key: s.def.id, label: s.headline, detail: `${s.def.id}, owner ${s.ownerName}`, tone: "info", target: s.target }));
-      if (!open.length) items.push({ key: "none", label: "No open stories. Everything visible to this role is resolved.", tone: "ok" });
+      if (!open.length) items.push({ key: "none", label: "Nothing open. Everything visible to this role is resolved.", tone: "ok" });
       context.push("Prepares summaries only, so nothing waits for approval. Operations roles get a logistics-only version without clinical detail.");
       break;
     }

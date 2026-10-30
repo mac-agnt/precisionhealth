@@ -5,7 +5,7 @@
    instructions are kept on the proposal; a percentage discount in them becomes a visible line. */
 import { useMemo, useState } from "react";
 import {
-  salesApplyDiscount, salesBuilderConfig, salesCapacity, salesEur, salesLatestVersion, salesParseDiscount, salesParseNotes, salesProposalTotals, salesUpsells,
+  salesApplyDiscount, salesBuilderConfig, salesCapacity, salesEur, salesLatestVersion, salesPackageBlurb, salesPackageTitle, salesParseDiscount, salesParseNotes, salesProposalTotals, salesUpsells,
 } from "../../model";
 import type { SalesBuilderInput, SalesLead } from "../../model";
 import { useNav } from "../../nav-context";
@@ -86,8 +86,9 @@ export default function ProposalBuilder({ lead, onClose }: { lead: SalesLead; on
           <label className="pb-field"><span>Package</span>
             <Select value={f.packageId || ""} onChange={(e) => set({ packageId: e.target.value || null })} aria-label="Package">
               <option value="">No screening package</option>
-              {dayItems.map((i) => <option key={i.id} value={i.id}>{i.name}, {salesEur(i.price!)} a day, up to {salesCapacity(i).perDay} a day</option>)}
+              {dayItems.map((i) => <option key={i.id} value={i.id}>{salesPackageTitle(i)}, {salesEur(i.price!)} a day</option>)}
             </Select>
+            {it ? <span className="pb-pkg-blurb">{salesPackageBlurb(it)} Up to {salesCapacity(it).perDay} people a day.</span> : null}
           </label>
           <div className="pb-two">
             <label className="pb-field"><span>People</span><TextInput inputMode="numeric" value={String(f.headcount || "")} onChange={(e) => { const n = num(e.target.value); set({ headcount: n, fluCount: f.fluCount === f.headcount ? n : f.fluCount }); }} aria-label="People" /></label>
@@ -124,7 +125,7 @@ export default function ProposalBuilder({ lead, onClose }: { lead: SalesLead; on
           <div className="pb-k">Live price</div>
           <div className="pb-total ph-num">{salesEur(net.netHigh)}</div>
           <div className="pb-lines">
-            {t.lines.map((l) => <div key={l.itemId}><span>{f.headcount} people at up to {l.perDay} a day = {l.days} clinical day{l.days === 1 ? "" : "s"} of {it?.name || l.name} x {salesEur(l.rate)}</span><b className="ph-num">{salesEur(l.total)}</b></div>)}
+            {t.lines.map((l) => <div key={l.itemId}><span>{f.headcount} people at up to {l.perDay} a day = {l.days} clinical day{l.days === 1 ? "" : "s"} of {it ? salesPackageTitle(it) : l.name} x {salesEur(l.rate)}</span><b className="ph-num">{salesEur(l.total)}</b></div>)}
             {t.flu ? <div><span>{t.flu.highQty} flu vaccines x {salesEur(t.flu.rate)}</span><b className="ph-num">{salesEur(t.flu.high)}</b></div> : null}
             {t.exec ? <div><span>{t.exec.count} executive medicals x {salesEur(t.exec.rate)}</span><b className="ph-num">{salesEur(t.exec.total)}</b></div> : null}
             {pct ? <div className="pb-disc"><span>Discount {pct}%</span><b className="ph-num">-{salesEur(net.discountHigh)}</b></div> : null}
@@ -154,6 +155,7 @@ const CSS = `
 @media (max-width: 820px) { .pb-grid { grid-template-columns: minmax(0, 1fr); } }
 .pb-form { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
 .pb-field { display: flex; flex-direction: column; gap: 5px; font-size: 12px; color: var(--dim); }
+.pb-pkg-blurb { font-size: 12px; color: var(--dim); line-height: 1.45; }
 .pb-two { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .pb-flu { display: flex; align-items: center; gap: 10px; font-size: 12.5px; color: var(--body); padding: 8px 12px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface-2); }
 .pb-k { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--faint); margin-bottom: 6px; }

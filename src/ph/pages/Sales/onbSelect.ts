@@ -34,7 +34,7 @@ export function onbPrefill(lead: SalesLead | undefined, kind: OnbKind): OnbDetai
   if (!lead) return d;
   const c = lead.contact;
   const role = c.role.replace(/\s*\(fictional\)/, "");
-  d.companyName = lead.company + (lead.fictionalCompany ? " (fictional)" : "");
+  d.companyName = lead.company;
   d.main = { name: c.name, email: c.email, phone: c.phone };
   if (/hr|people|wellbeing|welfare|human/i.test(role)) d.hr = { name: c.name, email: c.email, phone: c.phone };
   if (lead.invoiceName || lead.invoiceEmail) d.finance = { name: lead.invoiceName || "", email: lead.invoiceEmail || "", phone: "" };

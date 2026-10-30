@@ -38,8 +38,8 @@ export const PAGES: PageDef[] = [
     { id: "check", label: "Test run" }, { id: "changes", label: "Changes" }, { id: "impact", label: "Impact" }, { id: "questions", label: "To confirm" }] },
   { id: "Flu", section: "Services", label: "Flu", icon: "navFlu", hint: "Flu clinics and vaccine stock", tabs: [
     { id: "overview", label: "Overview" }, { id: "bookings", label: "Bookings" }, { id: "stock", label: "Vaccine stock" }, { id: "cold-chain", label: "Cold chain" }, { id: "contacts", label: "Contacts and notes" }] },
-  { id: "OccHealth", section: "Services", label: "Occupational Health", icon: "navOcc", hint: "OH clients, onboarding, Meddbase", tabs: [
-    { id: "clients", label: "Clients and onboarding" }, { id: "questionnaires", label: "Questionnaires" }, { id: "sessions", label: "Meddbase sessions" }, { id: "agreements", label: "Agreements" }] },
+  { id: "OccHealth", section: "Services", label: "Occupational Health", icon: "navOcc", hint: "OH clients, onboarding, MediBase", tabs: [
+    { id: "clients", label: "Clients and onboarding" }, { id: "questionnaires", label: "Questionnaires" }, { id: "sessions", label: "MediBase sessions" }, { id: "agreements", label: "Agreements" }] },
   { id: "Reporting", section: "Run the business", label: "Reporting", icon: "navReporting", hint: "Employer reports", tabs: [
     { id: "overview", label: "Overview" }, { id: "report-builder", label: "Report builder" }, { id: "exports", label: "Exports" }] },
   { id: "Work", section: "Run the business", label: "Work", icon: "navWork", hint: "Tasks and approvals", tabs: [
@@ -82,12 +82,16 @@ export function hashFor(t: NavTarget): string {
   return `#/${t.page}${tab ? "/" + tab : ""}${q ? "?" + q : ""}`;
 }
 
+/** Friendlier tab names that open an existing tab: #/Sales/retention opens the Retention tab (id "recall"). */
+const TAB_ALIAS: Record<string, string> = { "Sales/retention": "recall" };
+
 export function parseHash(hash: string): NavTarget | null {
   const m = /^#\/([A-Za-z]+)(?:\/([a-z0-9-]+))?(?:\?(.*))?$/.exec(hash || "");
   if (!m) return null;
   const page = m[1] as PageId;
   if (!PAGE_BY_ID[page]) return null;
-  const tab = m[2] && PAGE_BY_ID[page].tabs.some((t) => t.id === m[2]) ? m[2] : defaultTab(page);
+  const raw = m[2] && TAB_ALIAS[`${page}/${m[2]}`] || m[2];
+  const tab = raw && PAGE_BY_ID[page].tabs.some((t) => t.id === raw) ? raw : defaultTab(page);
   const params: Record<string, string> = {};
   if (m[3]) m[3].split("&").forEach((kv) => { const [k, v] = kv.split("="); if (k) params[decodeURIComponent(k)] = decodeURIComponent(v || ""); });
   return { page, tab, params };

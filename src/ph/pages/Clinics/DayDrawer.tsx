@@ -8,7 +8,7 @@ import {
 import type { AgentEdit, DayChange, DayField, DayForm, HrRead, Persona, ScreeningDay } from "../../model";
 import { dispatch, usePersona, usePhState } from "../../store";
 import { useNav } from "../../nav-context";
-import { Button, DemoTag, Drawer, Icon, Pill, Textarea, TextInput } from "../../ui";
+import { Button, Drawer, EntityLink, Icon, Pill, Textarea, TextInput } from "../../ui";
 import { clientContact, requestClientPortalProgramme } from "../ClientPortal/data";
 import { daysAct } from "./daysActions";
 import { DayEditor, DayStrip } from "./DayParts";
@@ -40,7 +40,7 @@ export function DayDrawer({ day, onClose }: { day: ScreeningDay | null; onClose:
   return (
     <Drawer key={day.id + mode} open={!!day} onClose={onClose} width={780}
       title={`${client}, ${fmtDateLong(day.date)}`}
-      sub={<span className="ph-wrap" style={{ gap: 6 }}>{day.status === "published" ? <Pill tone="ok" icon="check">Published</Pill> : <Pill tone="warn" icon="edit">Draft</Pill>}<Pill tone={day.screen === "poc" ? "info" : "neutral"} icon={day.screen === "poc" ? "heart" : "flask"}>{DAY_SCREEN_LABEL[day.screen]}</Pill><span className="ph-faint">{day.id} · session {day.sessionId}</span></span>}
+      sub={<span className="ph-wrap" style={{ gap: 6 }}>{day.status === "published" ? <Pill tone="ok" icon="check">Published</Pill> : <Pill tone="warn" icon="edit">Draft</Pill>}<Pill tone={day.screen === "poc" ? "info" : "neutral"} icon={day.screen === "poc" ? "heart" : "flask"}>{DAY_SCREEN_LABEL[day.screen]}</Pill><EntityLink kind="programme" id={day.programmeId}>{PROGRAMME_BY_ID[day.programmeId].name}</EntityLink></span>}
       footer={editing ? null : <ViewFooter day={day} onEdit={() => { setForm(formOf(day)); setSources({}); setMode("edit"); }} />}>
       {editing ? (
         <EditMode day={day} form={form} sources={sources}
@@ -56,14 +56,13 @@ function ViewFooter({ day, onEdit }: { day: ScreeningDay; onEdit: () => void }) 
   const p = usePersona();
   const manage = canManageDays(p);
   const deny = manage ? "" : `${p.name} (${p.roleLabel}) cannot change screening days.`;
-  const block = publishBlockers(day);
   return (
     <>
       <Button icon="calendar" onClick={() => nav.go({ page: "Clinics", tab: "schedule", params: { view: "day", date: day.date, session: day.sessionId } })}>Open in schedule</Button>
       <Button icon="edit" disabled={!manage} title={deny || "Change any field with the form"} onClick={onEdit}>Edit with the form</Button>
       {day.status === "published"
         ? <Button variant="ghost" disabled={!manage} title={deny || "Take it off the client portal"} onClick={() => dispatch(daysAct.unpublish(day.id))}>Unpublish</Button>
-        : <Button variant="primary" icon="send" disabled={!manage || block.length > 0} title={deny || block[0] || "Show this day on the client portal"} onClick={() => dispatch(daysAct.publish(day.id))}>Publish to client portal</Button>}
+        : null}
     </>
   );
 }
@@ -208,7 +207,6 @@ function HrReply({ day }: { day: ScreeningDay }) {
       <div className="sd-actions" style={{ marginTop: 8 }}>
         <Button icon="mail" onClick={() => { const s = sampleHrReply(day, hr?.name || `${client} HR`); setText(s); setRes(null); }}>Use sample HR reply</Button>
         <Button variant="primary" icon="spark" disabled={!text.trim()} onClick={() => read(text)}>Read the email</Button>
-        <DemoTag>Simulated</DemoTag>
       </div>
       {res ? (
         <div style={{ marginTop: 12 }}>

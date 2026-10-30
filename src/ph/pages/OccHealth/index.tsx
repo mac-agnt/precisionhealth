@@ -1,5 +1,5 @@
 /* Occupational Health: OH clients and onboarding, agreements, pre-appointment questionnaires and
-   Meddbase sessions, rebuilt from Stephen's walkthrough (RECORDING.md section 6). Meddbase stays
+   MediBase sessions, rebuilt from Stephen's walkthrough (RECORDING.md section 6). MediBase stays
    the system of record for OH; Pulse tracks onboarding and shows readiness. */
 import "./actions";
 import "./oh.css";

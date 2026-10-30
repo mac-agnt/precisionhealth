@@ -71,7 +71,7 @@ function EverythingTab() {
           {ACTOR_KINDS.map((k) => <Chip key={k} on={actor === k} count={scoped.filter((v) => v.event.actor.kind === k).length} onClick={() => setActor(k)}>{ACTOR_CHIP[k]}</Chip>)}
           {story ? (
             <Chip on onClick={() => nav.setParams(mergeParams(nav.params, { story: null }))}>
-              Story {story} <Icon name="x" size={11} />
+              Filtered to one item <Icon name="x" size={11} />
             </Chip>
           ) : null}
         </div>
@@ -212,23 +212,22 @@ function AttentionTab() {
       <PageHeader
         eyebrow="Activity"
         title="Needs attention"
-        sub={`${open.length} open ${open.length === 1 ? "story" : "stories"}, ${evCount} unresolved ${evCount === 1 ? "event" : "events"} and ${taskCount} linked open ${taskCount === 1 ? "task" : "tasks"}. When a story is resolved it leaves this view; its events stay in Everything.`}
+        sub={`${open.length} open ${open.length === 1 ? "item" : "items"}, ${evCount} unresolved ${evCount === 1 ? "event" : "events"} and ${taskCount} linked open ${taskCount === 1 ? "task" : "tasks"}. When an item is resolved it leaves this view; its events stay in Everything.`}
         actions={<Button icon="list" onClick={() => nav.go({ page: "Activity", tab: "everything" })}>Everything</Button>}
       />
       <div className="ph-stack">
         {groups.length === 0 ? (
           <Card pad={false}>
-            <EmptyState title="Nothing needs attention" icon="check">Every story visible to this role is resolved. The full history is in Everything.</EmptyState>
+            <EmptyState title="Nothing needs attention" icon="check">Everything visible to this role is resolved. The full history is in Everything.</EmptyState>
           </Card>
         ) : groups.map((g) => <StoryGroup key={g.s.def.id} state={state} s={g.s} evs={g.evs} ts={g.ts} wide={wide} clinical={clinical} onOpenEvent={ev.open} />)}
 
         {resolved.length ? (
           <Card>
-            <CardHeader title="Resolved stories" sub="Moved out of this view when the underlying work was completed. The events remain in Everything." />
+            <CardHeader title="Resolved" sub="Moved out of this view when the underlying work was completed. The events remain in Everything." />
             <ul className="phf-list">
               {resolved.map((s) => (
                 <li key={s.def.id} className="ph-row-flex" style={{ gap: 10, flexWrap: "wrap" }}>
-                  <span className="phf-id">{s.def.id}</span>
                   <Pill tone="ok">Resolved</Pill>
                   <span className="ph-grow" style={{ fontSize: 12.5, color: "var(--ink)", minWidth: 160 }}>{s.headline}</span>
                   <Button size="sm" variant="ghost" icon="arrow" onClick={() => nav.go({ page: "Activity", tab: "everything", params: { story: s.def.id } })}>Events in Everything</Button>
@@ -250,7 +249,6 @@ function StoryGroup({ state, s, evs, ts, wide, clinical, onOpenEvent }: { state:
   return (
     <Card>
       <div className="ph-row-flex" style={{ gap: 8, flexWrap: "wrap", marginBottom: 8 }}>
-        <span className="phf-id">{s.def.id}</span>
         <span className="ph-h2">{s.restricted ? "Clinical action" : s.def.title}</span>
         <Pill tone="warn" icon="dot">Open</Pill>
         <span className="ph-grow" />
@@ -268,7 +266,7 @@ function StoryGroup({ state, s, evs, ts, wide, clinical, onOpenEvent }: { state:
             <Card flat pad={false}>
               {shown.map((v) => <EventRow key={v.event.id} v={v} onOpen={onOpenEvent} compact />)}
             </Card>
-          ) : <div className="phf-note">No events recorded for this story yet.</div>}
+          ) : <div className="phf-note">No events recorded for this yet.</div>}
           {evs.length > shown.length ? (
             <Button size="sm" variant="ghost" icon="arrow" onClick={() => nav.go({ page: "Activity", tab: "everything", params: { story: s.def.id } })} style={{ marginTop: 6 }}>
               All {evs.length} events in Everything
@@ -285,7 +283,6 @@ function StoryGroup({ state, s, evs, ts, wide, clinical, onOpenEvent }: { state:
                     <div style={{ fontSize: 12.5, color: "var(--ink)", fontWeight: 500, lineHeight: 1.35 }}>{t.title}</div>
                     <div className="ph-wrap" style={{ gap: 6, marginTop: 5 }}>
                       <TaskStatusPill tv={t} />
-                      <span className="phf-id">{t.task.id}</span>
                       <span className="phf-note">{t.task.dueAt ? `Due ${fmtDateTime(t.task.dueAt)}` : "No due date"}</span>
                     </div>
                     <div style={{ marginTop: 6 }}><StaffCell state={state} id={t.task.ownerId} size={20} /></div>
@@ -294,7 +291,7 @@ function StoryGroup({ state, s, evs, ts, wide, clinical, onOpenEvent }: { state:
                 </div>
               ))}
             </Card>
-          ) : <div className="phf-note">{hiddenTasks || s.restricted ? "Linked tasks are clinical and visible to clinical roles only." : "No open tasks are linked to this story."}</div>}
+          ) : <div className="phf-note">{hiddenTasks || s.restricted ? "Linked tasks are clinical and visible to clinical roles only." : "No open tasks are linked to this."}</div>}
         </div>
       </div>
     </Card>

@@ -256,3 +256,10 @@
 @media (max-width: 560px) {
   .sch-types, .sch-grid { grid-template-columns: minmax(0, 1fr); }
 }
+
+/* Week view: crowded times fold into a "+N" chip that opens the day; the grid scrolls sideways
+   only when a week cannot fit every day at its minimum width. */
+.cal-tg { overflow-x: auto; scrollbar-width: thin; }
+.cal-tg-head, .cal-tg-all, .cal-tg-scroll { box-sizing: border-box; }
+.cal-block-more { position: absolute; height: 24px; display: inline-flex; align-items: center; justify-content: center; border-radius: 6px; border: 1px solid var(--border-strong, var(--border)); background: var(--surface); color: var(--ink); font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; z-index: 2; }
+.cal-block-more:hover { background: var(--track); }

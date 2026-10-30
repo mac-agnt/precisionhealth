@@ -199,7 +199,7 @@ export default function Workflows() {
         </div>
       ),
     },
-    { key: "case", header: "Why named", nowrap: false, cell: (j) => <div style={{ minWidth: 130 }}><div className="phf-small" style={{ color: "var(--body)" }}>{j.caseLabel}</div>{j.story ? <Tag mono>{j.story}</Tag> : null}</div> },
+    { key: "case", header: "Why named", nowrap: false, cell: (j) => <div style={{ minWidth: 130 }}><div className="phf-small" style={{ color: "var(--body)" }}>{j.caseLabel}</div></div> },
     {
       key: "sched", header: "Scheduling state", nowrap: false,
       cell: (j) => <div style={{ minWidth: 170 }}><Pill tone="brand" icon="calendar">{SCHED_LABEL[j.sched.step]}</Pill><div className="phf-small" style={{ marginTop: 4 }}>{j.sched.label}</div></div>,
@@ -227,7 +227,7 @@ export default function Workflows() {
       cell: (j) => (
         <div style={{ minWidth: 130 }}>
           {columns[0].cell(j)}
-          <div className="phf-note" style={{ marginTop: 4 }}>{j.caseLabel}{j.story ? `, ${j.story}` : ""}</div>
+          <div className="phf-note" style={{ marginTop: 4 }}>{j.caseLabel}</div>
           <div style={{ marginTop: 2 }}>{columns[4].cell(j)}</div>
         </div>
       ),

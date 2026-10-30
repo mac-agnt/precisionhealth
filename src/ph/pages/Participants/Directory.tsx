@@ -130,7 +130,7 @@ export default function DirectoryTab() {
         <span className="ph-row-flex" style={{ gap: 6 }}>
           <Icon name={r.membership.contactPreference === "sms" ? "sms" : "mail"} size={13} style={{ color: "var(--faint)" }} />
           {r.membership.contactPreference === "sms" ? "SMS" : "Email"}
-          {failedFor(r.person.id) ? <Pill tone="bad" title="A message to this person failed delivery (simulated).">Failed</Pill> : null}
+          {failedFor(r.person.id) ? <Pill tone="bad" title="A message to this person failed delivery.">Failed</Pill> : null}
         </span>
       ),
     },

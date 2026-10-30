@@ -168,10 +168,10 @@ handlers["booking/create"] = (c, a: { personId: string; sessionId: string; slotS
   addMessage(c, { kind: "confirmation", personId: b.personId, bookingId: b.id, subject: "Your Precision Health appointment is confirmed", programmeId: b.programmeId });
   const short = !queueReminder(c, b);
   c.emit({
-    verb: "booking.confirmed", summary: `${c.personName(b.personId)} booked ${PROGRAMME_BY_ID[b.programmeId].name} on ${fmtDayMonth(s.date)} at ${b.slotStart} (${b.id}). Questionnaire and consent were complete before confirmation.${short ? " Booked inside 24 hours: one confirmation sent, no reminder created." : " One 24-hour reminder is queued (simulated)."}`,
+    verb: "booking.confirmed", summary: `${c.personName(b.personId)} booked ${PROGRAMME_BY_ID[b.programmeId].name} on ${fmtDayMonth(s.date)} at ${b.slotStart} (${b.id}). Questionnaire and consent were complete before confirmation.${short ? " Booked inside 24 hours: one confirmation sent, no reminder created." : " One 24-hour reminder is queued."}`,
     entity: { kind: "booking", id: b.id }, programmeId: b.programmeId, personId: b.personId, storyId: b.programmeId === "PRG-IBM-26" ? "ST-03" : null,
   });
-  return c.ok(`Booked ${fmtDate(s.date)} at ${b.slotStart}. ${short ? "Because it is inside 24 hours, one confirmation was sent and no reminder was created." : "A confirmation was sent and a 24-hour reminder is queued (simulated)."}`, "ok", b.id);
+  return c.ok(`Booked ${fmtDate(s.date)} at ${b.slotStart}. ${short ? "Because it is inside 24 hours, one confirmation was sent and no reminder was created." : "A confirmation was sent and a 24-hour reminder is queued."}`, "ok", b.id);
 };
 
 handlers["booking/reschedule"] = (c, a: { bookingId: string; sessionId: string; slotStart: string }) => {
@@ -354,7 +354,7 @@ handlers["clinic/saveCapture"] = (c, a: { bookingId: string; baseRev: number; me
   cap.savedAt = c.stamp();
   const b = c.ix().bookingById.get(a.bookingId)!;
   raiseEcgReview(c, b, cap, { kind: "booking", id: b.id });
-  return c.ok(cap.ecgReview && cap.ecgReview.at === cap.savedAt ? "Saved. ECG review requested: the photo was shared to the clinical channel (simulated)." : "Saved.", "info");
+  return c.ok(cap.ecgReview && cap.ecgReview.at === cap.savedAt ? "Saved. ECG review requested: the photo was shared to the clinical channel." : "Saved.", "info");
 };
 
 handlers["clinic/toggleChecklist"] = (c, a: { bookingId: string; key: "specimens" | "labels" | "questionnaire" }) => {

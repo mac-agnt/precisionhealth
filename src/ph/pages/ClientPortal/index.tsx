@@ -16,7 +16,7 @@ import type { ExportInput } from "../Reporting/ExportViews";
 import { usePrintOnly } from "../Portal/parts";
 import "../Portal/portal.css";
 import "./client.css";
-import type { ClientView } from "./data";
+import type { ClientView, ClinicDay } from "./data";
 import { ThemeToggle } from "../../shell/ThemeToggle";
 import {
   CLIENT_PROGRAMMES, CLIENT_VIEWS, announcementText, bookingUptake, clientContact, isApprovedReport, precisionContacts, programmeFunnel, suppressionNotices, takeRequestedCustom, takeRequestedProgramme, upcomingClinicDays,
@@ -194,10 +194,11 @@ function OverviewPage({ programmeId, go }: { programmeId: ProgrammeId; go: (v: C
   const f = programmeFunnel(state, programmeId);
   const up = bookingUptake(state, programmeId);
   const days = upcomingClinicDays(state, programmeId);
+  const addedDates = new Set(days.filter((x) => x.added).map((x) => x.date)).size;
   const threshold = state.settings.suppressionThreshold;
   return (
     <>
-      <PageHead eyebrow="Programme overview" title={p.name} sub={`${fmtDate(p.windowStart)} to ${fmtDate(p.windowEnd)} · ${p.sites.join(" and ")}. Live figures at ${fmtDateTime(state.clock.nowUtc)}.`} />
+      <PageHead eyebrow="Programme overview" title={p.name} sub={`${fmtDate(p.windowStart)} to ${fmtDate(p.windowEnd)}${addedDates ? `, plus ${addedDates === 1 ? "1 added date" : `${addedDates} added dates`}` : ""} · ${p.sites.join(" and ")}. Live figures at ${fmtDateTime(state.clock.nowUtc)}.`} />
       <div className="cp-tiles">
         {f.tiles.map((t) => (
           <div key={t.key} className="cp-tile">
@@ -234,27 +235,54 @@ function OverviewPage({ programmeId, go }: { programmeId: ProgrammeId; go: (v: C
           <h2 className="pp-h3" style={{ fontSize: 15 }}>Upcoming screening dates</h2>
           <p className="pp-small" style={{ marginTop: 0 }}>Dates Precision Health has confirmed with you, with the room and free places. Who has booked is never shown.</p>
           {days.length ? (
-            <ul className="cp-days">
-              {days.map((x) => {
-                const pct = x.slots ? Math.round(((x.slots - x.available) / x.slots) * 100) : 0;
-                return (
-                  <li key={x.id} className="cp-day">
-                    <div className="pp-row" style={{ flexWrap: "wrap", gap: 6 }}>
-                      <span className="ph-grow" style={{ color: "var(--ink)", fontWeight: 600 }}>{fmtWeekdayDate(x.date)}{x.isToday ? " (today)" : ""}</span>
-                      <Pill tone={x.poc ? "info" : "neutral"} icon={x.poc ? "heart" : "flask"}>{x.poc ? "Point of care" : "Lab bloods"}</Pill>
-                    </div>
-                    <div className="pp-small"><strong style={{ color: "var(--ink)" }}>{x.start.replace(/^0/, "")} to {x.end.replace(/^0/, "")}</strong> · {x.room && x.room !== "To be confirmed" ? `${x.room}, ${x.site}` : `${x.site}, room to be confirmed`}</div>
-                    <div className="pp-small"><strong style={{ color: "var(--ink)" }}>{x.available}</strong> of {x.slots} places free</div>
-                    <div className="cp-cap" role="img" aria-label={`${pct}% of times taken, ${x.available} free`}><span style={{ width: `${pct}%` }} /></div>
-                  </li>
-                );
-              })}
-            </ul>
+            <>
+              <ClinicDayList days={days.filter((x) => !x.added)} />
+              {days.some((x) => x.added) ? (
+                <>
+                  <h3 className="pp-h3" style={{ fontSize: 13.5, margin: "14px 0 0" }}>Added dates</h3>
+                  <p className="pp-small" style={{ margin: "2px 0 0" }}>Extra days agreed after the programme dates were set.</p>
+                  <ClinicDayList days={days.filter((x) => x.added)} />
+                </>
+              ) : null}
+            </>
           ) : <EmptyState title="No clinic days left" icon="calendar">All clinic days for this programme have taken place.</EmptyState>}
         </Card>
       </div>
       <p className="pp-small" style={{ margin: 0 }}>These are the same figures Precision Health sees on its programme dashboard. A count below {threshold} is shown as "fewer than {threshold}". Released reports are counted once a doctor has released them to the participant.</p>
     </>
+  );
+}
+
+
+/* One row per date. Two rooms on the same day sit under that date instead of repeating it. */
+function ClinicDayList({ days }: { days: ClinicDay[] }) {
+  const dates = [...new Set(days.map((x) => x.date))];
+  return (
+    <ul className="cp-days">
+      {dates.map((d) => {
+        const rows = days.filter((x) => x.date === d);
+        const fresh = rows.some((x) => x.isNew);
+        return (
+          <li key={d} className={"cp-day" + (fresh ? " cp-day-new" : "")}>
+            <div className="pp-row" style={{ flexWrap: "wrap", gap: 6 }}>
+              <span className="ph-grow" style={{ color: "var(--ink)", fontWeight: 600 }}>{fmtWeekdayDate(d)}{rows[0].isToday ? " (today)" : ""}</span>
+              {fresh ? <Pill tone="ok" icon="spark">New</Pill> : null}
+              <Pill tone={rows[0].poc ? "info" : "neutral"} icon={rows[0].poc ? "heart" : "flask"}>{rows[0].poc ? "Point of care" : "Lab bloods"}</Pill>
+            </div>
+            {rows.map((x) => {
+              const pct = x.slots ? Math.round(((x.slots - x.available) / x.slots) * 100) : 0;
+              return (
+                <div key={x.id} className="cp-day-room">
+                  <div className="pp-small"><strong style={{ color: "var(--ink)" }}>{x.start.replace(/^0/, "")} to {x.end.replace(/^0/, "")}</strong> · {x.room && x.room !== "To be confirmed" ? `${x.room}, ${x.site}` : `${x.site}, room to be confirmed`}</div>
+                  <div className="pp-small"><strong style={{ color: "var(--ink)" }}>{x.available}</strong> of {x.slots} places free</div>
+                  <div className="cp-cap" role="img" aria-label={`${pct}% of times taken, ${x.available} free`}><span style={{ width: `${pct}%` }} /></div>
+                </div>
+              );
+            })}
+          </li>
+        );
+      })}
+    </ul>
   );
 }
 
@@ -291,7 +319,7 @@ function SharePage({ programmeId }: { programmeId: ProgrammeId }) {
             <Button icon="link" onClick={() => copy("link")}>Copy link</Button>
             <Button onClick={() => copy("code")}>Copy code</Button>
           </div>
-          {copied === "link" || copied === "code" ? <p className="pp-small" role="status" style={{ margin: "8px 0 0" }}>Copied (simulated). In the live portal the {copied} goes to your clipboard.</p> : null}
+          {copied === "link" || copied === "code" ? <p className="pp-small" role="status" style={{ margin: "8px 0 0" }}>Copied. In the live portal the {copied} goes to your clipboard.</p> : null}
           {codes.length > 1 ? (
             <>
               <hr className="pp-hr" />
@@ -321,7 +349,7 @@ function SharePage({ programmeId }: { programmeId: ProgrammeId }) {
         <textarea id="cp-announce" ref={textRef} className="ph-input cp-announce" readOnly value={text} rows={18} />
         <div className="pp-wrap" style={{ marginTop: 10 }}>
           <Button variant="primary" icon="send" onClick={() => copy("text")}>Copy text</Button>
-          {copied === "text" ? <span className="pp-small" role="status">Copied (simulated). The text is selected, so you can also copy it yourself.</span> : <DemoTag>Simulated</DemoTag>}
+          {copied === "text" ? <span className="pp-small" role="status">Copied. The text is selected, so you can also copy it yourself.</span> : <DemoTag>Simulated</DemoTag>}
         </div>
       </Card>
     </>

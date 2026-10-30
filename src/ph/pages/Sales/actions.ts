@@ -63,9 +63,9 @@ const createLead: Handler<CreateLead> = (c, a) => {
   }
   if (a.origin?.kind === "recall") {
     const rc = salesRecalls(c.s).find((r) => r.id === a.origin!.id);
-    if (!rc) return c.fail("Unknown recall.");
+    if (!rc) return c.fail("That retention client was not found.");
     if (rc.leadId) return c.fail(`${rc.company} already has lead ${rc.leadId} in the pipeline.`);
-    ref = `Recall, screened ${fmtDate(rc.screenedOn)}`;
+    ref = `Retention, screened ${fmtDate(rc.screenedOn)}`;
   }
   if (a.origin?.kind === "tender") {
     const t = s.tenders.find((x) => x.id === a.origin!.id);
@@ -82,7 +82,7 @@ const createLead: Handler<CreateLead> = (c, a) => {
     nextAction: "Reply and qualify the enquiry", nextActionOn: addDays(today, 1), invoiceName: "", invoiceEmail: "", companyDetails: "",
     qualifier: { headcount: a.headcount ?? null, sites: null, dates: "", budget: "unknown" }, research: null, files: [], history: [], lostReason: null, handoverTaskId: null,
   };
-  note(c, lead, a.origin?.kind === "helpscout" ? `Created from Help Scout conversation ${ref} (simulated inbox).` : a.origin?.kind === "recall" ? "Created from the recall list." : a.origin?.kind === "tender" ? `Created from tender watch ${ref}.` : "Added to New Business Leads.");
+  note(c, lead, a.origin?.kind === "helpscout" ? `Created from Help Scout conversation ${ref}.` : a.origin?.kind === "recall" ? "Created from the retention list." : a.origin?.kind === "tender" ? `Created from tender watch ${ref}.` : "Added to New Business Leads.");
   s.leads.push(lead);
   if (a.origin?.kind === "helpscout") { const conv = s.inbox.find((x) => x.id === a.origin!.id)!; conv.status = "converted"; conv.leadId = id; }
   if (a.origin?.kind === "recall") s.recallLeads[a.origin.id] = id;
@@ -103,7 +103,7 @@ const moveLead: Handler<{ leadId: string; stage: SalesStage; reason?: string }> 
   if (!(a.stage in SALES_STAGE_LABEL)) return c.fail("Unknown stage.");
   if (lead.stage === a.stage) return c.fail(`${lead.company} is already in ${SALES_STAGE_LABEL[a.stage]}.`);
   const reason = (a.reason || "").trim();
-  if (a.stage === "lost" && reason.length < 3) return c.fail("Say why the lead was lost. It helps the recall and tender lists later.");
+  if (a.stage === "lost" && reason.length < 3) return c.fail("Say why the lead was lost. It helps the retention and tender lists later.");
   const from = lead.stage;
   lead.stage = a.stage;
   lead.stageAt = c.stamp();
@@ -359,14 +359,14 @@ const draftOutreach: Handler<{ recallId: string; kind: "recall" | "lapsed" }> = 
   const d = needSales(c, "manage", "draft re-engagement emails"); if (d) return d;
   const s = c.s.sales;
   const rc = salesRecalls(c.s).find((r) => r.id === a.recallId);
-  if (!rc) return c.fail("Unknown recall.");
+  if (!rc) return c.fail("That retention client was not found.");
   if (!rc.contactEmail) return c.fail(`No contact email on file for ${rc.company}.`);
   const kind = a.kind === "lapsed" ? "lapsed" : "recall";
   const { subject, body } = salesOutreachText(rc, kind);
   const id = `OUT-${salesPad(salesNext(s, "outreach"), 3)}`;
   s.outreach.push({ id, engagementId: rc.engagementId, company: rc.company, kind, to: rc.contactName, toEmail: rc.contactEmail, subject, body, createdAt: c.stamp(), createdBy: c.persona().name });
   c.emit({ verb: "sales.outreach_drafted", simulated: true, integrationId: "email",
-    summary: `${c.first()} drafted a ${kind === "lapsed" ? "re-engagement" : "recall"} email ${id} to ${rc.company} (${mask(rc.contactEmail)}). Simulated draft: not sent, and it holds no clinical information.` });
+    summary: `${c.first()} drafted a ${kind === "lapsed" ? "re-engagement" : "rebooking"} email ${id} to ${rc.company} (${mask(rc.contactEmail)}). Simulated draft: not sent, and it holds no clinical information.` });
   return c.ok(`Draft ${id} ready. Not sent.`, "info", id);
 };
 
