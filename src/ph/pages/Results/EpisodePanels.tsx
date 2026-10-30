@@ -35,6 +35,7 @@ export function EpisodeHeader({ b, right, compact }: { b: Bundle; right?: ReactN
           <div className="phr-row" style={{ gap: 8 }}>
             <h2 className="ph-h1" style={{ fontSize: 18 }}>{b.name}</h2>
             <LabAware state={state} ep={b.episode}><ReportStatePill state={b.episode.reportState} /></LabAware>
+            {b.episode.capture.variant === "poc" && b.episode.reportState === "ready_for_review" ? <Pill tone="brand" icon="flask" title="Point-of-care results were recorded at the clinic. Nothing waits for a laboratory, so the report can be reviewed and released today.">Same-day release</Pill> : null}
             {idOk ? <Pill tone="ok" icon="shield">Identity verified</Pill> : <Pill tone="warn" icon="alert">Identity not verified</Pill>}
             <Pill tone="neutral" icon={null}>{b.programme.code}</Pill>
             <span className="phr-mono" style={{ color: "var(--ink)" }} title="Precision Health unique ID">{b.episode.screeningRef}</span>
@@ -247,7 +248,7 @@ export function NurseFormCard({ b }: { b: Bundle }) {
   return (
     <Card pad="sm">
       <details className="phr-details">
-        <summary><span className="phr-sec-title" style={{ margin: 0 }}>Nurse form</span> <span className="phr-sub">{state.forms.templates.find((t) => t.id === b.episode.formSnapshot.templateId)?.name || "Comprehensive (LAB) screen"}, {answered} of {rows.length} fields recorded</span></summary>
+        <summary><span className="phr-sec-title" style={{ margin: 0 }}>Nurse form</span> <span className="phr-sub">{state.forms.templates.find((t) => t.id === b.episode.formSnapshot.templateId)?.name || (b.episode.capture.variant === "poc" ? "POC Screen with QRISK, point of care" : "Comprehensive (LAB) screen")}, {answered} of {rows.length} fields recorded</span></summary>
         <div className="phr-gap" style={{ marginTop: 8 }}>
           {sections.map((title) => (
             <div key={title}>

@@ -11,10 +11,14 @@ import { ApptPill } from "../Clinics/shared";
 import { AutomationReceipt, NurseCapture, NurseFormReadOnly } from "../Clinics/NurseForm";
 import { SpecimenLabelPreview } from "../Clinics/LabelPreview";
 import { prefillFor } from "../Clinics/captureForm";
+import { ResultsStatusCard, resultsStatus } from "./results";
+import { sessionUsesPoc } from "../../model";
 
-export function ParticipantView({ row, rows, onSelect, onBack, onCompleted, onOpenTask, receipt }: {
-  row: ApptRow; rows: ApptRow[]; onSelect: (bookingId: string) => void; onBack: () => void; onCompleted: (bookingId: string) => void; onOpenTask: (taskId: string) => void; receipt?: ReactNode;
+export function ParticipantView({ row, rows, onSelect, onBack, onCompleted, onOpenTask, onOpenEpisode, receipt }: {
+  row: ApptRow; rows: ApptRow[]; onSelect: (bookingId: string) => void; onBack: () => void; onCompleted: (bookingId: string) => void; onOpenTask: (taskId: string) => void;
+  onOpenEpisode?: (episodeId: string) => void; receipt?: ReactNode;
 }) {
+  const state = usePhState();
   const i = rows.findIndex((r) => r.booking.id === row.booking.id);
   const prev = i > 0 ? rows[i - 1] : null;
   const next = i >= 0 && i < rows.length - 1 ? rows[i + 1] : null;
@@ -46,11 +50,14 @@ export function ParticipantView({ row, rows, onSelect, onBack, onCompleted, onOp
       </div>
       {row.status === "completed" && row.episode ? (
         <>
-          <AutomationReceipt episode={row.episode} onOpenTask={onOpenTask} title={`Completed. ${row.person.given} ${row.person.family} is awaiting results`} />
-          <div className="np-card">
-            <h3 className="ph-h2" style={{ marginBottom: 10 }}>Specimen label</h3>
-            <SpecimenLabelPreview row={row} episode={row.episode} />
-          </div>
+          <ResultsStatusCard episode={row.episode} onOpenEpisode={onOpenEpisode} />
+          <AutomationReceipt episode={row.episode} onOpenTask={onOpenTask} title={`Completed. ${row.person.given} ${row.person.family}: ${resultsStatus(state, row.episode).label.toLowerCase()}`} />
+          {row.episode.specimenIds.length ? (
+            <div className="np-card">
+              <h3 className="ph-h2" style={{ marginBottom: 10 }}>Specimen label</h3>
+              <SpecimenLabelPreview row={row} episode={row.episode} />
+            </div>
+          ) : null}
           <div className="np-card">
             <h3 className="ph-h2" style={{ marginBottom: 10 }}>Nurse form as recorded</h3>
             <NurseFormReadOnly episode={row.episode} />
@@ -84,6 +91,9 @@ function Arrival({ row }: { row: ApptRow }) {
           <ul className="np-mini" style={{ marginTop: 10 }}>
             <li><Icon name="check" size={13} /><span>Check in when the participant arrives. The nurse form opens with {fromQ} answers carried over from the booking and the pre-visit questionnaire for you to confirm.</span></li>
             <li><Icon name="shield" size={13} /><span>Then confirm identity with two identifiers, date of birth and booking reference, before anything clinical.</span></li>
+            {sessionUsesPoc(row.session)
+              ? <li><Icon name="flask" size={13} /><span>Point-of-care day: you enter cholesterol, HDL and HbA1c from the machine, so the doctor can release the report today.</span></li>
+              : <li><Icon name="flask" size={13} /><span>Laboratory day: the blood sample goes to the laboratory, and the report waits for the results.</span></li>}
             <li><Icon name="clock" size={13} /><span>The form saves as you go. Completing never releases a report.</span></li>
           </ul>
           {msg ? <div className="clx-banner warn" style={{ marginTop: 10 }}><Icon name="alert" size={14} style={{ color: "var(--warn)", marginTop: 2 }} /><span>{msg}</span></div> : null}

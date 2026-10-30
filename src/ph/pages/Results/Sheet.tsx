@@ -523,6 +523,7 @@ export function ReviewSheet({ b, advice }: { b: Bundle; advice: ReactNode }) {
             );
           })}
           {active ? <button type="button" className="phr-vw-link" onClick={() => setFocus(null)}>Show all</button> : null}
+          <a className="phr-vw-link" href="#/Screening/ranges" title="Bands come from Precision Health's reference ranges, judged against the version in force on the sample date">Neil's reference ranges</a>
           <label className="phr-vw-toggle" title="Add the rest of the Comprehensive panel">
             <span>Expanded panel{extraCells.length ? <span className="ph-faint ph-num"> +{extraCells.length}</span> : null}</span>
             <Switch on={expandedOn} onChange={setExpandedOn} label="Expanded panel" />

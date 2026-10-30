@@ -6,12 +6,14 @@
    Colour is never the only signal: every band, state and selection also carries text or an icon. */
 import { useId, useRef, useState } from "react";
 import type { ReactNode } from "react";
-import type { AnalyteCode, Band, ClinicalCapture, Episode, MeasureKey, NurseFormCtx, NurseFormField, NurseFormSection, NurseFormValue, NurseSectionKey } from "../../model";
+import type { AnalyteCode, Band, ClinicalCapture, Episode, MeasureKey, NurseFormCtx, NurseFormField, NurseFormValue, NurseSectionKey, NurseShowIf, PocSectionKey } from "../../model";
 import {
-  FIT_INFORMED_CHOICE_TEXT, IDENTITY_HELP, MEASURE_RULES, NURSE_FORM_SECTIONS, PROGRAMME_BY_ID, PSA_INFORMED_CHOICE_TEXT, REPORT_STATE_LABEL, act, ageOn, bmiCategory, bmiOf, bpCategory, ecgBand, expectedPanel,
-  fitKitGiven, fmtDateLong, fmtDateTime, fmtNumericDate, fmtTime, isNurseReferral, ix, localTimeOf, measureError, needsEcgReview, nurseFieldValue, nurseFieldVisible,
-  nurseFormMissing, nurseFormRows, nurseSectionVisible, parseIrishDate, psaTaken, urineBand, waistCategory,
+  FIT_INFORMED_CHOICE_TEXT, IDENTITY_HELP, MEASURE_RULES, NURSE_FORM_SECTIONS, POC_FORM_SECTIONS, PROGRAMME_BY_ID, PSA_INFORMED_CHOICE_TEXT, REPORT_STATE_LABEL, act, ageOn, bmiCategory, bmiOf, bpCategory, ecgBand, expectedPanel,
+  fitKitGiven, fmtDateLong, fmtDateTime, fmtNumericDate, fmtTime, isNurseReferral, ix, localTimeOf, measureError, membershipOf, needsEcgReview, nurseFieldValue, nurseFieldVisible,
+  nurseFormMissing, nurseFormRows, nurseSectionVisible, parseIrishDate, pocArmSpan, pocEcgBand, pocFieldVisible, pocFormMissing, pocInterArmSystolic, pocSectionVisible, psaTaken, urineBand, waistCategory,
 } from "../../model";
+import type { LiveBand, LivePerson, LiveTestId } from "../../model/nurseEntry";
+import { liveBand, suggestedOutcome, toldUsFlagCount, whatTheyToldUs } from "../../model/nurseEntry";
 import { dispatch, usePersona, usePhState } from "../../store";
 import { BAND_LOOK } from "../../report/bands";
 import { Button, DemoTag, EntityLink, Icon, Pill, RestrictedNotice, Select, TextInput, Textarea } from "../../ui";
@@ -39,16 +41,45 @@ export function BandChip({ band, word, title }: { band: Band; word?: string; tit
   return <span className="nf-band" style={{ background: look.fill, color: look.ink }} title={title || look.label}>{word || BAND_TEXT[band]}</span>;
 }
 
-export const SECTION_LABEL: Record<NurseSectionKey, string> = {
+export type AnySectionKey = NurseSectionKey | PocSectionKey;
+export const SECTION_LABEL: Record<AnySectionKey, string> = {
+  screen_type: "Screen type",
   registration: "Registration",
   cv_risk: "Cardiovascular risk",
+  scd: "Sudden cardiac death",
   bowel: "Bowel cancer risk",
   psa: "PSA (men over 45 / requested)",
   measurements: "Measurements",
+  poc_bloods: "Cholesterol and HbA1c",
   ecg: "ECG",
   urinalysis: "Urinalysis",
   closeout: "Close-out",
 };
+
+/* The two forms a clinic can use: the Comprehensive (LAB) form, and on a point-of-care day the POC
+   Screen with QRISK form, where cholesterol, HDL and HbA1c are measured on site. The screen is the
+   same; the spec picks the sections and the visibility rules the reducer uses. */
+interface AnySection { key: AnySectionKey; title: string; note?: string; showIf?: NurseShowIf; fields: NurseFormField[] }
+interface FormSpec {
+  variant: "lab" | "poc";
+  sections: AnySection[];
+  sectionVisible: (s: AnySection, c: ClinicalCapture, ctx: NurseFormCtx) => boolean;
+  fieldVisible: (f: NurseFormField, c: ClinicalCapture, ctx: NurseFormCtx) => boolean;
+  missing: (c: ClinicalCapture, ctx: NurseFormCtx) => Array<{ section: string; key: string; label: string }>;
+}
+const LAB_SPEC: FormSpec = {
+  variant: "lab", sections: NURSE_FORM_SECTIONS,
+  sectionVisible: (s, c, ctx) => nurseSectionVisible(s as (typeof NURSE_FORM_SECTIONS)[number], c, ctx),
+  fieldVisible: nurseFieldVisible, missing: nurseFormMissing,
+};
+const POC_SPEC: FormSpec = {
+  variant: "poc", sections: POC_FORM_SECTIONS,
+  sectionVisible: (s, c, ctx) => pocSectionVisible(s as (typeof POC_FORM_SECTIONS)[number], c, ctx),
+  fieldVisible: pocFieldVisible, missing: pocFormMissing,
+};
+const specOf = (c: ClinicalCapture): FormSpec => (c.variant === "poc" ? POC_SPEC : LAB_SPEC);
+/** Sections that are open before the identity check: the booking record and, on a point-of-care day, the screen type. */
+const PRE_IDENTITY: AnySectionKey[] = ["registration", "screen_type"];
 const CV_SUBHEAD: Record<string, string> = { ethnicity: "Background", diabetesType2: "Medical conditions", treatedHypertension: "Medications", famHistoryCvd: "History" };
 const TRUE_FALSE = ["TRUE", "FALSE"];
 const YES_NO = ["Yes", "No"];
@@ -180,8 +211,8 @@ function FieldShell({ field, labelId, htmlFor, missing, error, help, mark, child
 }
 
 /* ---- measures ---- */
-function MeasureRow({ field, m, onChange, disabled, error, missing, extra, provenance }: {
-  field: NurseFormField; m: MeasureField; onChange: (f: MeasureField) => void; disabled: boolean; error?: string; missing: boolean; extra?: ReactNode; provenance?: boolean;
+function MeasureRow({ field, m, onChange, disabled, error, missing, extra, provenance, live }: {
+  field: NurseFormField; m: MeasureField; onChange: (f: MeasureField) => void; disabled: boolean; error?: string; missing: boolean; extra?: ReactNode; provenance?: boolean; live?: LiveBand | null;
 }) {
   const k = field.measureKey as MeasureKey;
   const r = MEASURE_RULES[k];
@@ -243,6 +274,7 @@ function MeasureRow({ field, m, onChange, disabled, error, missing, extra, prove
         ) : null}
       </div>
       {msg}
+      {m.mode === "value" && !error && !peakZero && !cmHeight ? <LiveChip live={live || null} /> : null}
       {extra}
     </div>
   );
@@ -253,29 +285,32 @@ function CategoryLine({ band, word, children }: { band: Band; word: string; chil
 }
 
 /** A repeat blood pressure reading, kept in Nurse comments so the first reading stays as recorded. */
-function RepeatReading({ onAdd, at, disabled }: { onAdd: (line: string) => void; at: string; disabled: boolean }) {
+function RepeatReading({ onAdd, at, disabled, who }: { onAdd: (line: string) => void; at: string; disabled: boolean; who: LivePerson }) {
   const [open, setOpen] = useState(false);
   const [sys, setSys] = useState("");
   const [dia, setDia] = useState("");
   const [err, setErr] = useState<string | null>(null);
   const sysId = useId(), diaId = useId();
+  const sN = /^\d+$/.test(sys.trim()) ? Number(sys.trim()) : null, dN = /^\d+$/.test(dia.trim()) ? Number(dia.trim()) : null;
+  const live = sN !== null && dN !== null && !measureError("bpSys", sN) && !measureError("bpDia", dN) && sN > dN ? bpCategory(sN, dN, who.on) : null;
   const add = () => {
     const s = Number(sys.trim()), d = Number(dia.trim());
     if (!/^\d+$/.test(sys.trim()) || !/^\d+$/.test(dia.trim())) { setErr("Enter both readings as whole numbers."); return; }
     const e = measureError("bpSys", s) || measureError("bpDia", d) || (s <= d ? "Systolic must be higher than diastolic." : null);
     if (e) { setErr(e); return; }
-    onAdd(`Repeat blood pressure at ${at}: ${s}/${d} mmHg, measured.`);
+    onAdd(`Repeat blood pressure at ${at}: ${s}/${d} mmHg, measured${live ? ` (${live.word.toLowerCase()} on the ranges)` : ""}.`);
     setSys(""); setDia(""); setErr(null); setOpen(false);
   };
-  if (!open) return <div><Button size="sm" icon="plus" disabled={disabled} onClick={() => setOpen(true)}>Add a repeat reading</Button></div>;
+  if (!open) return <div><Button icon="plus" disabled={disabled} onClick={() => setOpen(true)}>Add a repeat reading</Button></div>;
   return (
     <div className="nf-sub">
-      <div className="ph-faint" style={{ fontSize: 11.5, marginBottom: 8 }}>Repeat blood pressure. It is added to Nurse comments for the reviewing doctor; the first reading stays as recorded.</div>
+      <div className="ph-faint" style={{ fontSize: 11.5, marginBottom: 8 }}>Repeat blood pressure, a few minutes after the first. It is added to Nurse comments for the reviewing doctor; the first reading stays as recorded.</div>
       <div className="nf-inline">
         <div><label className="ph-label" htmlFor={sysId}>Systolic (mmHg)</label><TextInput id={sysId} value={sys} inputMode="numeric" onChange={(e) => setSys(e.target.value)} /></div>
         <div><label className="ph-label" htmlFor={diaId}>Diastolic (mmHg)</label><TextInput id={diaId} value={dia} inputMode="numeric" onChange={(e) => setDia(e.target.value)} /></div>
-        <div className="ph-wrap"><Button size="sm" variant="primary" disabled={!sys.trim() || !dia.trim()} onClick={add}>Add to comments</Button><Button size="sm" variant="ghost" onClick={() => { setOpen(false); setErr(null); }}>Cancel</Button></div>
+        <div className="ph-wrap"><Button variant="primary" disabled={!sys.trim() || !dia.trim()} onClick={add}>Add to comments</Button><Button variant="ghost" onClick={() => { setOpen(false); setErr(null); }}>Cancel</Button></div>
       </div>
+      {live ? <div style={{ marginTop: 8 }}><CategoryLine band={live.band} word={live.word}>Repeat {sN}/{dN} mmHg on Neil's ranges</CategoryLine></div> : null}
       {err ? <div className="ph-err" role="alert">{err}</div> : null}
     </div>
   );
@@ -343,10 +378,12 @@ export function SaveProblems({ f }: { f: CaptureFormApi }) {
    --------------------------------------------------------------------------------------------- */
 export type SectionStateKind = "done" | "todo" | "error" | "na" | "locked";
 export interface SectionState {
-  section: NurseFormSection;
+  section: AnySection;
   label: string;
   applicable: boolean;
   locked: boolean;
+  /** Why the section is locked: the identity check, or (point of care) the screen type. */
+  lockedBy: "identity" | "screen_type" | null;
   missing: Array<{ key: string; label: string }>;
   errorKeys: string[];
   toConfirm: string[];
@@ -354,27 +391,31 @@ export interface SectionState {
   sub: string;
 }
 
-function sectionStates(synth: ClinicalCapture, ctx: NurseFormCtx, errors: Record<string, string>, identityOk: boolean, prefill: FormMap, confirmed: (k: string) => boolean): SectionState[] {
-  const missingAll = nurseFormMissing(synth, ctx);
-  return NURSE_FORM_SECTIONS.map((section) => {
-    const applicable = nurseSectionVisible(section, synth, ctx);
-    const locked = !identityOk && section.key !== "registration";
+function sectionStates(spec: FormSpec, synth: ClinicalCapture, ctx: NurseFormCtx, errors: Record<string, string>, identityOk: boolean, prefill: FormMap, confirmed: (k: string) => boolean): SectionState[] {
+  const missingAll = spec.missing(synth, ctx);
+  const noScreenType = spec.variant === "poc" && !synth.form?.pocScreenType;
+  return spec.sections.map((section) => {
+    const waitsForType = noScreenType && !PRE_IDENTITY.includes(section.key);
+    const applicable = waitsForType || spec.sectionVisible(section, synth, ctx);
+    const lockedBy = waitsForType ? "screen_type" as const : !identityOk && !PRE_IDENTITY.includes(section.key) ? "identity" as const : null;
+    const locked = !!lockedBy;
     const missing = missingAll.filter((m) => m.section === section.key).map((m) => ({ key: m.key, label: m.label }));
     if (section.key === "registration" && !identityOk) missing.unshift({ key: "identity", label: "Identity check" });
     const keys = new Set(section.fields.map((f) => f.key));
     const errorKeys = Object.keys(errors).filter((k) => keys.has(k) || (k === "bp" && section.key === "measurements"));
-    const toConfirm = applicable ? section.fields.filter((f) => f.prefillFrom === "questionnaire" && nurseFieldVisible(f, synth, ctx)
+    const toConfirm = applicable && !waitsForType ? section.fields.filter((f) => f.prefillFrom === "questionnaire" && spec.fieldVisible(f, synth, ctx)
       && markOf(f, nurseFieldValue(synth, f), prefill, confirmed)?.kind === "confirm").map((f) => f.key) : [];
     let state: SectionStateKind;
     let sub: string;
     if (!applicable) { state = "na"; sub = section.key === "psa" ? "Not applicable: men only" : "Not applicable"; }
+    else if (lockedBy === "screen_type") { state = "locked"; sub = "After the screen type"; }
     else if (locked) { state = "locked"; sub = "After the identity check"; }
     else if (errorKeys.length) { state = "error"; sub = "Check a value"; }
     else if (missing.length || toConfirm.length) {
       state = "todo";
       sub = [missing.length ? `${missing.length} to answer` : "", toConfirm.length ? `${toConfirm.length} to confirm` : ""].filter(Boolean).join(", ");
     } else { state = "done"; sub = "Done"; }
-    return { section, label: SECTION_LABEL[section.key], applicable, locked, missing, errorKeys, toConfirm, state, sub };
+    return { section, label: SECTION_LABEL[section.key], applicable, locked, lockedBy, missing, errorKeys, toConfirm, state, sub };
   });
 }
 
@@ -404,7 +445,8 @@ export function NurseCapture({ row, draft, variant, onCompleted, onOpenTask }: N
   const p = usePersona();
   const rule = captureRule(state, row.session);
   const editable = rule.ok;
-  const ctx: NurseFormCtx = { sex: row.person.sex, age: ageOn(row.person.dob, row.session.date) };
+  const spec = specOf(draft);
+  const ctx: NurseFormCtx = { sex: row.person.sex, age: ageOn(row.person.dob, row.session.date), variant: spec.variant };
   const f = useCaptureForm(row.booking.id, draft, editable, ctx);
   const values = editable ? f.values : fromCapture(draft);
   const synth = toCapture(values, draft);
@@ -412,8 +454,9 @@ export function NurseCapture({ row, draft, variant, onCompleted, onOpenTask }: N
   const identityOk = draft.identity.every((x) => x.confirmed);
   const prefill = prefillFor(state, row);
   const conf = useConfirmations(row.booking.id);
-  const sections = sectionStates(synth, ctx, errors, identityOk, prefill, conf.has);
-  const [active, setActive] = useState<NurseSectionKey>(() => {
+  const sections = sectionStates(spec, synth, ctx, errors, identityOk, prefill, conf.has);
+  const [active, setActive] = useState<AnySectionKey>(() => {
+    if (spec.variant === "poc" && !draft.form?.pocScreenType) return "screen_type";
     if (!identityOk) return "registration";
     const first = sections.find((s) => s.applicable && s.state !== "done");
     return first ? first.section.key : "closeout";
@@ -421,7 +464,9 @@ export function NurseCapture({ row, draft, variant, onCompleted, onOpenTask }: N
   const [wrapRef, width] = useWidth<HTMLDivElement>();
   const wide = width === 0 ? variant === "staff" : width >= 700;
   const topRef = useRef<HTMLDivElement>(null);
-  const go = (k: NurseSectionKey) => { setActive(k); topRef.current?.scrollIntoView({ block: "start" }); };
+  const go = (k: AnySectionKey) => { setActive(k); topRef.current?.scrollIntoView({ block: "start" }); };
+  const sexForm = synth.form?.sexAtBirth === "Male" ? "male" : synth.form?.sexAtBirth === "Female" ? "female" : row.person.sex;
+  const who: LivePerson = { sex: sexForm, age: ctx.age, ethnicity: typeof synth.form?.ethnicity === "string" ? synth.form.ethnicity : null, on: row.session.date };
 
   const disabled = !editable;
   const setForm = (key: string, v: NurseFormValue) => {
@@ -441,7 +486,7 @@ export function NurseCapture({ row, draft, variant, onCompleted, onOpenTask }: N
   const doneCount = sections.filter((s) => s.applicable && s.state === "done").length;
   const applicableCount = order.length;
 
-  const kit: Kit = { row, draft, synth, values, errors, ctx, editable, disabled, prefill, conf, f, setForm, setMeasure, setUrine, setNotes, identityOk, variant, go, onOpenTask, onCompleted, sections };
+  const kit: Kit = { row, draft, synth, values, errors, ctx, editable, disabled, prefill, conf, f, setForm, setMeasure, setUrine, setNotes, identityOk, variant, go, onOpenTask, onCompleted, sections, spec, who };
 
   return (
     <div className={`nf nf-${variant}${wide ? " nf-wide" : " nf-narrow"}`} ref={wrapRef}>
@@ -489,7 +534,16 @@ export function NurseCapture({ row, draft, variant, onCompleted, onOpenTask }: N
             ) : null}
           </div>
 
-          {cur.locked ? (
+          {cur.lockedBy === "screen_type" ? (
+            <div className="nf-gate">
+              <Icon name="list" size={18} />
+              <div>
+                <div style={{ color: "var(--ink)", fontWeight: 600 }}>Choose the screen type first</div>
+                <div className="ph-dim" style={{ fontSize: 12.5, marginTop: 3 }}>The screen type decides which questions and measurements follow on this point-of-care day.</div>
+                <div style={{ marginTop: 10 }}><Button variant="primary" icon="arrow" onClick={() => go("screen_type")}>Go to the screen type</Button></div>
+              </div>
+            </div>
+          ) : cur.locked ? (
             <div className="nf-gate">
               <Icon name="shield" size={18} />
               <div>
@@ -520,8 +574,29 @@ interface Kit {
   row: ApptRow; draft: ClinicalCapture; synth: ClinicalCapture; values: FormValues; errors: Record<string, string>; ctx: NurseFormCtx; editable: boolean; disabled: boolean;
   prefill: FormMap; conf: ReturnType<typeof useConfirmations>; f: CaptureFormApi; identityOk: boolean; variant: "staff" | "portal";
   setForm: (key: string, v: NurseFormValue) => void; setMeasure: (k: MeasureKey, m: MeasureField) => void; setUrine: (k: UrineKey, v: string) => void; setNotes: (t: string) => void;
-  go: (k: NurseSectionKey) => void; onOpenTask?: (taskId: string) => void; onCompleted?: (bookingId: string) => void; sections: SectionState[];
+  go: (k: AnySectionKey) => void; onOpenTask?: (taskId: string) => void; onCompleted?: (bookingId: string) => void; sections: SectionState[];
+  spec: FormSpec; who: LivePerson;
 }
+
+/* ---- live bands from Neil's reference ranges ---- */
+/** A value's band as it is typed, with the normal range and the version of the ranges that judged it. */
+export function LiveChip({ live, compact }: { live: LiveBand | null; compact?: boolean }) {
+  if (!live) return null;
+  if (live.recordedOnly) return <div className="nf-live muted"><span className="nf-live-text">{live.normalText}</span></div>;
+  const word = live.label && live.label !== "NORMAL" && live.label.toUpperCase() !== live.word.toUpperCase() ? `${live.word} · ${live.label}` : live.word;
+  return (
+    <div className={"nf-live " + live.band} role="status" aria-live="polite">
+      <BandChip band={live.urgent ? "abnormal" : live.band} word={word} title={`${live.normalText}. ${live.versionText}.`} />
+      {!compact ? <span className="nf-live-text">{live.normalText}<span className="ph-faint"> · {live.versionText}</span></span> : null}
+    </div>
+  );
+}
+const numOrNull = (v: NurseFormValue | undefined): number | null => {
+  if (typeof v === "number") return v;
+  if (typeof v !== "string" || !v.trim()) return null;
+  const n = Number(v.trim().replace(",", "."));
+  return Number.isFinite(n) ? n : null;
+};
 
 /* ---- automation banners, driven by the reducer's own rules ---- */
 function AutomationBanners({ kit }: { kit: Kit }) {
@@ -581,13 +656,15 @@ function SectionBody({ kit, sec }: { kit: Kit; sec: SectionState }) {
       </div>
     );
   }
-  const fields = sec.section.fields.filter((fd) => nurseFieldVisible(fd, synth, ctx));
+  const fields = sec.section.fields.filter((fd) => kit.spec.fieldVisible(fd, synth, ctx));
   switch (sec.section.key) {
+    case "screen_type": return <ScreenTypeBody kit={kit} fields={fields} sec={sec} />;
     case "registration": return <RegistrationBody kit={kit} fields={fields} sec={sec} />;
     case "measurements": return <MeasurementsBody kit={kit} fields={fields} sec={sec} />;
+    case "poc_bloods": return <PocBloodsBody kit={kit} fields={fields} sec={sec} />;
     case "bowel": return <BowelBody kit={kit} fields={fields} sec={sec} />;
     case "psa": return <PsaBody kit={kit} fields={fields} sec={sec} />;
-    case "ecg": return <EcgBody kit={kit} fields={fields} sec={sec} />;
+    case "ecg": return kit.spec.variant === "poc" ? <PocEcgBody kit={kit} fields={fields} sec={sec} /> : <EcgBody kit={kit} fields={fields} sec={sec} />;
     case "urinalysis": return <UrineBody kit={kit} fields={fields} sec={sec} />;
     case "closeout": return <CloseoutBody kit={kit} fields={fields} sec={sec} />;
     case "cv_risk": return <Grouped kit={kit} fields={fields} sec={sec} sub={CV_SUBHEAD} />;
@@ -596,15 +673,17 @@ function SectionBody({ kit, sec }: { kit: Kit; sec: SectionState }) {
 }
 
 /** Generic field renderer for form, urine and notes fields. */
-function Field({ kit, field, sec, after, hideHelp }: { kit: Kit; field: NurseFormField; sec: SectionState; after?: ReactNode; hideHelp?: boolean }) {
-  const { synth, values, errors, disabled, prefill, conf, setForm, setUrine, setNotes, setMeasure } = kit;
+function Field({ kit, field, sec, after, hideHelp, lock }: { kit: Kit; field: NurseFormField; sec: SectionState; after?: ReactNode; hideHelp?: boolean; lock?: boolean }) {
+  const { synth, values, errors, prefill, conf, setForm, setUrine, setNotes, setMeasure } = kit;
+  const disabled = kit.disabled || !!lock;
   const id = useId();
   const labelId = useId();
   const missing = sec.missing.some((m) => m.key === field.key);
   const error = errors[field.key];
   if (field.store === "measure") {
     const k = field.measureKey as MeasureKey;
-    return <MeasureRow field={field} m={values.measures[k]} onChange={(m) => setMeasure(k, m)} disabled={disabled} error={errors[k]} missing={missing} />;
+    const live = k === "pulse" ? liveBand("pulse", numericValue(values, k), kit.who) : null;
+    return <MeasureRow field={field} m={values.measures[k]} onChange={(m) => setMeasure(k, m)} disabled={disabled} error={errors[k]} missing={missing} live={live} />;
   }
   const words = field.type === "boolean" ? (sec.section.key === "cv_risk" ? TRUE_FALSE : YES_NO) : YES_NO;
   const raw: NurseFormValue = field.store === "urine" ? (values.urine[field.urineKey as UrineKey] || null) : field.store === "notes" ? values.notes : (values.form[field.key] ?? null);
@@ -647,7 +726,7 @@ function Field({ kit, field, sec, after, hideHelp }: { kit: Kit; field: NurseFor
       htmlFor = id;
       control = (
         <div className="nf-minput short">
-          <TextInput id={id} value={raw === null ? "" : String(raw)} inputMode="numeric" autoComplete="off" invalid={!!error} disabled={disabled} onChange={(e) => set(e.target.value)} />
+          <TextInput id={id} value={raw === null ? "" : String(raw)} inputMode="decimal" autoComplete="off" invalid={!!error} disabled={disabled} onChange={(e) => set(e.target.value)} />
           {field.unit ? <span className="nf-unit">{field.unit}</span> : null}
         </div>
       );
@@ -715,10 +794,15 @@ function RegistrationBody({ kit, fields, sec }: { kit: Kit; fields: NurseFormFie
   };
   const record = fields.filter((fd) => fd.store === "record");
   const rest = fields.filter((fd) => fd.store !== "record");
-  const complete = row.membership?.questionnaire === "complete";
   return (
     <div className="ph-stack" style={{ gap: 16 }}>
       <IdentityPanel kit={kit} />
+      {identityOk ? <ToldUsPanel kit={kit} reviewed={reviewed} showQ={showQ} setShowQ={setShowQ} /> : (
+        <div className="nf-told locked">
+          <Icon name="lock" size={15} />
+          <span><strong>What they told us</strong> opens after the identity check: the participant's own questionnaire answers, for you to go through together.</span>
+        </div>
+      )}
       <div>
         <div className="nf-subhead">From the booking</div>
         <dl className="nf-record">
@@ -726,18 +810,72 @@ function RegistrationBody({ kit, fields, sec }: { kit: Kit; fields: NurseFormFie
         </dl>
       </div>
       <div className="nf-grid">{rest.map((fd) => <Field key={fd.key} kit={kit} field={fd} sec={sec} />)}</div>
-      <div className="nf-sub">
-        <div className="ph-row-flex" style={{ flexWrap: "wrap", gap: 8 }}>
-          <Pill tone={complete ? "ok" : "warn"} icon={complete ? "check" : "alert"}>{complete ? "Pre-visit questionnaire submitted" : "Questionnaire not submitted"}</Pill>
-          <span className="ph-faint" style={{ fontSize: 11.5 }}>{complete && row.booking.questionnaireCompletedAt ? fmtDateTime(row.booking.questionnaireCompletedAt) : ""}</span>
-          <span className="ph-grow" />
-          <Button size="sm" variant="ghost" icon={showQ ? "chevronDown" : "chevronRight"} aria-expanded={showQ} onClick={() => setShowQ(!showQ)}>{showQ ? "Hide answers" : "Show all answers"}</Button>
-          <Button size="sm" variant={reviewed ? "ghost" : "secondary"} icon={reviewed ? "check" : undefined} disabled={kit.disabled} onClick={() => kit.f.runOwn(act.toggleChecklist(row.booking.id, "questionnaire"))}>
-            {reviewed ? "Reviewed with participant" : "Mark reviewed"}
-          </Button>
+    </div>
+  );
+}
+
+/** "What they told us": the booking questionnaire in the nurse's words, flags first, with the review tick. */
+function ToldUsPanel({ kit, reviewed, showQ, setShowQ }: { kit: Kit; reviewed: boolean; showQ: boolean; setShowQ: (v: boolean) => void }) {
+  const state = usePhState();
+  const { row } = kit;
+  const m = membershipOf(state, row.person.id, row.programme.id) || row.membership;
+  const complete = m?.questionnaire === "complete";
+  const groups = whatTheyToldUs(m?.answers || {}, kit.who.sex);
+  const flags = toldUsFlagCount(groups);
+  const toggle = () => kit.f.runOwn(act.toggleChecklist(row.booking.id, "questionnaire"));
+  return (
+    <section className={"nf-told" + (reviewed ? " done" : "")} aria-label="What they told us">
+      <div className="nf-told-head">
+        <div className="ph-grow" style={{ minWidth: 200 }}>
+          <div className="nf-told-title">What they told us</div>
+          <div className="ph-dim" style={{ fontSize: 12.5, marginTop: 2 }}>
+            {complete ? `From ${row.person.given}'s booking questionnaire${row.booking.questionnaireCompletedAt ? `, ${fmtDateTime(row.booking.questionnaireCompletedAt)}` : ""}. Go through it together.` : "The booking questionnaire was not submitted. Ask these questions at the appointment."}
+          </div>
         </div>
-        {showQ ? <div style={{ marginTop: 12 }}><QuestionnaireReview booking={row.booking} membership={row.membership} /></div> : null}
+        {flags ? <Pill tone="warn" icon="flag">{flags} to talk about</Pill> : complete ? <Pill tone="ok" icon="check">Nothing flagged</Pill> : null}
       </div>
+      {groups.length ? (
+        <div className="nf-told-grid">
+          {groups.map((g) => (
+            <div key={g.key} className="nf-told-group">
+              <div className="nf-told-gtitle">{g.title}</div>
+              <ul>
+                {g.items.map((it) => (
+                  <li key={it.key} className={it.flag ? "flag" : undefined}>
+                    <span className="nf-told-ico" aria-hidden="true">{it.flag ? <Icon name="flag" size={12} /> : <Icon name="check" size={12} />}</span>
+                    <span style={{ minWidth: 0 }}>
+                      <span className="nf-told-label">{it.label}</span>
+                      <span className="nf-told-value">{it.value}{it.flag ? <span className="nf-told-flagword"> Flagged</span> : null}</span>
+                      {it.note ? <span className="nf-told-note">{it.note}</span> : null}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+      ) : null}
+      <div className="nf-told-foot">
+        <button type="button" className={"nf-tick" + (reviewed ? " on" : "")} role="checkbox" aria-checked={reviewed} disabled={kit.disabled} onClick={toggle}>
+          <span className="nf-tick-box" aria-hidden="true">{reviewed ? <Icon name="check" size={16} stroke={2.6} /> : null}</span>
+          <span>Reviewed with participant</span>
+        </button>
+        <span className="ph-grow" />
+        <Button variant="ghost" icon={showQ ? "chevronDown" : "chevronRight"} aria-expanded={showQ} onClick={() => setShowQ(!showQ)}>{showQ ? "Hide every answer" : "Every answer"}</Button>
+      </div>
+      {showQ ? <div className="nf-told-all"><QuestionnaireReview booking={row.booking} membership={row.membership} /></div> : null}
+    </section>
+  );
+}
+
+/* point of care: the screen type comes first and is fixed once saved */
+function ScreenTypeBody({ kit, fields, sec }: { kit: Kit; fields: NurseFormField[]; sec: SectionState }) {
+  const saved = typeof kit.draft.form?.pocScreenType === "string" && !!kit.draft.form.pocScreenType;
+  return (
+    <div className="ph-stack" style={{ gap: 14 }}>
+      <div className="nf-callout"><Icon name="flask" size={14} /><span><strong>Point-of-care day.</strong> Cholesterol, HDL and HbA1c are measured here on the machine, so there is no laboratory and the report can be released the same day.</span></div>
+      <div className="nf-grid">{fields.map((fd) => <Field key={fd.key} kit={kit} field={fd} sec={sec} lock={fd.key === "pocScreenType" && saved} />)}</div>
+      {saved ? <div className="ph-faint" style={{ fontSize: 12 }}><Icon name="lock" size={11} style={{ verticalAlign: "-1px" }} /> Saved as {String(kit.draft.form.pocScreenType)}. The screen type cannot be changed once saved.</div> : null}
     </div>
   );
 }
@@ -846,32 +984,42 @@ function PsaBody({ kit, fields, sec }: { kit: Kit; fields: NurseFormField[]; sec
 /* measurements: BMI, blood pressure and waist categories live */
 function MeasurementsBody({ kit, fields, sec }: { kit: Kit; fields: NurseFormField[]; sec: SectionState }) {
   const state = usePhState();
-  const { values, draft, synth, errors, disabled, setMeasure, row } = kit;
+  const { values, draft, synth, errors, disabled, setMeasure } = kit;
   const bmi = formBmi(values, draft);
-  const ethV = synth.form.ethnicity;
-  const cat = bmiCategory(bmi.bmi, typeof ethV === "string" ? ethV : null);
   const h = numericValue(values, "heightM"), w = numericValue(values, "weightKg");
   const sys = numericValue(values, "bpSys"), dia = numericValue(values, "bpDia");
-  const bp = bpCategory(sys, dia);
-  const waist = numericValue(values, "waistCm");
-  const sex = synth.form.sexAtBirth === "Male" ? "male" : synth.form.sexAtBirth === "Female" ? "female" : row.person.sex;
-  const wc = waistCategory(waist, sex);
+  const bp = bpCategory(sys, dia, kit.row.session.date);
   const muscular = synth.form.muscularPhysique === "Yes";
+  const who = kit.who;
+  const bmiLive = liveBand("bmi", bmi.bmi, who);
+  const LIVE: Partial<Record<MeasureKey, LiveTestId>> = { heightM: "height", weightKg: "weight", waistCm: "waist", bpSys: "bpsys", bpDia: "bpdia", pulse: "pulse" };
+  const poc = kit.spec.variant === "poc";
   const out: ReactNode[] = [];
   fields.forEach((fd) => {
-    if (fd.store === "calc") {
+    if (fd.store === "calc" && fd.key === "bmi") {
       out.push(
         <div key="bmi" className="nf-field wide nf-calc" data-field="bmi">
           <div className="nf-field-head"><span className="nf-label">BMI (calculated)</span><span className="nf-range">Never typed</span></div>
           <div className="nf-calc-row">
             <span className="nf-calc-val">{bmi.bmi !== null ? bmi.bmi.toFixed(1) : "Not calculated"}</span>
             {bmi.bmi !== null ? <span className="ph-faint">kg/m²</span> : null}
-            {bmi.bmi !== null ? <BandChip band={cat.band} word={cat.word} /> : null}
           </div>
+          {bmi.bmi !== null ? <LiveChip live={bmiLive} /> : null}
           <div className="ph-help nf-help">
-            {bmi.bmi !== null && h !== null && w !== null ? `${w} kg ÷ (${h} m)², rounded half up to one decimal. Normal range 18-25.` : bmi.reason}
+            {bmi.bmi !== null && h !== null && w !== null ? `${w} kg ÷ (${h} m)², rounded half up to one decimal.` : bmi.reason}
             {muscular && bmi.bmi !== null ? " Muscular physique recorded: BMI is less informative." : ""}
           </div>
+        </div>,
+      );
+      return;
+    }
+    if (fd.store === "calc" && fd.key === "pocArmSpanGtHeight") {
+      const span = pocArmSpan(synth);
+      out.push(
+        <div key={fd.key} className="nf-field wide nf-calc" data-field={fd.key}>
+          <div className="nf-field-head"><span className="nf-label">{fd.label}</span><span className="nf-range">Never typed</span></div>
+          <div className="nf-calc-row"><span className="nf-calc-val" style={{ fontSize: 20 }}>{span.exceeds === null ? "Not calculated" : span.exceeds ? `Yes, by ${span.diffCm} cm` : "No"}</span></div>
+          <div className="ph-help nf-help">{span.exceeds === null ? "Needs height and arm span." : "Arm span compared with height."}</div>
         </div>,
       );
       return;
@@ -879,23 +1027,99 @@ function MeasurementsBody({ kit, fields, sec }: { kit: Kit; fields: NurseFormFie
     if (fd.store === "measure") {
       const k = fd.measureKey as MeasureKey;
       let extra: ReactNode = null;
-      if (k === "waistCm" && waist !== null) extra = <CategoryLine band={wc.band} word={wc.word}>Less than {wc.limit} cm for a {sex === "male" ? "man" : "woman"}</CategoryLine>;
       if (k === "bpDia") {
         extra = (
           <>
-            {sys !== null && dia !== null && !errors.bp ? <CategoryLine band={bp.band} word={bp.word}>{sys}/{dia} mmHg. Ideal below 120/80; review from 140/90.</CategoryLine> : null}
+            {sys !== null && dia !== null && !errors.bp ? <CategoryLine band={bp.band} word={bp.word}>Together {sys}/{dia} mmHg. The higher of the two bands applies.</CategoryLine> : null}
             {errors.bp ? <div className="ph-err" role="alert">{errors.bp}</div> : null}
-            {kit.editable ? <div style={{ marginTop: 8 }}><RepeatReading disabled={disabled} at={fmtTime(state.clock.nowUtc)} onAdd={(line) => kit.setNotes(values.notes ? `${values.notes}\n${line}` : line)} /></div> : null}
+            {kit.editable ? <div style={{ marginTop: 8 }}><RepeatReading who={who} disabled={disabled} at={fmtTime(state.clock.nowUtc)} onAdd={(line) => kit.setNotes(values.notes ? `${values.notes}\n${line}` : line)} /></div> : null}
           </>
         );
       }
+      const lt = LIVE[k];
+      const live = lt ? liveBand(lt, numericValue(values, k), who) : null;
       out.push(<MeasureRow key={fd.key} field={fd} m={values.measures[k]} onChange={(m) => setMeasure(k, m)} disabled={disabled} error={errors[k]}
-        missing={sec.missing.some((x) => x.key === fd.key)} extra={extra} provenance={k === "heightM" || k === "weightKg"} />);
+        missing={sec.missing.some((x) => x.key === fd.key)} extra={extra} provenance={k === "heightM" || k === "weightKg"} live={live} />);
+      return;
+    }
+    if (poc && (fd.key === "pocBpSysLeft" || fd.key === "pocBpDiaLeft")) {
+      const v = numOrNull(values.form[fd.key]);
+      const live = !errors[fd.key] ? liveBand(fd.key === "pocBpSysLeft" ? "bpsys" : "bpdia", v, who) : null;
+      const diff = fd.key === "pocBpDiaLeft" ? pocInterArmSystolic(synth) : null;
+      out.push(<Field key={fd.key} kit={kit} field={fd} sec={sec} after={<>{v !== null ? <LiveChip live={live} /> : null}{diff !== null && diff >= 15 ? <div className="nf-callout warn"><Icon name="flag" size={14} /><span>Systolic differs by {diff} mmHg between arms. Note it for the doctor.</span></div> : null}</>} />);
+      return;
+    }
+    if (poc && fd.key === "pocBpOutcome") {
+      const sugg = suggestedOutcome(bp.band === "not_tested" ? null : { band: bp.band, word: "", label: "", normalText: "", versionText: "", recordedOnly: false, urgent: false });
+      out.push(<Field key={fd.key} kit={kit} field={fd} sec={sec} after={<SuggestOutcome kit={kit} fieldKey={fd.key} suggestion={sugg} />} />);
       return;
     }
     out.push(<Field key={fd.key} kit={kit} field={fd} sec={sec} />);
   });
   return <div className="nf-grid">{out}</div>;
+}
+
+/** One tap to set the nurse's outcome to what Neil's ranges say. The nurse can still choose another. */
+function SuggestOutcome({ kit, fieldKey, suggestion }: { kit: Kit; fieldKey: string; suggestion: string | null }) {
+  const cur = kit.values.form[fieldKey];
+  if (!suggestion || cur === suggestion || !kit.editable) return null;
+  return (
+    <div style={{ marginTop: 2 }}>
+      <button type="button" className="nf-chip" disabled={kit.disabled} onClick={() => kit.setForm(fieldKey, suggestion)}>Use {suggestion}, from the ranges</button>
+    </div>
+  );
+}
+
+/* point of care: total cholesterol, HDL and HbA1c from the machine, banded as they are typed */
+function PocBloodsBody({ kit, fields, sec }: { kit: Kit; fields: NurseFormField[]; sec: SectionState }) {
+  const { values, errors, who } = kit;
+  const READ: Record<string, { test: LiveTestId; title: string }> = { pocChol: { test: "tc", title: "Total cholesterol" }, pocHdl: { test: "hdl", title: "HDL cholesterol" }, pocHba1c: { test: "hba1c", title: "HbA1c" } };
+  const groups: Array<{ prefix: string; fields: NurseFormField[] }> = [];
+  const other: NurseFormField[] = [];
+  fields.forEach((fd) => {
+    const prefix = Object.keys(READ).find((p) => fd.key === p || fd.key === `${p}State` || fd.key === `${p}Outcome`);
+    if (!prefix) { other.push(fd); return; }
+    const g = groups.find((x) => x.prefix === prefix);
+    if (g) g.fields.push(fd); else groups.push({ prefix, fields: [fd] });
+  });
+  return (
+    <div className="ph-stack" style={{ gap: 14 }}>
+      {groups.map((g) => {
+        const r = READ[g.prefix];
+        const v = numOrNull(values.form[g.prefix]);
+        const live = !errors[g.prefix] ? liveBand(r.test, v, who) : null;
+        return (
+          <div key={g.prefix} className="nf-reading">
+            <div className="nf-reading-head"><span className="nf-reading-title">{r.title}</span>{live ? <LiveChip live={live} compact /> : null}</div>
+            <div className="nf-grid">
+              {g.fields.map((fd) => fd.key === g.prefix
+                ? <Field key={fd.key} kit={kit} field={fd} sec={sec} after={v !== null ? <LiveChip live={live} /> : null} />
+                : fd.key.endsWith("Outcome")
+                  ? <Field key={fd.key} kit={kit} field={fd} sec={sec} after={<SuggestOutcome kit={kit} fieldKey={fd.key} suggestion={suggestedOutcome(live)} />} />
+                  : <Field key={fd.key} kit={kit} field={fd.key === `${g.prefix}State` ? { ...fd, label: "What the machine gave" } : fd} sec={sec} hideHelp />)}
+            </div>
+          </div>
+        );
+      })}
+      {other.length ? <div className="nf-grid">{other.map((fd) => <Field key={fd.key} kit={kit} field={fd} sec={sec} />)}</div> : null}
+    </div>
+  );
+}
+
+function PocEcgBody({ kit, fields, sec }: { kit: Kit; fields: NurseFormField[]; sec: SectionState }) {
+  const band = pocEcgBand(kit.synth);
+  const sugg = band === "not_tested" ? null : band === "normal" ? "Normal" : band === "borderline" ? "Borderline" : "Abnormal";
+  return (
+    <>
+      <div className="nf-grid">{fields.map((fd) => fd.key === "pocEcgOutcome"
+        ? <Field key={fd.key} kit={kit} field={fd} sec={sec} after={<SuggestOutcome kit={kit} fieldKey={fd.key} suggestion={sugg} />} />
+        : <Field key={fd.key} kit={kit} field={fd} sec={sec} />)}</div>
+      <div className="nf-cat" style={{ marginTop: 14 }}>
+        <span className="ph-dim" style={{ fontSize: 12 }}>ECG band</span>
+        <BandChip band={band} word={ECG_WORD[band]} />
+      </div>
+    </>
+  );
 }
 
 const ECG_WORD: Record<Band, string> = { normal: "Normal ECG", borderline: "Borderline", abnormal: "Abnormal", not_tested: "Not done" };
@@ -965,7 +1189,112 @@ function CloseoutBody({ kit, fields, sec }: { kit: Kit; fields: NurseFormField[]
   return (
     <div className="ph-stack" style={{ gap: 16 }}>
       <div className="nf-grid">{out}</div>
-      <CompletionPanel kit={kit} />
+      {kit.spec.variant === "poc" ? <PocCompletionPanel kit={kit} /> : <CompletionPanel kit={kit} />}
+    </div>
+  );
+}
+
+/* ---- point of care: no specimen, results recorded here, ready for the doctor the same day ---- */
+function PocCompletionPanel({ kit }: { kit: Kit }) {
+  const state = usePhState();
+  const { row, draft, synth, f, identityOk, editable, sections, errors, go, onCompleted, conf, who } = kit;
+  const [confirming, setConfirming] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+  const next = nextEpisodeNumber(state);
+  const saveBlocked = f.status.kind === "conflict" || f.status.kind === "error" || f.stale;
+  const lead = ix(state).staffById.get(row.programme.clinicalLeadId);
+  const readings: Array<{ key: string; name: string; test: LiveTestId; unit: string }> = [
+    { key: "pocChol", name: "Total cholesterol", test: "tc", unit: "mmol/L" },
+    { key: "pocHdl", name: "HDL cholesterol", test: "hdl", unit: "mmol/L" },
+    { key: "pocHba1c", name: "HbA1c", test: "hba1c", unit: "mmol/mol" },
+  ];
+  const shown = readings.filter((r) => synth.form?.[`${r.key}State`] !== undefined && synth.form?.[`${r.key}State`] !== null);
+  const recorded = shown.filter((r) => synth.form?.[`${r.key}State`] === "Recorded" && typeof synth.form?.[r.key] === "number");
+
+  const blockers: Array<{ text: string; go?: AnySectionKey }> = [];
+  if (!synth.form?.pocScreenType) blockers.push({ text: "Choose the screen type", go: "screen_type" });
+  if (!identityOk) blockers.push({ text: "Confirm identity with two identifiers", go: "registration" });
+  sections.forEach((s) => {
+    if (!s.applicable || s.lockedBy === "screen_type") return;
+    const n = s.missing.filter((m) => m.key !== "identity").length;
+    if (n) blockers.push({ text: `${s.label}: ${n} to answer (${s.missing.filter((m) => m.key !== "identity").slice(0, 3).map((m) => m.label).join(", ")}${n > 3 ? ", and more" : ""})`, go: s.section.key });
+  });
+  const errSec = sections.find((s) => s.errorKeys.length);
+  if (Object.keys(errors).length) blockers.push({ text: "Correct the highlighted value", go: errSec?.section.key });
+  const confirmLeft = sections.reduce((n, s) => n + (s.applicable && !s.locked ? s.toConfirm.length : 0), 0);
+  const confirmSec = sections.find((s) => s.applicable && s.toConfirm.length);
+  if (confirmLeft) blockers.push({ text: `Confirm ${confirmLeft} questionnaire answer${confirmLeft === 1 ? "" : "s"} with the participant`, go: confirmSec?.section.key });
+  if (saveBlocked) blockers.push({ text: "Resolve the save problem" });
+  const canComplete = editable && blockers.length === 0;
+
+  const complete = () => {
+    if (!f.flush()) { setConfirming(false); setMsg("Not completed: the latest entries could not be saved."); return; }
+    const r = dispatch(act.completeAppointment(row.booking.id));
+    setConfirming(false);
+    if (!r.ok) { setMsg(r.message || "Not completed."); return; }
+    setMsg(null);
+    onCompleted?.(row.booking.id);
+  };
+  const totalConfirm = sections.reduce((n, s) => n + (s.applicable ? s.section.fields.filter((fd) => fd.prefillFrom === "questionnaire" && conf.has(fd.key)).length : 0), 0);
+  return (
+    <div className="nf-complete">
+      <h3 className="nf-complete-title">Results today and sign-off</h3>
+      {shown.length ? (
+        <ul className="nf-spec">
+          {shown.map((r) => {
+            const st = synth.form?.[`${r.key}State`];
+            const v = typeof synth.form?.[r.key] === "number" ? (synth.form[r.key] as number) : null;
+            const live = v !== null ? liveBand(r.test, v, who) : null;
+            return (
+              <li key={r.key}>
+                <span className={"nf-spec-ico" + (st === "Recorded" ? " ok" : "")}><Icon name={st === "Recorded" ? "check" : "info"} size={13} /></span>
+                <span className="nf-spec-body"><strong>{r.name}</strong><span className="ph-faint">{st === "Recorded" && v !== null ? `${v} ${r.unit}, measured here` : String(st)}</span></span>
+                {live ? <LiveChip live={live} compact /> : null}
+              </li>
+            );
+          })}
+        </ul>
+      ) : <div className="ph-faint" style={{ fontSize: 12.5 }}>{draft.form?.pocScreenType === "BP Only" ? "Blood pressure only: no point-of-care bloods on this screen." : "Point-of-care bloods are recorded in Cholesterol and HbA1c."}</div>}
+
+      <div className="nf-checks">
+        <CheckLine done={!!synth.form?.pocScreenType} text="Screen type chosen" />
+        <CheckLine done={identityOk} text="Identity confirmed with two identifiers" />
+        <CheckLine done={!sections.some((s) => s.applicable && !s.locked && s.missing.some((m) => m.key !== "identity"))} text="Every required question answered, or marked not done or declined" />
+        <CheckLine done={!Object.keys(errors).length} text="Values within entry limits" note="Abnormal values are kept and flagged for the doctor, never forced into range." />
+        <CheckLine done={confirmLeft === 0} text="Questionnaire answers confirmed with the participant" note={`${totalConfirm} confirmed${confirmLeft ? `, ${confirmLeft} left` : ""}`} />
+        <CheckLine done={!!draft.checklist.questionnaire} text="What they told us reviewed with the participant" note={draft.checklist.questionnaire ? undefined : "Tick it in Registration"} />
+        {editable ? <CheckLine done={!f.dirty && !saveBlocked && f.status.kind !== "invalid"} text="All changes saved" /> : null}
+      </div>
+
+      {editable ? (
+        confirming ? (
+          <div className="nf-confirm" role="group" aria-label="Confirm completion">
+            <div style={{ color: "var(--ink)", fontWeight: 600 }}>Complete the appointment for {row.person.given} {row.person.family}?</div>
+            <ul>
+              <li>Episode <span className="ph-mono">PH-E-{pad4(next)}</span> is created with {recorded.length} point-of-care result{recorded.length === 1 ? "" : "s"}. There is no specimen and no laboratory.</li>
+              <li>It goes straight to <strong>Ready for review</strong>, so {lead ? lead.displayName : "the doctor"} can review and release the report today.</li>
+              {isNurseReferral(synth) ? <li>Doctor referral: a review task is created. The routine shortcut is blocked.</li> : null}
+              {needsEcgReview(synth) && !draft.ecgReview ? <li>ECG review: a task is created and the ECG photo is shared to the clinical channel (simulated).</li> : null}
+              <li>Completing never releases a report. The doctor does that.</li>
+            </ul>
+            <div className="ph-wrap">
+              <Button variant="ghost" onClick={() => setConfirming(false)}>Not yet</Button>
+              <Button variant="primary" icon="check" disabled={!canComplete} onClick={complete} className="nf-big">Complete appointment</Button>
+            </div>
+          </div>
+        ) : (
+          <div className="nf-complete-act">
+            <Button variant="primary" icon="check" disabled={!canComplete} onClick={() => setConfirming(true)} className="nf-big">Complete appointment</Button>
+            {blockers.length ? (
+              <div className="nf-blockers">
+                <div className="ph-faint" style={{ fontSize: 12 }}>Still needed:</div>
+                <ul>{blockers.map((b, i) => <li key={i}>{b.go ? <button type="button" className="ph-link" onClick={() => go(b.go!)}>{b.text}</button> : b.text}</li>)}</ul>
+              </div>
+            ) : <div className="ph-faint" style={{ fontSize: 12 }}>Everything required is recorded. The report goes to the doctor for same-day release.</div>}
+          </div>
+        )
+      ) : null}
+      {msg ? <div className="clx-banner warn"><Icon name="alert" size={14} style={{ color: "var(--warn)", marginTop: 2 }} /><span>{msg}</span></div> : null}
     </div>
   );
 }
@@ -987,7 +1316,7 @@ function CompletionPanel({ kit }: { kit: Kit }) {
   const lead = ix(state).staffById.get(row.programme.clinicalLeadId);
   const toggle = (key: "specimens" | "labels") => f.runOwn(act.toggleChecklist(row.booking.id, key));
 
-  const blockers: Array<{ text: string; go?: NurseSectionKey }> = [];
+  const blockers: Array<{ text: string; go?: AnySectionKey }> = [];
   if (!identityOk) blockers.push({ text: "Confirm identity with two identifiers", go: "registration" });
   sections.forEach((s) => {
     if (!s.applicable) return;
@@ -1058,6 +1387,7 @@ function CompletionPanel({ kit }: { kit: Kit }) {
         <CheckLine done={!sections.some((s) => s.applicable && s.missing.some((m) => m.key !== "identity"))} text="Every required question answered, or marked not done or declined" />
         <CheckLine done={!Object.keys(errors).length} text="Values within entry limits" note="Abnormal values are kept and flagged for the doctor, never forced into range." />
         <CheckLine done={confirmLeft === 0} text="Questionnaire answers confirmed with the participant" note={`${totalConfirm} confirmed${confirmLeft ? `, ${confirmLeft} left` : ""}`} />
+        <CheckLine done={!!draft.checklist.questionnaire} text="What they told us reviewed with the participant" note={draft.checklist.questionnaire ? undefined : "Tick it in Registration"} />
         <CheckLine done={bloods === "Yes" && specimens && labels} text="Blood specimen recorded and label checked" />
         {editable ? <CheckLine done={!f.dirty && !saveBlocked && f.status.kind !== "invalid"} text="All changes saved" /> : null}
       </div>
@@ -1142,9 +1472,13 @@ export function AutomationReceipt({ episode: ep, onOpenTask, title }: { episode:
   );
 }
 
-const ROW_BAND = (ep: Episode, key: string): { band: Band; word: string } | null => {
+const ROW_BAND = (ep: Episode, key: string, who?: LivePerson): { band: Band; word: string } | null => {
   const c = ep.capture;
   const m = (k: MeasureKey) => (c.measures[k].state === "recorded" ? c.measures[k].value : null);
+  const POC_READ: Record<string, LiveTestId> = { pocChol: "tc", pocHdl: "hdl", pocHba1c: "hba1c" };
+  if (POC_READ[key] && who) { const v = typeof c.form?.[key] === "number" ? (c.form[key] as number) : null; const b = liveBand(POC_READ[key], v, who); return b ? { band: b.band, word: b.word } : null; }
+  if (key === "pulse" && who) { const b = liveBand("pulse", m("pulse"), who); return b ? { band: b.band, word: b.word } : null; }
+  if (key === "pocEcgResult") { const b = pocEcgBand(c); return b === "not_tested" ? null : { band: b, word: ECG_WORD[b] }; }
   switch (key) {
     case "bmi": { const b = bmiOf(c); if (b === null) return null; const x = bmiCategory(b); return { band: x.band, word: x.word }; }
     case "bpDia": { const x = bpCategory(m("bpSys"), m("bpDia")); return x.band === "not_tested" ? null : { band: x.band, word: x.word }; }
@@ -1166,6 +1500,8 @@ export function NurseFormReadOnly({ episode: ep }: { episode: Episode }) {
   const state = usePhState();
   const rows = nurseFormRows(state, ep.id);
   if (!rows) return <RestrictedNotice>The nurse form is visible to clinical roles assigned to this episode.</RestrictedNotice>;
+  const person = ix(state).personById.get(ep.personId);
+  const who: LivePerson | undefined = person ? { sex: person.sex, age: ageOn(person.dob, ep.collectedAt.slice(0, 10)), ethnicity: typeof ep.capture.form?.ethnicity === "string" ? ep.capture.form.ethnicity : null, on: ep.collectedAt.slice(0, 10) } : undefined;
   const groups: Array<{ title: string; rows: typeof rows }> = [];
   rows.forEach((r) => {
     if (r.key === "advice") return;
@@ -1179,7 +1515,7 @@ export function NurseFormReadOnly({ episode: ep }: { episode: Episode }) {
           <div className="nf-subhead">{g.title}</div>
           <div className="clx-qa">
             {g.rows.map((r) => {
-              const band = ROW_BAND(ep, r.key);
+              const band = ROW_BAND(ep, r.key, who);
               return [
                 <span key={r.key + "l"}>{r.label}</span>,
                 <span key={r.key + "v"} style={r.answered ? undefined : { color: "var(--faint)" }}>

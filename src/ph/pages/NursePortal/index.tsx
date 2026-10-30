@@ -6,7 +6,7 @@
    Clinic close with the specimen manifest. Every action writes to the shared store. */
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { PersonaId, StaffId } from "../../model";
-import { act, fmtWeekdayDate, ix, linkFor } from "../../model";
+import { act, fmtWeekdayDate, ix, linkFor, persona, sessionUsesPoc } from "../../model";
 import { dispatch, getState, usePhState } from "../../store";
 import { useNav } from "../../nav-context";
 import { BrandLogo } from "../../shell/Brand";
@@ -91,6 +91,17 @@ export function NursePortalPreview({ open, onClose }: { open: boolean; onClose: 
     toTop();
   };
   const openTask = (taskId: string) => { onClose(); nav.go(linkFor("task", taskId)); };
+  /* Same-day release: back to the staff app on the episode in Results, Review. Release stays the
+     reviewing doctor's action there, so the demo switches to the clinical lead if needed. */
+  const openEpisode = (episodeId: string) => {
+    const ep = ix(getState()).episodeById.get(episodeId);
+    const lead = ep ? ix(getState()).programmeById.get(ep.programmeId)?.clinicalLeadId : undefined;
+    onClose();
+    nav.go(linkFor("episode", episodeId));
+    window.setTimeout(() => {
+      if (lead && !persona(getState()).perms.has("clinical.review")) dispatch(act.setPersona(lead), { silent: true });
+    }, 0);
+  };
   const deviceW = DEVICES.find((x) => x.id === device)!.width;
   const compact = !!overlayW && overlayW < 760;
   const tight = !!overlayW && overlayW < 480;
@@ -122,7 +133,7 @@ export function NursePortalPreview({ open, onClose }: { open: boolean; onClose: 
         <div className={`np-device np-device-${device === "phone" ? "phone" : device === "desktop" ? "desktop" : "tablet"}`} style={deviceW ? { width: deviceW } : undefined}>
           <NurseApp nurseId={nurseId} nurseName={nurse?.name} nurseTitle={nurse?.title} nurseTint={nurse?.tint} onPick={pickNurse}
             view={view} setView={(v) => { setView(v); toTop(); }} bookingId={bookingId} setBookingId={(id) => { setBookingId(id); setView("participant"); toTop(); }}
-            receiptFor={receiptFor} setReceiptFor={setReceiptFor} onOpenTask={openTask} />
+            receiptFor={receiptFor} setReceiptFor={setReceiptFor} onOpenTask={openTask} onOpenEpisode={openEpisode} />
         </div>
       </div>
     </div>
@@ -131,10 +142,10 @@ export function NursePortalPreview({ open, onClose }: { open: boolean; onClose: 
 
 type Bp = "phone" | "tablet" | "desktop";
 
-function NurseApp({ nurseId, nurseName, nurseTitle, nurseTint, onPick, view, setView, bookingId, setBookingId, receiptFor, setReceiptFor, onOpenTask }: {
+function NurseApp({ nurseId, nurseName, nurseTitle, nurseTint, onPick, view, setView, bookingId, setBookingId, receiptFor, setReceiptFor, onOpenTask, onOpenEpisode }: {
   nurseId: StaffId | null; nurseName?: string; nurseTitle?: string; nurseTint?: string; onPick: (id: StaffId | null) => void;
   view: View; setView: (v: View) => void; bookingId: string | null; setBookingId: (id: string) => void;
-  receiptFor: string | null; setReceiptFor: (id: string | null) => void; onOpenTask: (taskId: string) => void;
+  receiptFor: string | null; setReceiptFor: (id: string | null) => void; onOpenTask: (taskId: string) => void; onOpenEpisode: (episodeId: string) => void;
 }) {
   const state = usePhState();
   const [ref, width] = useMeasure<HTMLDivElement>();
@@ -199,11 +210,11 @@ function NurseApp({ nurseId, nurseName, nurseTitle, nurseTint, onPick, view, set
           </nav>
           <main className="np-main">
             {view === "participant" && row ? (
-              <ParticipantView row={row} rows={rows} onSelect={setBookingId} onBack={() => setView("clinic")} onCompleted={completed} onOpenTask={onOpenTask} receipt={receipt} />
+              <ParticipantView row={row} rows={rows} onSelect={setBookingId} onBack={() => setView("clinic")} onCompleted={completed} onOpenTask={onOpenTask} onOpenEpisode={onOpenEpisode} receipt={receipt} />
             ) : view === "close" ? (
               <ClinicClose session={session} onOpen={setBookingId} onOpenTask={onOpenTask} receipt={receipt} />
             ) : (
-              <ClinicDay session={session} onOpen={setBookingId} receipt={receipt} />
+              <ClinicDay session={session} onOpen={setBookingId} receipt={receipt} onOpenEpisode={onOpenEpisode} />
             )}
           </main>
         </>
@@ -253,6 +264,7 @@ function Picker({ onPick }: { onPick: (id: StaffId) => void }) {
               {s ? (
                 <span style={{ fontSize: 12.5, color: "var(--body)", lineHeight: 1.5 }}>
                   <span style={{ display: "block", color: "var(--ink)" }}>{programme ? programme.name : s.programmeId}</span>
+                  <span style={{ display: "block", margin: "4px 0 2px" }}>{sessionUsesPoc(s) ? <Pill tone="brand" icon="flask">Point of care, same-day results</Pill> : <Pill tone="neutral" icon="flask">Laboratory bloods</Pill>}</span>
                   <span style={{ display: "block" }}>{s.room}, {s.siteName.replace(/, Demo .*$/, "")}</span>
                   <span style={{ display: "block" }}>{s.start} to {s.end}. {c ? `${c.booked} booked, ${c.completed} done` : ""}</span>
                 </span>

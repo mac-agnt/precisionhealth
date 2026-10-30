@@ -3,7 +3,7 @@
 import { useState } from "react";
 import type { ReactNode } from "react";
 import type { ClinicSession } from "../../model";
-import { PROGRAMME_BY_ID, act, fmtDateLong, fmtDateTime, fmtTime, hhmmToMinutes, staffName } from "../../model";
+import { PROGRAMME_BY_ID, act, fmtDateLong, fmtDateTime, fmtTime, hhmmToMinutes, sessionUsesPoc, staffName } from "../../model";
 import { dispatch, usePhState } from "../../store";
 import { Button, Icon, Pill } from "../../ui";
 import type { GlyphName } from "../../ui";
@@ -11,17 +11,20 @@ import type { ApptRow } from "../Clinics/selectors";
 import { checkInRule, placeLabel } from "../Clinics/selectors";
 import { ApptPill } from "../Clinics/shared";
 import { clinicCounts, clinicRows, nextOpen } from "./data";
+import { ResultsPill } from "./results";
 
 type Filter = "all" | "arrive" | "in" | "done";
 type Item = { kind: "appt"; time: string; r: ApptRow } | { kind: "break"; time: string; end: string };
 
-export function ClinicDay({ session, onOpen, receipt }: { session: ClinicSession; onOpen: (bookingId: string) => void; receipt?: ReactNode }) {
+export function ClinicDay({ session, onOpen, receipt, onOpenEpisode }: { session: ClinicSession; onOpen: (bookingId: string) => void; receipt?: ReactNode; onOpenEpisode?: (episodeId: string) => void }) {
   const state = usePhState();
   const [filter, setFilter] = useState<Filter>("all");
   const [msg, setMsg] = useState<string | null>(null);
   const rows = clinicRows(state, session);
   const c = clinicCounts(state, session);
   const programme = PROGRAMME_BY_ID[session.programmeId];
+  const poc = sessionUsesPoc(session);
+  const sameDay = rows.filter((r) => r.episode && r.episode.reportState === "ready_for_review" && r.episode.capture?.variant === "poc").length;
   const now = fmtTime(state.clock.nowUtc);
   const upNext = nextOpen(rows.filter((r) => !r.slotPassed || r.status === "checked_in" || r.status === "in_progress"), null);
   const match = (r: ApptRow) => filter === "all" ? true : filter === "arrive" ? r.status === "not_arrived" || r.status === "upcoming" : filter === "in" ? r.status === "checked_in" || r.status === "in_progress" : r.status === "completed" || r.status === "no_show";
@@ -46,10 +49,10 @@ export function ClinicDay({ session, onOpen, receipt }: { session: ClinicSession
   const counts: Array<{ label: string; value: number; sub: string; icon: GlyphName }> = [
     { label: "Booked", value: c.booked, sub: `${c.notArrived} still to arrive`, icon: "calendar" },
     { label: "Checked in", value: c.checkedIn, sub: c.inProgress ? `${c.inProgress} with the form open` : "With you now", icon: "user" },
-    { label: "Completed", value: c.completed, sub: "No report is released", icon: "check" },
+    { label: "Completed", value: c.completed, sub: poc ? (sameDay ? `${sameDay} ready for same-day release` : "Results measured here") : "Awaiting lab after completion", icon: "check" },
     { label: "Referrals", value: c.referrals, sub: c.referralsPending ? `${c.referralsPending} more on completion` : "To the doctor", icon: "alert" },
     { label: "ECG reviews", value: c.ecgReviews, sub: c.ecgPending ? `${c.ecgPending} more when saved` : "Photo to the clinical channel", icon: "flag" },
-    { label: "Specimens", value: c.specimens, sub: "For the Eurofins courier", icon: "flask" },
+    { label: "Specimens", value: c.specimens, sub: poc ? "None: results measured here" : "For the Eurofins courier", icon: "flask" },
   ];
 
   return (
@@ -62,7 +65,10 @@ export function ClinicDay({ session, onOpen, receipt }: { session: ClinicSession
             <h1 className="np-title" style={{ marginTop: 4 }}>{programme ? programme.name : session.programmeId}</h1>
             <p className="np-lead">{fmtDateLong(session.date)}. {placeLabel(session)}. As of {now} on the demo clock.</p>
           </div>
-          <Pill tone="brand" icon="clock">{session.start} to {session.end}</Pill>
+          <div className="ph-wrap" style={{ gap: 6 }}>
+            {poc ? <Pill tone="brand" icon="flask">Point of care, same-day results</Pill> : <Pill tone="neutral" icon="flask">Laboratory bloods</Pill>}
+            <Pill tone="brand" icon="clock">{session.start} to {session.end}</Pill>
+          </div>
         </div>
         <dl className="np-kv">
           <div><dt>Site</dt><dd>{session.siteName}</dd></div>
@@ -123,6 +129,7 @@ export function ClinicDay({ session, onOpen, receipt }: { session: ClinicSession
                 </span>
                 <span className="np-col-att" role="cell">
                   <ApptPill status={r.status} />
+                  {r.status === "completed" && r.episode ? <span style={{ display: "block", marginTop: 4 }}><ResultsPill episode={r.episode} /></span> : null}
                   {r.status === "not_arrived" && r.slotPassed ? <span className="ph-faint" style={{ display: "block", fontSize: 11, marginTop: 3 }}>Slot time passed</span> : null}
                 </span>
                 <span className="np-act" role="cell">{action(r)}</span>

@@ -6,7 +6,7 @@
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import type { Action, ClinicalCapture, MeasureKey, NurseFormCtx, NurseFormField, NurseFormValue, PhState } from "../../model";
 import {
-  MEASURE_KEYS, MEASURE_RULES, NURSE_FORM_FIELDS, PROGRAMME_BY_ID, act, bmiOf, ix, measureError, membershipOf, nurseFieldVisible, nurseFormPrefill,
+  MEASURE_KEYS, MEASURE_RULES, NURSE_FORM_FIELDS, POC_FORM_STORED, PROGRAMME_BY_ID, act, bmiOf, ix, measureError, membershipOf, nurseFieldVisible, nurseFormPrefill, pocFieldVisible,
 } from "../../model";
 import { dispatch, getState } from "../../store";
 import type { ApptRow } from "./selectors";
@@ -27,6 +27,13 @@ const POSITIVE = new Set(["+", "++", "+++"]);
 
 /** Fields the nurse writes on capture.form. Advice is the doctor's field and is never sent. */
 export const FORM_FIELDS: NurseFormField[] = NURSE_FORM_FIELDS.filter((f) => f.store === "form" && !f.readOnly);
+/** The point-of-care form's stored fields that the lab form does not have (screen type, both arms, the machine readings). */
+const POC_ONLY_FIELDS: NurseFormField[] = POC_FORM_STORED.filter((f) => !FORM_FIELDS.some((x) => x.key === f.key));
+/** Every stored field of either form, for reading a record back. */
+const ALL_FORM_FIELDS: NurseFormField[] = [...FORM_FIELDS, ...POC_ONLY_FIELDS];
+/** The stored fields of the form this appointment uses. */
+const fieldsFor = (ctx?: NurseFormCtx): NurseFormField[] => (ctx?.variant === "poc" ? POC_FORM_STORED : FORM_FIELDS);
+const visibleFor = (f: NurseFormField, c: ClinicalCapture, ctx: NurseFormCtx) => (ctx.variant === "poc" ? pocFieldVisible(f, c, ctx) : nurseFieldVisible(f, c, ctx));
 
 export const MEASURE_HINT: Record<MeasureKey, string> = {
   heightM: "In metres, for example 1.65",
@@ -48,7 +55,7 @@ export const emptyValues = (): FormValues => ({ measures: emptyMeasures(), urine
 
 function formFromCapture(c: ClinicalCapture): FormMap {
   const out: FormMap = {};
-  for (const f of FORM_FIELDS) {
+  for (const f of ALL_FORM_FIELDS) {
     const v = c.form?.[f.key];
     if (v === undefined || v === null || v === "") continue;
     out[f.key] = f.type === "number" && typeof v === "number" ? String(v) : v;
@@ -127,7 +134,7 @@ export function toCapture(v: FormValues, base: ClinicalCapture = SKELETON): Clin
     measures[k] = n === null ? { value: null, state: "missing", provenance: f.provenance } : { value: n, state: "recorded", provenance: f.provenance };
   }
   const form: FormMap = { ...(base.form || {}) };
-  for (const f of FORM_FIELDS) form[f.key] = storedValue(f, v.form[f.key]);
+  for (const f of ALL_FORM_FIELDS) form[f.key] = storedValue(f, v.form[f.key]);
   return { ...base, measures, urine: urineOf(v), notes: v.notes, form };
 }
 
@@ -153,15 +160,20 @@ export function formErrors(v: FormValues, ctx?: NurseFormCtx): Record<string, st
   const s = numericValue(v, "bpSys"), d = numericValue(v, "bpDia");
   if (s !== null && d !== null && s <= d) out.bp = "Systolic must be higher than diastolic.";
   const synth = ctx ? toCapture(v) : null;
-  for (const f of FORM_FIELDS) {
+  for (const f of fieldsFor(ctx)) {
     if (f.type !== "number" && f.type !== "time") continue;
     const raw = v.form[f.key];
     if (typeof raw !== "string" || !raw.trim()) continue;
-    if (synth && ctx && !nurseFieldVisible(f, synth, ctx)) continue;
+    if (synth && ctx && !visibleFor(f, synth, ctx)) continue;
     if (f.type === "time") { if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(raw.trim())) out[f.key] = `${f.label} must be a time as HH:MM, 24-hour.`; continue; }
     const n = parseNum(raw);
     if (n === "nan" || n === null) { out[f.key] = `${f.label} must be a number.`; continue; }
     if ((f.min !== undefined && n < f.min) || (f.max !== undefined && n > f.max)) out[f.key] = `${f.label} must be between ${f.min} and ${f.max}${f.unit ? " " + f.unit : ""}.`;
+  }
+  // Point of care: the left arm reading follows the same rule as the right.
+  if (ctx?.variant === "poc" && !out.pocBpSysLeft && !out.pocBpDiaLeft) {
+    const ls = typeof v.form.pocBpSysLeft === "string" ? parseNum(v.form.pocBpSysLeft) : null, ld = typeof v.form.pocBpDiaLeft === "string" ? parseNum(v.form.pocBpDiaLeft) : null;
+    if (typeof ls === "number" && typeof ld === "number" && ls <= ld) out.pocBpDiaLeft = "Left arm: systolic must be higher than diastolic.";
   }
   return out;
 }
@@ -179,9 +191,9 @@ export function toPatch(v: FormValues, ctx?: NurseFormCtx) {
   }
   const synth = ctx ? toCapture(v) : null;
   const form: FormMap = {};
-  for (const f of FORM_FIELDS) {
+  for (const f of fieldsFor(ctx)) {
     let val = storedValue(f, v.form[f.key]);
-    if (val !== null && synth && ctx && !nurseFieldVisible(f, synth, ctx)) val = null;
+    if (val !== null && synth && ctx && !visibleFor(f, synth, ctx)) val = null;
     form[f.key] = val;
   }
   const u = urineOf(v);

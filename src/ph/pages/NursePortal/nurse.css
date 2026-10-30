@@ -301,3 +301,57 @@
   .nf-opt, .nf-rail-item, .np-pick-btn { transition: none; }
 }
 @media print { .np-overlay { position: static; overflow: visible; } .np-chrome { display: none !important; } }
+
+/* ============================== nurse entry screen ============================== */
+/* Bigger numbers on the tablet: values are typed standing up, often with gloves. */
+.nf-portal .nf-minput .ph-input { height: 52px; font-size: 20px; font-weight: 600; padding: 0 14px; }
+.nf-portal .nf-minput { max-width: 340px; }
+.nf-portal .nf-unit { font-size: 13px; }
+.nf-portal .nf-label { font-size: 14px; }
+
+/* the live band beside a value, from Neil's reference ranges */
+.nf-live { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; font-size: 12px; min-width: 0; }
+.nf-live .nf-band { height: 26px; font-size: 11.5px; padding: 0 10px; }
+.nf-portal .nf-live .nf-band { height: 30px; font-size: 12.5px; }
+.nf-live-text { color: var(--body); min-width: 0; overflow-wrap: anywhere; }
+.nf-live.muted .nf-live-text { color: var(--faint); }
+
+/* what they told us */
+.nf-told { display: flex; flex-direction: column; gap: 12px; padding: 14px 16px; border-radius: 16px; border: 1px solid var(--accent-line); background: var(--accent-faint); min-width: 0; }
+.nf-told.done { border-color: var(--border); background: var(--surface-faint); }
+.nf-told.locked { flex-direction: row; align-items: flex-start; gap: 10px; font-size: 12.5px; line-height: 1.5; border-style: dashed; border-color: var(--border-strong); background: var(--surface-faint); color: var(--dim); }
+.nf-told.locked > svg { color: var(--faint); flex: none; margin-top: 2px; }
+.nf-told.locked strong { color: var(--ink); }
+.nf-told-head { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 8px 12px; }
+.nf-told-title { font-size: 16px; font-weight: 600; color: var(--ink); letter-spacing: -.2px; }
+.nf-told-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; }
+@container nfmain (min-width: 620px) { .nf-told-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.nf-told-group { padding: 10px 12px; border-radius: 12px; background: var(--surface); border: 1px solid var(--border); min-width: 0; }
+.nf-told-gtitle { font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--faint); font-weight: 600; margin-bottom: 6px; }
+.nf-told-group ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.nf-told-group li { display: flex; gap: 8px; align-items: flex-start; font-size: 13px; line-height: 1.4; min-width: 0; }
+.nf-told-ico { width: 20px; height: 20px; flex: none; border-radius: 6px; display: inline-flex; align-items: center; justify-content: center; background: var(--ok-soft); color: var(--ok); margin-top: 1px; }
+.nf-told-group li.flag .nf-told-ico { background: var(--warn-soft); color: var(--warn); }
+.nf-told-label { display: block; color: var(--dim); font-size: 11.5px; }
+.nf-told-value { display: block; color: var(--ink); font-weight: 500; overflow-wrap: anywhere; }
+.nf-told-group li.flag .nf-told-value { font-weight: 600; }
+.nf-told-flagword { font-size: 10.5px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--warn); margin-left: 4px; }
+.nf-told-note { display: block; font-size: 11.5px; color: var(--dim); }
+.nf-told-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.nf-told-all { padding-top: 12px; border-top: 1px solid var(--border); }
+.nf-tick { font: inherit; display: inline-flex; align-items: center; gap: 10px; min-height: 48px; padding: 6px 16px 6px 8px; border-radius: 12px; border: 1.5px solid var(--accent); background: var(--surface); color: var(--ink); font-size: 14px; font-weight: 600; cursor: pointer; }
+.nf-tick:disabled { opacity: .55; cursor: not-allowed; }
+.nf-tick:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.nf-tick-box { width: 28px; height: 28px; flex: none; border-radius: 8px; border: 2px solid var(--border-strong); display: inline-flex; align-items: center; justify-content: center; color: var(--on-accent); }
+.nf-tick.on { border-color: transparent; background: var(--ok-soft); }
+.nf-tick.on .nf-tick-box { background: var(--ok); border-color: transparent; }
+
+/* one point-of-care reading */
+.nf-reading { padding: 14px; border-radius: 14px; border: 1px solid var(--border); background: var(--surface-faint); display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.nf-reading-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.nf-reading-title { font-size: 15px; font-weight: 600; color: var(--ink); margin-right: auto; }
+
+/* results status on a completed appointment */
+.np-results { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; padding: 14px 16px; border-radius: 16px; border: 1px solid var(--border); background: var(--surface); }
+.np-results.ready { border-color: var(--accent-line); background: var(--accent-faint); }
+.np-results-title { font-size: 15px; font-weight: 600; color: var(--ink); }
