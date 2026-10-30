@@ -13,6 +13,7 @@ import {
 import { reviewStats, reviewQueue, batchStats, episodeHeldByRow, openFollowUps, QRISK3 } from "./selectors/clinical";
 import { agentEvents, failedReminders, reminderStats } from "./selectors/ops";
 import { employerMetrics } from "./selectors/reporting";
+import { SALES_HOME_PROMPTS, salesAnswer, salesBriefingLine, salesHomeFor } from "./salesHome";
 
 export interface AnswerAction { label: string; target?: NavTarget; ask?: string; primary?: boolean }
 export interface Answer {
@@ -74,6 +75,7 @@ export function briefingText(state: PhState): string {
     ].join(" ");
   }
   if (p.role === "programme_oversight") {
+    if (salesHomeFor(state)) return [`${g}, ${first}.`, salesBriefingLine(state), `There ${D.booked === 1 ? "is" : "are"} ${plural(D.booked, "appointment")} across ${word(sess)} ${sess === 1 ? "clinic" : "clinics"} today. ${ibmLine}`].join(" ");
     const draft = state.invitationDrafts.find((d) => d.programmeId === "PRG-IBM-26" && d.status === "pending_approval");
     const er = state.employerReports.find((r) => r.id === "ER-SISK-01");
     return [
@@ -116,6 +118,7 @@ export function suggestedPrompts(state: PhState): string[] {
   const p = persona(state);
   const quar = state.importRows.filter((r) => r.state === "quarantined").length;
   const aged = reviewStats(state).aged;
+  if (salesHomeFor(state)) return SALES_HOME_PROMPTS.slice();
   const out = ["What needs my attention before today's clinics?"];
   if (p.perms.has("imports.view")) out.push(quar ? `Show the ${word(quar)} lab import ${quar === 1 ? "exception" : "exceptions"}.` : "Show the lab import batch.");
   if (p.perms.has("clinical.view") && p.perms.has("clinical.review")) out.push(aged ? `Why ${aged === 1 ? "is" : "are"} ${word(aged)} ${aged === 1 ? "report" : "reports"} waiting over 48 hours?` : "How is the review queue?");
@@ -168,6 +171,8 @@ export function answerQuery(state: PhState, q: string): Answer {
   const I = ix(state);
   // Staff answers are not part of the participant preview, which shows own released data only.
   if (p.isParticipant) return { scenario: "restricted", supported: true, tool: "pulse_scope", effect: "read", text: "Staff answers are not available in the participant preview. Your own appointments and released reports are in the portal.", actions: [] };
+  const sales = sc === "briefing" ? null : salesAnswer(state, q);
+  if (sales) return sales;
   if (!sc) {
     const people = personLookup(state, q);
     if (people.length === 1) {
@@ -202,7 +207,7 @@ export function answerQuery(state: PhState, q: string): Answer {
     case "aged": {
       const rv = reviewStats(state);
       if (!p.perms.has("clinical.review") && !p.perms.has("clinical.view")) {
-        return { scenario: sc, supported: true, tool: "pulse_queues", effect: "read", text: `${plural(rv.ready, "report")} ${rv.ready === 1 ? "is" : "are"} ready for clinician review, ${rv.aged} waiting over 48 hours. Individual report content and the review queue are limited to clinical roles.`, actions: [{ label: "Open Dashboard", target: { page: "Dashboard", tab: "executive" } }] };
+        return { scenario: sc, supported: true, tool: "pulse_queues", effect: "read", text: `${plural(rv.ready, "report")} ${rv.ready === 1 ? "is" : "are"} ready for clinician review, ${rv.aged} waiting over 48 hours. Individual report content and the review queue are limited to clinical roles.`, actions: [{ label: "Open Dashboard", target: { page: "Dashboard", tab: "operations" } }] };
       }
       const aged = reviewQueue(state).filter((i) => i.aged);
       const oldest = aged.length ? localDateOf(aged[0].readyAt) : null;
@@ -213,7 +218,7 @@ export function answerQuery(state: PhState, q: string): Answer {
         scenario: sc, supported: true, tool: "pulse_review_queue", effect: "read", text,
         cols: ["Episode", "Programme", "Ready", "Review"],
         rows: aged.map((i) => [i.episode.id, i.programme.code, fmtDayMonth(i.readyAt), i.flagged ? "Review required" : "Routine"]),
-        actions: [{ label: "Open review queue", target: { page: "Results", tab: "review" }, primary: true }, { label: "Open Dashboard, Clinical delivery", target: { page: "Dashboard", tab: "clinical-delivery" } }],
+        actions: [{ label: "Open review queue", target: { page: "Results", tab: "review" }, primary: true }, { label: "Open Dashboard, Operations", target: { page: "Dashboard", tab: "operations" } }],
       };
     }
     case "capacity": {
@@ -319,9 +324,14 @@ export function agentState(state: PhState, id: AgentId): "working" | "thinking" 
 }
 
 export function agentPreview(state: PhState, id: AgentId): string {
+  return sentenceCase(agentPreviewRaw(state, id));
+}
+/** Capitalise the first letter of each sentence. */
+const sentenceCase = (t: string) => t.replace(/(^|[.!?]\s+)([a-z])/g, (_m, a: string, b: string) => a + b.toUpperCase());
+function agentPreviewRaw(state: PhState, id: AgentId): string {
   const r = reminderStats(state);
   switch (id) {
-    case "briefing": return "monday briefing ready, linked to every queue.";
+    case "briefing": return "Monday briefing ready, linked to every queue.";
     case "watchdog": return r.failed ? `${plural(r.failed, "reminder")} failed delivery. task opened.` : "all reminders delivered.";
     case "booking": { const n = programmeCounts(state, "PRG-IBM-26").drafts; return `${plural(n, "invitee")} in progress. list drafted, nothing sent.`; }
     case "lab": { const q = state.importRows.filter((x) => x.state === "quarantined").length; return q ? `${plural(q, "row")} held. no row matched automatically.` : "all rows resolved by a person."; }

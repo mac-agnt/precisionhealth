@@ -20,6 +20,7 @@ export * from "./screeningDays";
 export * from "./calendar";
 export * from "./selectors";
 export * from "./ai";
+export * from "./salesHome";
 export * from "./automations";
 export * from "./portalAdmin";
 export * from "./onboarding";
