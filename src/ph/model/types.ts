@@ -1051,6 +1051,8 @@ export interface PhState {
   labCsv: import("./labCsv").LabCsvState;
   /** Stephen's sales workflow: first-touch clock, first reply, meeting notes, deal instructions, follow ups. */
   salesFlow: import("./salesFlow").SalesFlowState;
+  /** Stephen's sales desk: deal contacts, targets, Today list, sequence templates, closed deals history. */
+  salesDesk: import("./salesDesk").SalesDeskState;
   /** Screening day setup (Clinics, Screening days): drafts and published days, each backed by a clinic session. */
   screeningDays: import("./screeningDays").ScreeningDaysState;
   /** Client onboarding and retention (Sales, Onboarding and Retention). */

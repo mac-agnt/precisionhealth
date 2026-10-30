@@ -504,10 +504,36 @@ export interface SalesFollowSequence {
 }
 
 export const salesSequenceKey = (p: SalesProposal, v: SalesProposalVersion) => `${p.id}-v${v.version}`;
-/** Weekly from the day the proposal went out: weeks 1 to 4. */
-export function salesFollowDueDates(sentAt: Iso): LocalDate[] {
+/** Weekly from the day the proposal went out: weeks 1 to 4, or the waits of an edited template. */
+export function salesFollowDueDates(sentAt: Iso, waits: number[] = [7, 7, 7, 7]): LocalDate[] {
   const d = localDateOf(sentAt);
-  return [1, 2, 3, 4].map((w) => addDays(d, 7 * w));
+  let total = 0;
+  return waits.map((w) => { total += Math.max(1, Math.round(w)); return addDays(d, total); });
+}
+
+/* ---- the follow-up template Stephen can edit (Sales, Sequences). The default reads exactly like
+   the built-in weekly emails below, so an untouched template changes nothing. */
+export interface SalesSeqStep { wait: number; subject: string; body: string }
+export interface SalesSeqTemplate { steps: SalesSeqStep[]; updatedAt: Iso | null; updatedBy: string | null }
+export const SALES_SEQ_MERGE_FIELDS: Array<{ key: string; label: string }> = [
+  { key: "first", label: "Contact first name" }, { key: "company", label: "Company" }, { key: "proposal", label: "Proposal number" }, { key: "signature", label: "Your signature" },
+];
+const SEQ_SIGN = "Kind regards,\nStephen Kelly\nSales and Operations Director, Precision Health";
+export const SALES_SEQ_DEFAULT: SalesSeqStep[] = [
+  { wait: 7, subject: "Your Precision Health proposal", body: "Hi {first},\n\nI hope the week is going well. I just wanted to check that the proposal ({proposal}) reached you and that it all makes sense. I am happy to walk through it on a short call if that helps.\n\n{signature}" },
+  { wait: 7, subject: "Any questions on the proposal?", body: "Hi {first},\n\nA quick note in case any questions have come up on the package, the dates or the numbers for {company}. If anything needs changing, I can send an updated version the same day.\n\n{signature}" },
+  { wait: 7, subject: "Holding dates for {company}", body: "Hi {first},\n\nOur nurses' diary is filling up for the coming weeks. If you would like me to pencil in provisional dates for {company} while you decide, just let me know and I will hold them without any commitment.\n\n{signature}" },
+  { wait: 7, subject: "Checking in", body: "Hi {first},\n\nI do not want to fill your inbox, so this is my last note for now. If the timing is not right, no problem at all; just tell me when suits and I will get back in touch then.\n\n{signature}" },
+];
+/** Fills {first}, {company}, {proposal} and {signature}. Unknown fields are left as typed. */
+export function salesSeqMerge(text: string, v: { first: string; company: string; proposal: string; signature?: string }): string {
+  const m: Record<string, string> = { first: v.first, company: v.company, proposal: v.proposal, signature: v.signature || SEQ_SIGN };
+  return text.replace(/\{([a-z_]+)\}/g, (all, k: string) => (k in m ? m[k] : all));
+}
+/** The template in use: the edited one when there is one, else the default. */
+export function salesSeqSteps(state: PhState): SalesSeqStep[] {
+  const t = (state as { salesDesk?: { follow?: SalesSeqTemplate } }).salesDesk?.follow;
+  return t && t.steps.length ? t.steps : SALES_SEQ_DEFAULT;
 }
 
 export function salesFollowText(lead: SalesLead, n: number, proposalId: string): { subject: string; body: string } {
@@ -535,10 +561,13 @@ export function salesFollowSequence(state: PhState, leadId: string): SalesFollow
   const st = state.salesFlow?.sequences[key] || { paused: false, steps: {} };
   const today = localDateOf(state.clock.nowUtc);
   const stopped = lead.stage === "won" ? "won" : lead.stage === "lost" ? "lost" : pick.v.status === "accepted" ? "won" : pick.v.status === "declined" ? "lost" : null;
-  const steps: SalesFollowStep[] = salesFollowDueDates(pick.v.sentAt!).map((due, i) => {
+  const tpl = salesSeqSteps(state);
+  const first = lead.contact.name.split(" ")[0] || "there";
+  const steps: SalesFollowStep[] = salesFollowDueDates(pick.v.sentAt!, tpl.map((x) => x.wait)).map((due, i) => {
     const n = i + 1;
     const done = st.steps[String(n)];
-    const txt = salesFollowText(lead, n, pick!.p.id);
+    const vals = { first, company: lead.company, proposal: pick!.p.id };
+    const txt = { subject: salesSeqMerge(tpl[i].subject, vals), body: salesSeqMerge(tpl[i].body, vals) };
     const status: SalesFollowStep["status"] = done ? done.status : stopped ? "stopped" : due <= today ? "due" : "scheduled";
     return { n, due, subject: txt.subject, body: txt.body, status, at: done ? done.at : null };
   });

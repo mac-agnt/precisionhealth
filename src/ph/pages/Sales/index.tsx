@@ -15,7 +15,16 @@ import { LostReasonModal, NewLeadModal, createProgrammeTask } from "./LeadForms"
 import type { LeadPrefill } from "./LeadForms";
 import { PaymentPill, ProposalStatusPill, ServiceTags, SourceTag, StagePill, ViewOnly, useSalesRights } from "./shared";
 
-import Crm from "./Crm";
+import PipelineBoard from "./Pipeline";
+import DealRoom from "./DealRoom";
+import Today from "./Today";
+import Forecast from "./Forecast";
+import Sequences from "./Sequences";
+import FollowUps from "./FollowUps";
+import Expiring from "./Expiring";
+import { useNav } from "../../nav-context";
+import { getState } from "../../store";
+import { registerTabDefault } from "../../model";
 import ProposalDoc from "./ProposalDoc";
 import PriceCatalog from "./PriceCatalog";
 import Onboarding from "./Onboarding";
@@ -23,8 +32,12 @@ import Retention from "./Retention";
 import Tenders from "./Tenders";
 import { IlhIntake } from "./IlhIntake";
 
+/* Stephen starts his sales day on Today. Everyone else opens the pipeline. */
+registerTabDefault("Sales", () => (getState().session.personaId === "stephen" ? "today" : undefined));
+
 export default function Sales({ tab }: { tab: string }) {
   const p = usePersona();
+  const nav = useNav();
   if (p.isParticipant) {
     return (
       <div className="ph-page">
@@ -40,7 +53,12 @@ export default function Sales({ tab }: { tab: string }) {
     case "recall": return <Retention />;
     case "partners": return <IrishLife />;
     case "tenders": return <Tenders />;
-    default: return <Crm />;
+    case "today": return <Today />;
+    case "forecast": return <Forecast />;
+    case "sequences": return <Sequences />;
+    case "follow-ups": return <FollowUps />;
+    case "expiring": return <Expiring />;
+    default: return nav.params.lead ? <DealRoom key={nav.params.lead} leadId={nav.params.lead} /> : <PipelineBoard />;
   }
 }
 

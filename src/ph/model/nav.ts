@@ -23,8 +23,9 @@ export const PAGES: PageDef[] = [
   { id: "Dashboard", label: "Dashboard", icon: "navDash", hint: "Sales and operations", tabs: [
     { id: "sales", label: "Sales" }, { id: "operations", label: "Control panel" }, { id: "executive", label: "Executive" }] },
   { id: "Sales", section: "Sell", label: "Sales", icon: "navSales", hint: "Leads, proposals, onboarding, retention", tabs: [
-    { id: "pipeline", label: "Pipeline" }, { id: "proposals", label: "Proposals" }, { id: "price-list", label: "Price list" }, { id: "onboarding", label: "Onboarding" },
-    { id: "recall", label: "Retention" }, { id: "partners", label: "Irish Life Health" }, { id: "tenders", label: "Tenders" }] },
+    { id: "pipeline", label: "Pipeline" }, { id: "today", label: "Today" }, { id: "follow-ups", label: "Follow-ups" }, { id: "expiring", label: "Expiring soon" }, { id: "sequences", label: "Sequences" },
+    { id: "proposals", label: "Proposals" }, { id: "forecast", label: "Forecast" },
+    { id: "onboarding", label: "Onboarding" }, { id: "recall", label: "Retention" }, { id: "tenders", label: "Tenders" }, { id: "partners", label: "Irish Life Health" }, { id: "price-list", label: "Price list" }] },
   { id: "Programmes", section: "Deliver screening", label: "Programmes", icon: "navProgrammes", hint: "Screening programmes", tabs: [
     { id: "overview", label: "Overview" }, { id: "programmes", label: "All programmes" }, { id: "invitations", label: "Invitations" }, { id: "forms-templates", label: "Forms and templates" }] },
   { id: "Clinics", section: "Deliver screening", label: "Clinics", icon: "navClinics", hint: "Capacity and sessions", tabs: [
@@ -66,6 +67,40 @@ export function railPagesFor(personaId: string): PageId[] | null {
   return PERSONA_PAGES[personaId] || null;
 }
 
+/* A rail entry can open a page on a given tab, so a person's whole rail can be their own work.
+   Stephen's rail is all sales: the Sales tabs sit in it as their own items under "Sell". Home and
+   Agents always come first (CLAUDE.md); PulseLogic enforces that again when it builds the rail. */
+export interface RailEntry { page: PageId; tab?: string; label: string; icon: string; section?: string }
+export const PERSONA_RAIL: Record<string, RailEntry[]> = {
+  stephen: [
+    { page: "Home", label: "Home", icon: "helios" },
+    { page: "Agents", label: "Agents", icon: "navAgents" },
+    { page: "Calendar", label: "Calendar", icon: "navCalendar" },
+    { page: "Clients", label: "Clients", icon: "navClients" },
+    { page: "Dashboard", label: "Dashboard", icon: "navDash" },
+    { page: "Sales", tab: "today", label: "Today", icon: "bell", section: "Work" },
+    { page: "Sales", tab: "follow-ups", label: "Follow-ups", icon: "inbox", section: "Work" },
+    { page: "Sales", tab: "expiring", label: "Expiring soon", icon: "visits", section: "Work" },
+    { page: "Sales", tab: "sequences", label: "Sequences", icon: "autos", section: "Work" },
+    { page: "Sales", tab: "pipeline", label: "Pipeline", icon: "navSales", section: "Deals" },
+    { page: "Sales", tab: "proposals", label: "Proposals", icon: "records", section: "Deals" },
+    { page: "Sales", tab: "forecast", label: "Forecast", icon: "insights", section: "Deals" },
+    { page: "Sales", tab: "onboarding", label: "Onboarding", icon: "approvals", section: "Clients" },
+    { page: "Sales", tab: "recall", label: "Retention", icon: "health", section: "Clients" },
+    { page: "Sales", tab: "partners", label: "Irish Life Health", icon: "orgs", section: "Clients" },
+    { page: "Sales", tab: "tenders", label: "Tenders", icon: "files", section: "Reference" },
+    { page: "Sales", tab: "price-list", label: "Price list", icon: "tree", section: "Reference" },
+  ],
+};
+export function railEntriesFor(personaId: string): RailEntry[] | null {
+  return PERSONA_RAIL[personaId] || null;
+}
+/** The visible tab a rail entry or tab strip should highlight: hidden tabs light up the tab they sit under. */
+export function visibleTab(page: PageId, tab: string | undefined): string | undefined {
+  const t = PAGE_BY_ID[page]?.tabs.find((x) => x.id === tab);
+  return t?.hidden && t.under ? t.under : tab;
+}
+
 export function sectionOf(page: PageId): string {
   return PAGE_BY_ID[page]?.section || "";
 }
@@ -87,7 +122,7 @@ export interface NavTarget {
 const TAB_ALIASES: Partial<Record<PageId, Record<string, string>>> = {
   Dashboard: { "clinic-operations": "operations", "clinical-delivery": "operations" },
   /* #/Sales/retention opens the Retention tab (its id stays "recall"). */
-  Sales: { retention: "recall" },
+  Sales: { retention: "recall", followups: "follow-ups", "expiring-soon": "expiring", renewals: "expiring" },
 };
 /* A page can choose its own default tab, for example by who is signed in. Registered by the page module. */
 const TAB_DEFAULTS: Partial<Record<PageId, () => string | undefined>> = {};

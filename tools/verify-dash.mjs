@@ -64,10 +64,10 @@ try {
   const pipe = D.pipelineByStage(s);
   eq("pipeline stages", pipe.map((r) => r.stage), ["new", "proposal_sent", "won", "lost"]);
   eq("pipeline counts add up to every lead", pipe.reduce((n, r) => n + r.count, 0), s.sales.leads.length);
-  check("proposal stage has value", pipe[1].count === 4 && pipe[1].value > 0, JSON.stringify(pipe[1]));
+  check("proposal stage has value", pipe[1].count === 5 /* LD-0022 Shannonside Software added by the sales desk seed */ && pipe[1].value > 0, JSON.stringify(pipe[1]));
   const N = D.salesNeeds(s);
   eq("needs: inbound waiting", N.inbound.map((x) => x.lead.id), [M.SALES_INBOUND_LEAD_ID]);
-  eq("needs: proposals waiting", N.proposals.map((x) => x.lead.id).sort(), ["LD-0009", "LD-0010", "LD-0011", "LD-0012"]);
+  eq("needs: proposals waiting", N.proposals.map((x) => x.lead.id).sort(), ["LD-0009", "LD-0010", "LD-0011", "LD-0012", "LD-0022"]);
   check("needs: follow-ups this week counted from the sequences", N.followUpsThisWeek >= 1 && N.followUpsThisWeek <= N.proposals.length, String(N.followUpsThisWeek));
   check("needs: next steps are new leads only", N.actions.length > 0 && N.actions.every((a) => a.lead.stage === "new" && a.lead.id !== M.SALES_INBOUND_LEAD_ID));
   eq("needs: stuck onboardings", N.stuck.map((x) => [x.o.id, x.step]).sort(), [["ONB-001", "agreements"], ["ONB-002", "team"]]);
