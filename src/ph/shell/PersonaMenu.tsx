@@ -23,7 +23,9 @@ export function PersonaMenu({ compact }: { compact?: boolean }) {
   const ref = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const p = usePersona();
-  const staff = usePh((s) => s.staff);
+  /* Only the two accounts that sign in for the demo: Dr Neil Reddy and Stephen Kelly. */
+  const allStaff = usePh((s) => s.staff);
+  const staff = allStaff.filter((s) => s.id === "neil" || s.id === "stephen");
   const nav = useNav();
   useEffect(() => {
     if (!open) return;
@@ -61,7 +63,7 @@ export function PersonaMenu({ compact }: { compact?: boolean }) {
       </button>
       {open && host ? createPortal(
         <div ref={menuRef} role="menu" className="ph-card" style={{ position: "fixed", top: pos.top, right: pos.right, width: "min(330px, calc(100vw - 16px))", maxHeight: `calc(100vh - ${pos.top + 12}px)`, overflowY: "auto", zIndex: 90, padding: 8, background: "var(--overlay)", boxShadow: "0 24px 70px rgba(0,0,0,.5)", animation: "popIn .22s var(--ease) both" }}>
-          <div className="ph-eyebrow" style={{ padding: "8px 10px 6px" }}>Preview role</div>
+          <div className="ph-eyebrow" style={{ padding: "8px 10px 6px" }}>Signed in as</div>
           {staff.map((s) => (
             <button key={s.id} type="button" role="menuitemradio" aria-checked={p.id === s.id} className="ph-row"
               onClick={() => { dispatch(act.setPersona(s.id)); setOpen(false); }}
