@@ -272,3 +272,23 @@ nav{scrollbar-width:none}
 @keyframes fadeOutUp{to{opacity:0;transform:translateY(-6px)}}
 @keyframes rowIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
 @keyframes tickPulse{0%,55%{opacity:1}78%,100%{opacity:.22}}
+
+/* ── Result band colours ─────────────────────────────────────────────────────
+   One set for every place a result band is drawn (pills, bars, markers, legends): the clinician
+   viewer, Results review, the nurse portal, the participant report and Health Screening.
+   Muted to sit with the teal theme: green normal, amber borderline, orange-red abnormal,
+   red critical, grey not tested. Each has an ink colour that stays readable on the fill. */
+:root, [data-theme]{
+  --band-normal:#4FAE7E;--band-normal-ink:#062417;
+  --band-borderline:#E2A83E;--band-borderline-ink:#2E1C00;
+  --band-abnormal:#E2683F;--band-abnormal-ink:#2B0C02;
+  --band-critical:#E0464E;--band-critical-ink:#FFFFFF;
+  --band-none:#8C9693;--band-none-ink:#151918;
+}
+:is([data-theme="light"],[data-theme="mist"],[data-theme="sand"],[data-theme="warm"]){
+  --band-normal:#3C9A6B;--band-normal-ink:#FFFFFF;
+  --band-borderline:#D9962A;--band-borderline-ink:#2A1900;
+  --band-abnormal:#D4552C;--band-abnormal-ink:#FFFFFF;
+  --band-critical:#C3323B;--band-critical-ink:#FFFFFF;
+  --band-none:#B4BCB9;--band-none-ink:#1E2422;
+}

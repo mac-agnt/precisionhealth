@@ -118,7 +118,7 @@ export default function PulseAssistant() {
   useEffect(() => { if (open) window.setTimeout(() => input.current?.focus(), 30); }, [open]);
   useEffect(() => setSel(0), [q]);
 
-  const fab: CSSProperties = { position: "fixed", right: 24, bottom: 24, zIndex: 60, width: 56, height: 56, borderRadius: 18, border: "1px solid var(--accent-line, transparent)", background: "var(--accent-fill, var(--accent))", color: "var(--on-accent, #fff)", boxShadow: "0 14px 34px rgba(0,0,0,.3)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" };
+  const fab: CSSProperties = { position: "fixed", right: 26, bottom: 18, zIndex: 60, width: 48, height: 48, borderRadius: 16, border: "1px solid var(--accent-line, transparent)", background: "var(--accent-fill, var(--accent))", color: "var(--on-accent, #fff)", boxShadow: "0 14px 34px rgba(0,0,0,.3)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" };
   return (
     <>
       <style>{CSS}</style>
@@ -170,7 +170,7 @@ const CSS = `
 .pa-fab { transition: transform .2s ease, box-shadow .2s ease; }
 .pa-fab:hover { transform: translateY(-2px); box-shadow: 0 18px 40px rgba(0,0,0,.36); }
 .pa-fab:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
-.pa-panel { position: fixed; right: 24px; bottom: 92px; z-index: 61; width: min(420px, calc(100vw - 32px)); max-height: min(560px, calc(100vh - 120px)); display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--border); border-radius: 18px; box-shadow: 0 30px 72px rgba(0,0,0,.28); overflow: hidden; animation: paIn .25s cubic-bezier(.16,1,.3,1) both; }
+.pa-panel { position: fixed; right: 24px; bottom: 78px; z-index: 61; width: min(420px, calc(100vw - 32px)); max-height: min(560px, calc(100vh - 120px)); display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--border); border-radius: 18px; box-shadow: 0 30px 72px rgba(0,0,0,.28); overflow: hidden; animation: paIn .25s cubic-bezier(.16,1,.3,1) both; }
 @keyframes paIn { from { opacity: 0; transform: translateY(10px) scale(.98); } to { opacity: 1; transform: none; } }
 .pa-head { display: flex; align-items: center; gap: 10px; padding: 14px 14px 10px; }
 .pa-logo { width: 32px; height: 32px; border-radius: 10px; background: var(--accent-soft); color: var(--accent); display: flex; align-items: center; justify-content: center; flex: none; }

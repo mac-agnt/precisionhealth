@@ -27,7 +27,7 @@ export function StagePill({ stage }: { stage: SalesStage }) {
 
 const PROPOSAL_LOOK: Record<SalesProposalStatus, { tone: Tone; icon: GlyphName }> = {
   draft: { tone: "neutral", icon: "edit" },
-  sent: { tone: "warn", icon: "send" },
+  sent: { tone: "info", icon: "send" },
   accepted: { tone: "ok", icon: "check" },
   declined: { tone: "bad", icon: "x" },
 };

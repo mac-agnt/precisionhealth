@@ -62,7 +62,7 @@ export function RangesCard({ ep, v }: { ep: Episode; v: ReportVersion }) {
         {(["normal", "borderline", "abnormal"] as const).map((b) => (
           <li key={b}>
             <span aria-hidden="true" style={{ width: 12, height: 12, borderRadius: 3, background: BAND_LOOK[b].fill, flex: "none", marginTop: 3 }} />
-            <span>{b === "normal" ? "Green: in the healthy range." : b === "borderline" ? "Yellow: just outside the range. Worth talking about with your GP." : "Orange: outside the range. Your doctor's advice says what to do next."}</span>
+            <span>{b === "normal" ? "Green: in the healthy range." : b === "borderline" ? "Amber: just outside the range. Worth talking about with your GP." : "Orange: outside the range. Your doctor's advice says what to do next."}</span>
           </li>
         ))}
       </ul>

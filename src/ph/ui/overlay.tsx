@@ -67,26 +67,29 @@ export function Modal({ open, onClose, title, children, footer, width }: { open:
   );
 }
 
-/** Mounted once in the app shell. Toasts come from dispatch() results. */
+/** Mounted once in the app shell. Toasts come from dispatch() results. At most two show,
+    top centre under the top bar (clear of dialog and drawer footers), and each one leaves
+    on its own after about three and a half seconds. */
 export function ToastHost() {
   const toasts = usePh((s) => s.toasts);
-  useEffect(() => {
-    if (!toasts.length) return;
-    const t = setTimeout(() => dispatch(act.dismissToast(toasts[0].id)), 5200);
-    return () => clearTimeout(t);
-  }, [toasts]);
   return (
     <div className="ph-toasts" aria-live="polite" role="status">
-      {toasts.map((t) => {
-        const tone = TONE[t.tone === "bad" ? "bad" : t.tone === "warn" ? "warn" : t.tone === "info" ? "info" : "ok"];
-        return (
-          <div key={t.id} className="ph-toast" style={{ borderLeft: `3px solid ${tone.fg}` }}>
-            <Icon name={tone.icon} size={15} stroke={2} style={{ color: tone.fg, marginTop: 1 }} />
-            <span style={{ flex: 1 }}>{t.text}</span>
-            <button type="button" className="ph-btn ph-btn-ghost ph-btn-icon ph-btn-sm" style={{ width: 22, height: 22 }} onClick={() => dispatch(act.dismissToast(t.id))} aria-label="Dismiss"><Icon name="x" size={12} /></button>
-          </div>
-        );
-      })}
+      {toasts.slice(-2).map((t) => <ToastItem key={t.id} t={t} />)}
+    </div>
+  );
+}
+
+function ToastItem({ t }: { t: { id: number; tone: string; text: string } }) {
+  useEffect(() => {
+    const h = setTimeout(() => dispatch(act.dismissToast(t.id)), 3500);
+    return () => clearTimeout(h);
+  }, [t.id]);
+  const tone = TONE[t.tone === "bad" ? "bad" : t.tone === "warn" ? "warn" : t.tone === "info" ? "info" : "ok"];
+  return (
+    <div className="ph-toast" style={{ borderLeft: `3px solid ${tone.fg}` }}>
+      <Icon name={tone.icon} size={15} stroke={2} style={{ color: tone.fg, marginTop: 1 }} />
+      <span style={{ flex: 1 }}>{t.text}</span>
+      <button type="button" className="ph-btn ph-btn-ghost ph-btn-icon ph-btn-sm" style={{ width: 22, height: 22 }} onClick={() => dispatch(act.dismissToast(t.id))} aria-label="Dismiss"><Icon name="x" size={12} /></button>
     </div>
   );
 }

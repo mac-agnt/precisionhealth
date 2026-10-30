@@ -1,8 +1,7 @@
 /* Health Screening module. Band swatches reuse the clinician viewer's four colours (results.css):
    green normal, yellow mild, orange significant, grey not set, plus red for the clinical safety band.
    Status is always a word plus a colour, never colour alone. */
-.scr, .ph-drawer, .ph-modal { --b-normal: #62B83C; --b-mild: #E9C500; --b-sig: #FF8A1A; --b-crit: #E5484D; --b-na: #9AA0A6; }
-[data-theme="light"] .scr, [data-theme="warm"] .scr, [data-theme="mist"] .scr, .ph-drawer, .ph-modal { --b-normal: #4E9F2A; --b-mild: #E0B800; --b-sig: #EE7A00; --b-crit: #D93A3F; }
+.scr, .ph-drawer, .ph-modal { --b-normal: var(--band-normal); --b-mild: var(--band-borderline); --b-sig: var(--band-abnormal); --b-crit: var(--band-critical); --b-na: var(--band-none); }
 
 .scr-sw { display: inline-block; width: 10px; height: 10px; border-radius: 3px; flex: none; background: var(--b-na); }
 .scr-sw[data-k="normal"] { background: var(--b-normal); }

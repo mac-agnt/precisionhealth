@@ -19,8 +19,8 @@ export const PAGES: PageDef[] = [
     { id: "conversations", label: "Conversations" }, { id: "activity", label: "Activity" }] },
   { id: "Calendar", label: "Calendar", icon: "navCalendar", hint: "Everything with a date, in one place", tabs: [{ id: "all", label: "Everything" }] },
   { id: "Clients", label: "Clients", icon: "navClients", hint: "Every client, start to finish", tabs: [{ id: "journey", label: "Start to finish" }] },
-  { id: "Dashboard", label: "Dashboard", icon: "navDash", hint: "Executive, clinics, delivery", tabs: [
-    { id: "executive", label: "Executive" }, { id: "clinic-operations", label: "Clinic operations" }, { id: "clinical-delivery", label: "Clinical delivery" }] },
+  { id: "Dashboard", label: "Dashboard", icon: "navDash", hint: "Sales and operations", tabs: [
+    { id: "sales", label: "Sales" }, { id: "operations", label: "Operations" }, { id: "executive", label: "Executive" }] },
   { id: "Sales", section: "Sell", label: "Sales", icon: "navSales", hint: "Leads, proposals, onboarding, retention", tabs: [
     { id: "pipeline", label: "Pipeline" }, { id: "proposals", label: "Proposals" }, { id: "price-list", label: "Price list" }, { id: "onboarding", label: "Onboarding" },
     { id: "recall", label: "Retention" }, { id: "partners", label: "Irish Life Health" }, { id: "tenders", label: "Tenders" }] },
@@ -71,27 +71,42 @@ export interface NavTarget {
   params?: Record<string, string>;
 }
 
-export const defaultTab = (page: PageId): string | undefined => PAGE_BY_ID[page]?.tabs[0]?.id;
+/* Old tab ids that now open a different tab, so earlier deep links keep working. */
+const TAB_ALIASES: Partial<Record<PageId, Record<string, string>>> = {
+  Dashboard: { "clinic-operations": "operations", "clinical-delivery": "operations" },
+  /* #/Sales/retention opens the Retention tab (its id stays "recall"). */
+  Sales: { retention: "recall" },
+};
+/* A page can choose its own default tab, for example by who is signed in. Registered by the page module. */
+const TAB_DEFAULTS: Partial<Record<PageId, () => string | undefined>> = {};
+export function registerTabDefault(page: PageId, fn: () => string | undefined): void { TAB_DEFAULTS[page] = fn; }
+const hasTab = (page: PageId, tab: string | undefined) => !!tab && !!PAGE_BY_ID[page]?.tabs.some((t) => t.id === tab);
+export const defaultTab = (page: PageId): string | undefined => {
+  const d = TAB_DEFAULTS[page]?.();
+  return hasTab(page, d) ? d : PAGE_BY_ID[page]?.tabs[0]?.id;
+};
+/** The tab to show: the one asked for, its new id when it was renamed, or the page default. */
+export function resolveTab(page: PageId, tab: string | undefined): string | undefined {
+  if (hasTab(page, tab)) return tab;
+  const alias = tab ? TAB_ALIASES[page]?.[tab] : undefined;
+  return hasTab(page, alias) ? alias : defaultTab(page);
+}
 export function tabLabel(page: PageId, tab: string | undefined): string {
   return PAGE_BY_ID[page]?.tabs.find((t) => t.id === tab)?.label || "";
 }
 
 export function hashFor(t: NavTarget): string {
-  const tab = t.tab || defaultTab(t.page);
+  const tab = resolveTab(t.page, t.tab);
   const q = t.params ? Object.entries(t.params).filter(([, v]) => v !== undefined && v !== "").map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`).join("&") : "";
   return `#/${t.page}${tab ? "/" + tab : ""}${q ? "?" + q : ""}`;
 }
-
-/** Friendlier tab names that open an existing tab: #/Sales/retention opens the Retention tab (id "recall"). */
-const TAB_ALIAS: Record<string, string> = { "Sales/retention": "recall" };
 
 export function parseHash(hash: string): NavTarget | null {
   const m = /^#\/([A-Za-z]+)(?:\/([a-z0-9-]+))?(?:\?(.*))?$/.exec(hash || "");
   if (!m) return null;
   const page = m[1] as PageId;
   if (!PAGE_BY_ID[page]) return null;
-  const raw = m[2] && TAB_ALIAS[`${page}/${m[2]}`] || m[2];
-  const tab = raw && PAGE_BY_ID[page].tabs.some((t) => t.id === raw) ? raw : defaultTab(page);
+  const tab = resolveTab(page, m[2]);
   const params: Record<string, string> = {};
   if (m[3]) m[3].split("&").forEach((kv) => { const [k, v] = kv.split("="); if (k) params[decodeURIComponent(k)] = decodeURIComponent(v || ""); });
   return { page, tab, params };
