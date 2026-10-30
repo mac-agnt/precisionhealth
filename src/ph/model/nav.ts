@@ -55,6 +55,17 @@ export const PAGES: PageDef[] = [
 ];
 export const PAGE_BY_ID: Record<PageId, PageDef> = Object.fromEntries(PAGES.map((p) => [p.id, p])) as Record<PageId, PageDef>;
 /** The side-rail section a page sits in, for the page breadcrumb. Empty for pages above the first section. */
+/* What each signed-in person sees in the side rail. Stephen runs sales; Neil runs operations
+   (screening, flu, occupational health, the team). Other personas see everything. Pages stay
+   reachable by link either way, so hand-offs between the two still open. */
+export const PERSONA_PAGES: Record<string, PageId[]> = {
+  stephen: ["Home", "Agents", "Calendar", "Clients", "Dashboard", "Sales"],
+  neil: ["Home", "Agents", "Calendar", "Clients", "Dashboard", "Programmes", "Clinics", "Participants", "Portals", "Results", "Screening", "Flu", "OccHealth", "Reporting", "Work", "Records", "Activity", "Settings"],
+};
+export function railPagesFor(personaId: string): PageId[] | null {
+  return PERSONA_PAGES[personaId] || null;
+}
+
 export function sectionOf(page: PageId): string {
   return PAGE_BY_ID[page]?.section || "";
 }

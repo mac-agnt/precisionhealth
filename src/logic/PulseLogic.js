@@ -45,6 +45,7 @@ import {
   buildGraph
 } from "./data";
 import { phStore, dispatch as phDispatch } from "../ph/store";
+import { railPagesFor } from "../ph/model/nav";
 import { act as phAct, defaultTab, hashFor, navAttention, resolveTab } from "../ph/model";
 import { phContext, phOverrides, applyHash, phFileTree } from "./phBridge";
 import { answerQuery as phAnswer, agentReply as phAgentReply, agentSuggestions as phAgentSuggestions, toDublin as phToDublin } from "../ph/model";
@@ -1457,7 +1458,14 @@ export default class PulseLogic extends DCLogic {
         + "transform:translateX(" + (hov && !act ? "3px" : "0") + ");"
         + "transition:transform .5s cubic-bezier(.22,1.2,.36,1),font-weight .2s var(--ease)"
       : "display:none";
-    const nav = NAV.map((n, idx) => n.divider
+    /* Each person's rail shows their side of the business; dividers with nothing under them drop out. */
+    const allowed = railPagesFor(phStore.getState().session.personaId);
+    const NAV_SHOWN = allowed ? NAV.filter((n, i, all) => {
+      if (!n.divider) return allowed.indexOf(n.page) > -1;
+      for (let j = i + 1; j < all.length && !all[j].divider; j++) if (allowed.indexOf(all[j].page) > -1) return true;
+      return false;
+    }) : NAV;
+    const nav = NAV_SHOWN.map((n, idx) => n.divider
       ? {isDivider:true, isItem:false, label: railOpen ? (n.label || "") : ""}
       : {isItem:true, isDivider:false, label:n.label, hint: railOpen ? (n.hint || "") : "", d:ICONS[n.icon],
          dot: n.dot === true && this.phDot(n.page),
