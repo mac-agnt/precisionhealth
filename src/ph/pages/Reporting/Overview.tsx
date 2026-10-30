@@ -9,7 +9,7 @@ import {
 import type { EmployerReport, ProgrammeId } from "../../model";
 import { useNav } from "../../nav-context";
 import { usePhState } from "../../store";
-import { Button, Card, CardHeader, DataTable, DemoTag, EntityLink, Kpi, KpiStrip, PALETTE, PageHeader, Pill, Segmented, Split, Stacked } from "../../ui";
+import { Button, Card, CardHeader, DataTable, DemoTag, EntityLink, Icon, Kpi, KpiStrip, PALETTE, PageHeader, Pill, Segmented, Split, Stacked } from "../../ui";
 import type { Column } from "../../ui";
 import { newerReleasesSafe } from "./snapshot";
 import { Note, STATUS_LABEL, StatusPill } from "./common";
@@ -57,6 +57,13 @@ export default function Overview() {
       <PageHeader title="Employer reporting" sub="Programme reports built from released reports only, with disclosure control before anything reaches an employer."
         actions={<><DemoTag>Synthetic data</DemoTag>{sisk ? <Button variant="primary" icon="edit" onClick={() => open(sisk.id)}>Open Report Builder</Button> : null}</>} />
       <div className="ph-stack">
+        <div className="ph-card" style={{ display: "flex", alignItems: "center", gap: 14, padding: "14px 16px", borderStyle: "dashed" }}>
+          <span style={{ flex: "none", width: 36, height: 36, borderRadius: 11, display: "flex", alignItems: "center", justifyContent: "center", background: "var(--accent-soft)", color: "var(--accent)" }}><Icon name="chart" size={17} /></span>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ color: "var(--ink)", fontWeight: 600, fontSize: 13.5 }}>Finance reporting <Pill tone="neutral" style={{ marginLeft: 6 }}>Phase 2</Pill></div>
+            <div style={{ color: "var(--dim)", fontSize: 12, lineHeight: 1.45 }}>Reporting around money: revenue by client and service, invoices drafted and paid in Xero, and margin per clinic day. Stephen asked for this to come later; planned for phase 2.</div>
+          </div>
+        </div>
         <KpiStrip>
           <Kpi label="Employer reports" value={reports.length} sub={STATES.map((st) => `${count(st)} ${STATUS_LABEL[st].toLowerCase()}`).join(", ")} />
           <Kpi label="Sisk report-eligible cohort" value={siskEligible} sub={`released reports, of ${siskAttended} attended overall`} />

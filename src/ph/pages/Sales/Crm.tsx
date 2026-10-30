@@ -19,6 +19,7 @@ import type { CrmActivityKind } from "./crmActions";
 import { LostReasonModal, NewLeadModal } from "./LeadForms";
 import { FirstTouchNote, FollowUps, JourneyBar, LEAD_FLOW_CSS, NextStep, NotesEditor, TouchTimer, useMarkWon } from "./LeadFlow";
 import ProposalBuilder from "./ProposalBuilder";
+import { InvoicingCard } from "./InvoicingCard";
 import type { LeadPrefill } from "./LeadForms";
 import { STAGE_LOOK, StagePill, useSalesRights } from "./shared";
 
@@ -203,6 +204,7 @@ function LeadWorkspace({ v, onClose, onMove }: { v: SalesLeadView; onClose: () =
           <div><p className="crm-k">Qualifier</p><p className="crm-v">{L.qualifier.headcount ? `${L.qualifier.headcount} people` : "Headcount unknown"}{L.qualifier.sites ? `, ${L.qualifier.sites} site${L.qualifier.sites > 1 ? "s" : ""}` : ""}<br />{L.qualifier.dates || "Dates to confirm"}<br />Budget: {SALES_BUDGET_LABEL[L.qualifier.budget]}</p></div>
           <div><p className="crm-k">Next action</p><p className="crm-v"><NextAction v={v} /></p></div>
         </div>
+        <InvoicingCard key={L.id} lead={L} />
 
         <div className="ph-row-flex ph-wrap" style={{ gap: 8 }}>
           {rights.manage && !L.research ? <Button size="sm" icon="spark" onClick={() => dispatch(salesAct.research(L.id))}>Research with agent</Button> : null}

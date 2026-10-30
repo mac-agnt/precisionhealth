@@ -15,6 +15,7 @@ import { initialFluState } from "../flu";
 import { initialOccHealthState } from "../occHealth";
 import { initialOnboardingState } from "../onboarding";
 import { initialNurseOpsState } from "../nurseOps";
+import { initialGapsState } from "../gaps";
 import { initialAdviceLibraryState } from "../adviceLibrary";
 import { initialReferenceRangesState, setActiveRangeVersions } from "../referenceRangesData";
 import { initialLabCsvState } from "../labCsv";
@@ -99,6 +100,7 @@ export function createInitialState(): PhState {
     flu: initialFluState(),
     occHealth: initialOccHealthState(),
     nurseOps: initialNurseOpsState(),
+    gaps: initialGapsState(),
     adviceLibrary: initialAdviceLibraryState(),
     referenceRanges: ranges,
     labCsv: initialLabCsvState(),

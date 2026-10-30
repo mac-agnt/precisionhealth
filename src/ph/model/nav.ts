@@ -23,11 +23,11 @@ export const PAGES: PageDef[] = [
   { id: "Calendar", label: "Calendar", icon: "navCalendar", hint: "Everything with a date, in one place", tabs: [{ id: "all", label: "Everything" }] },
   { id: "Sales", label: "Sales", icon: "navSales", hint: "Leads, proposals, recall", tabs: [
     { id: "pipeline", label: "Pipeline" }, { id: "proposals", label: "Proposals" }, { id: "price-list", label: "Price list" }, { id: "onboarding", label: "Onboarding" },
-    { id: "recall", label: "Retention" }, { id: "partners", label: "Irish Life Health" }] },
+    { id: "recall", label: "Retention" }, { id: "partners", label: "Irish Life Health" }, { id: "tenders", label: "Tenders" }] },
   { id: "Programmes", label: "Programmes", icon: "navProgrammes", hint: "Screening programmes", tabs: [
     { id: "overview", label: "Overview" }, { id: "programmes", label: "Programmes" }, { id: "forms-templates", label: "Forms & Templates" }, { id: "invitations", label: "Invitations" }] },
   { id: "Clinics", label: "Clinics", icon: "navClinics", hint: "Capacity and sessions", tabs: [
-    { id: "overview", label: "Overview" }, { id: "days", label: "Screening days" }, { id: "schedule", label: "Schedule" }, { id: "appointments", label: "Appointments" }, { id: "team-resources", label: "Team & Resources" }] },
+    { id: "overview", label: "Overview" }, { id: "days", label: "Screening days" }, { id: "schedule", label: "Schedule" }, { id: "appointments", label: "Appointments" }, { id: "board", label: "Bookings board" }, { id: "end-of-day", label: "End of day" }, { id: "team-resources", label: "Team & Resources" }] },
   { id: "Participants", label: "Participants", icon: "navParticipants", hint: "People and messages", tabs: [
     { id: "directory", label: "Directory" }, { id: "screening-history", label: "Screening History" }, { id: "communications", label: "Communications" }, { id: "portal-admin", label: "Portal admin" }] },
   { id: "Results", label: "Results", icon: "navResults", hint: "Imports and review", tabs: [
@@ -38,7 +38,7 @@ export const PAGES: PageDef[] = [
   { id: "Reporting", label: "Reporting", icon: "navReporting", hint: "Employer reports", tabs: [
     { id: "overview", label: "Overview" }, { id: "report-builder", label: "Report Builder" }, { id: "exports", label: "Exports" }] },
   { id: "Flu", label: "Flu", icon: "navFlu", hint: "Flu clinics and vaccine stock", tabs: [
-    { id: "overview", label: "Overview" }, { id: "bookings", label: "Bookings by week" }, { id: "stock", label: "Vaccine stock" }, { id: "cold-chain", label: "Cold chain" }] },
+    { id: "overview", label: "Overview" }, { id: "bookings", label: "Bookings by week" }, { id: "stock", label: "Vaccine stock" }, { id: "cold-chain", label: "Cold chain" }, { id: "contacts", label: "Contacts & notes" }] },
   { id: "OccHealth", label: "Occupational Health", icon: "navOcc", hint: "OH clients, onboarding, Meddbase", tabs: [
     { id: "clients", label: "Clients & onboarding" }, { id: "questionnaires", label: "Questionnaires" }, { id: "sessions", label: "Meddbase sessions" }, { id: "agreements", label: "Agreements" }] },
   { id: "Work", label: "Work", icon: "navWork", hint: "Tasks and approvals", tabs: [

@@ -6,7 +6,8 @@ import {
   SALES_FAMILY_LABEL, SALES_ILH_REQUESTED_LABEL, SALES_PRICE_STATUS_LABEL, SALES_STAGES, SALES_STAGE_LABEL, SALES_UNIT_LABEL,
   fmtDate, salesEur, salesEurRange, salesLatestVersion, salesLeadViews, salesProposalTotals, salesVersionTotals, today,
 } from "../../model";
-import type { SalesStage } from "../../model";
+import type { SalesIlhBooking, SalesStage } from "../../model";
+import type { Column } from "../../ui";
 import { dispatch, usePersona, usePhState } from "../../store";
 import { Button, Card, CardHeader, DataTable, DemoTag, EmptyState, Kpi, KpiStrip, PageHeader, Pill, RestrictedNotice, Select } from "../../ui";
 import { salesAct } from "./actions";
@@ -19,6 +20,8 @@ import ProposalDoc from "./ProposalDoc";
 import PriceCatalog from "./PriceCatalog";
 import Onboarding from "./Onboarding";
 import Retention from "./Retention";
+import Tenders from "./Tenders";
+import { IlhIntake } from "./IlhIntake";
 
 export default function Sales({ tab }: { tab: string }) {
   const p = usePersona();
@@ -36,6 +39,7 @@ export default function Sales({ tab }: { tab: string }) {
     case "onboarding": return <Onboarding />;
     case "recall": return <Retention />;
     case "partners": return <IrishLife />;
+    case "tenders": return <Tenders />;
     default: return <Crm />;
   }
 }
@@ -156,27 +160,36 @@ function IrishLife() {
   const state = usePhState();
   const rights = useSalesRights();
   const rows = state.sales.ilh.filter((b) => !b.archived);
+  const pending = rows.filter((b) => b.group !== "lifestyle");
+  const weekly = rows.filter((b) => b.group === "lifestyle");
+  const columns: Column<SalesIlhBooking>[] = [
+    { key: "item", header: "Item", cell: (b) => <div><div style={{ color: "var(--ink)", fontWeight: 500 }}>{b.item}</div><div className="ph-faint" style={{ fontSize: 11 }}>{b.id}, from {b.intakeRef}</div></div> },
+    { key: "date", header: "Date screening", cell: (b) => `${fmtDate(b.date)}, ${b.start}` },
+    { key: "req", header: "Requested", cell: (b) => SALES_ILH_REQUESTED_LABEL[b.requested] },
+    { key: "loc", header: "Location", cell: (b) => `${b.location}, ${b.eircode}` },
+    { key: "inv", header: "Invoice", cell: (b) => b.invoice ? `${b.invoice.number}, ${salesEur(b.invoice.amount)}` : <span className="ph-faint">None</span> },
+    { key: "pay", header: "Payment status", cell: (b) => <PaymentPill status={b.payment} /> },
+    { key: "act", header: "", cell: (b) => !rights.ilh ? null : !b.screened ? (b.date <= today(state) ? <Button size="sm" onClick={() => dispatch(salesAct.ilhMarkScreened(b.id))}>Mark screened</Button> : null)
+      : !b.invoice ? <Button size="sm" icon="file" onClick={() => { const need = b.requested !== "poc3"; const v = need ? Number(window.prompt("Agreed amount in euro (rate not on the price list)", "") || "") : null; dispatch(salesAct.ilhDraftInvoice(b.id, v)); }}>Draft invoice in Xero (simulated)</Button>
+      : b.payment === "in_draft" ? <Button size="sm" onClick={() => dispatch(salesAct.ilhSetPayment(b.id, "awaiting_payment"))}>Mark sent from Xero</Button>
+      : b.payment === "awaiting_payment" ? <Button size="sm" icon="check" onClick={() => dispatch(salesAct.ilhSetPayment(b.id, "paid"))}>Mark paid</Button>
+      : <Button size="sm" onClick={() => dispatch(salesAct.ilhArchive(b.id))}>Archive</Button> },
+  ];
   return (
     <div className="ph-page">
       <PageHeader title="Irish Life Health" eyebrow="Confidential partner channel" sub="Current Screening Irish Life. The Irish Life relationship is confidential: do not share partner names, volumes or rates outside Precision Health. Corporate partners and invoices are fictional. Xero drafts are simulated and never sent." />
       <div className="ph-stack">
         {!rights.ilh ? <ViewOnly>View only. Stephen, Martina and Brenda update Irish Life bookings.</ViewOnly> : null}
+        <IlhIntake />
         <Card pad={false}>
-          <DataTable rows={rows} rowKey={(b) => b.id} caption="Irish Life bookings" minWidth={980}
-            empty={<EmptyState title="No bookings" />}
-            columns={[
-              { key: "item", header: "Item", cell: (b) => <div><div style={{ color: "var(--ink)", fontWeight: 500 }}>{b.item}</div><div className="ph-faint" style={{ fontSize: 11 }}>{b.id}, {b.group === "lifestyle" ? "Lifestyle Checkpoint (weekly)" : "Bookings pending 2026"}</div></div> },
-              { key: "date", header: "Date screening", cell: (b) => `${fmtDate(b.date)}, ${b.start}` },
-              { key: "req", header: "Requested", cell: (b) => SALES_ILH_REQUESTED_LABEL[b.requested] },
-              { key: "loc", header: "Location", cell: (b) => `${b.location}, ${b.eircode}` },
-              { key: "inv", header: "Invoice", cell: (b) => b.invoice ? `${b.invoice.number}, ${salesEur(b.invoice.amount)}` : <span className="ph-faint">None</span> },
-              { key: "pay", header: "Payment status", cell: (b) => <PaymentPill status={b.payment} /> },
-              { key: "act", header: "", cell: (b) => !rights.ilh ? null : !b.screened ? (b.date <= today(state) ? <Button size="sm" onClick={() => dispatch(salesAct.ilhMarkScreened(b.id))}>Mark screened</Button> : null)
-                : !b.invoice ? <Button size="sm" icon="file" onClick={() => { const need = b.requested !== "poc3"; const v = need ? Number(window.prompt("Agreed amount in euro (rate not on the price list)", "") || "") : null; dispatch(salesAct.ilhDraftInvoice(b.id, v)); }}>Draft invoice in Xero (simulated)</Button>
-                : b.payment === "in_draft" ? <Button size="sm" onClick={() => dispatch(salesAct.ilhSetPayment(b.id, "awaiting_payment"))}>Mark sent from Xero</Button>
-                : b.payment === "awaiting_payment" ? <Button size="sm" icon="check" onClick={() => dispatch(salesAct.ilhSetPayment(b.id, "paid"))}>Mark paid</Button>
-                : <Button size="sm" onClick={() => dispatch(salesAct.ilhArchive(b.id))}>Archive</Button> },
-            ]} />
+          <div style={{ padding: "16px 16px 4px" }}><CardHeader title="Bookings pending 2026" sub="Cancer screening, wellness talks and POC 3 days. After each screening, draft the invoice in Xero." /></div>
+          <DataTable rows={pending} rowKey={(b) => b.id} caption="Irish Life bookings" minWidth={980}
+            empty={<EmptyState title="No bookings" />} columns={columns} />
+        </Card>
+        <Card pad={false}>
+          <div style={{ padding: "16px 16px 4px" }}><CardHeader title="Lifestyle Checkpoint (weekly)" sub="A separate weekly group, as on the Monday board: one Lifestyle Check Point session each week." /></div>
+          <DataTable rows={weekly} rowKey={(b) => b.id} caption="Lifestyle Checkpoint weekly group" minWidth={980}
+            empty={<EmptyState title="No weekly sessions" />} columns={columns} />
         </Card>
       </div>
     </div>

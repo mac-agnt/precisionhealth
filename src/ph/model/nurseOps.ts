@@ -194,6 +194,8 @@ export interface SessionLogistics {
   screeningLink: string | null;
   /** Accommodation, when booked. A separate confirmation is sent. */
   accommodation: string | null;
+  /** Staff email column. Empty means the emails of the staff onsite (see gaps.ts boardStaffEmails). */
+  staffEmail?: string | null;
 }
 
 /** A booking that is on the board but not (yet) a Pulse clinic session, for example a bespoke client day. */

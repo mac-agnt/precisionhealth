@@ -151,6 +151,8 @@ export default function Retention() {
           {reminders.length > remShown.length || showAllRem ? <div className="rt-more"><Button size="sm" variant="ghost" onClick={() => setShowAllRem((v) => !v)}>{showAllRem ? "Show fewer" : `Show all ${reminders.length}, including sent`}</Button></div> : null}
         </Card>
 
+        <LapsedClients onPreview={setPreview} />
+
         {/* ---------------- client contacts ---------------- */}
         <Card>
           <div id="rt-contacts" />
@@ -204,8 +206,6 @@ export default function Retention() {
             ))}
           </div>
         </Card>
-
-        <LapsedClients />
       </div>
 
       {preview ? (
@@ -307,23 +307,31 @@ function TemplateEditor({ id, onClose }: { id: RetTemplateId; onClose: () => voi
 
 /* ---------------------------------------------------------------- lapsed clients */
 
-function LapsedClients() {
+function LapsedClients({ onPreview }: { onPreview: (p: Preview) => void }) {
   const state = usePhState();
   const rights = useSalesRights();
   const lapsed = salesRecalls(state).filter((r) => r.lapsed);
   if (!lapsed.length) return null;
+  const outreachFor = (id: string | null) => (id ? state.sales.outreach.find((o) => o.id === id) : undefined);
+  const show = (id: string | null) => { const o = outreachFor(id); if (o) onPreview({ to: `${o.to} <${o.toEmail}>`, subject: o.subject, body: o.body }); };
+  const reach = (recallId: string) => { const r = dispatch(salesAct.draftOutreach(recallId, "lapsed")); if (r.ok && r.id) show(r.id); };
   return (
     <Card>
-      <CardHeader title="Lapsed clients" sub="No screening in over 13 months and nothing in the pipeline. Worth a personal call." />
+      <div id="rt-lapsed" />
+      <CardHeader title={`Lapsed clients (${lapsed.length})`} sub="The Lapsed Clients board: no screening in over 13 months and nothing in the pipeline. Reach out with a personal win-back email." />
       <div className="rt-list">
         {lapsed.map((r) => (
           <div key={r.id} className="rt-item">
             <span className="rt-item-icon muted"><Icon name="clock" size={15} /></span>
-            <div className="ph-grow"><div className="rt-item-title">{r.company}</div><div className="rt-item-sub">Last screened {longDate(r.screenedOn)} · {r.packageText} · {r.contactName}</div></div>
-            {rights.manage ? (r.outreachId ? <Pill tone="ok">Win-back email drafted</Pill> : <Button size="sm" icon="mail" onClick={() => dispatch(salesAct.draftOutreach(r.id, "lapsed"))}>Draft win-back email</Button>) : null}
+            <div className="ph-grow"><div className="rt-item-title">{r.company} {r.outreachId ? <Pill tone="ok">Email drafted</Pill> : null}</div><div className="rt-item-sub">Last screened {longDate(r.screenedOn)} · {r.packageText} · {r.contactName}</div></div>
+            <div className="rt-item-act">
+              {r.outreachId ? <Button size="sm" icon="eye" onClick={() => show(r.outreachId)}>View email</Button>
+                : rights.manage ? <Button size="sm" variant="primary" icon="mail" onClick={() => reach(r.id)}>Reach out</Button> : null}
+            </div>
           </div>
         ))}
       </div>
+      <div className="ph-faint" style={{ fontSize: 11.5, marginTop: 8 }}>Drafts only: nothing is sent. <DemoTag>Simulated</DemoTag></div>
     </Card>
   );
 }
