@@ -15,6 +15,7 @@ import {
 } from "./shared";
 import { episodeEventIds, eventsFor, observationChain, openUnitIssues, rowIndex } from "./select";
 import { LabAware } from "./LabImport";
+import { JourneyStrip } from "../Journey/JourneyStrip";
 
 export type Bundle = NonNullable<ReturnType<typeof episodeBundle>>;
 
@@ -71,6 +72,7 @@ export function EpisodeHeader({ b, right, compact }: { b: Bundle; right?: ReactN
         ]} />
       </div>
       )}
+      <JourneyStrip programme={b.programme.id} at={b.episode.reportState === "released" ? "release" : b.episode.reportState === "awaiting_results" ? "results" : "release"} compact />
     </Card>
   );
 }

@@ -16,6 +16,8 @@ import type { GlyphName, Tone } from "../../ui";
 import { onbAct } from "./onbActions";
 import { onbById, onbForLead, onbInvoiceDestination, onbRenderDoc, onbSuggestedKind, onbWelcomeValues, onbWonLeads, retRender } from "./onbSelect";
 import { AgreementDoc, BrandedEmail, StepTracker, agreementHtml, downloadHtml, usePrint } from "./onbShared";
+import { JourneyStrip } from "../Journey/JourneyStrip";
+import { OnbLinkCard, OnbNextUp } from "../Journey/OnbLink";
 
 const KIND_ICON: Record<OnbKind, GlyphName> = { oh: "shield", wellness: "heart" };
 const KIND_BLURB: Record<OnbKind, string> = {
@@ -165,6 +167,7 @@ function OnboardingDetail({ o }: { o: Onboarding }) {
   return (
     <div className="ph-page">
       <div className="ob-back"><Button size="sm" variant="ghost" icon="chevronLeft" onClick={() => nav.setParams({})}>All onboardings</Button></div>
+      <JourneyStrip onb={o.id} at="onboarding" />
       <div className={`ob-hero ob-hero-${o.kind}`}>
         <div className="ob-hero-main">
           <div className="ob-hero-kind"><Icon name={KIND_ICON[o.kind]} size={13} />{ONB_KIND_LABEL[o.kind]} onboarding · {o.id}</div>
@@ -181,7 +184,7 @@ function OnboardingDetail({ o }: { o: Onboarding }) {
       </div>
       <StepTracker o={o} active={step} onPick={go} />
       <div className="ob-panel">
-        {step === "details" ? <DetailsStep o={o} onSaved={() => go("agreements")} /> : null}
+        {step === "details" ? <><OnbLinkCard o={o} /><DetailsStep key={o.clientLink?.completedAt || "form"} o={o} onSaved={() => go("agreements")} /></> : null}
         {step === "agreements" ? <AgreementsStep o={o} /> : null}
         {step === "team" ? <TeamStep o={o} /> : null}
         {step === "medibase" ? <MedibaseStep o={o} /> : null}
@@ -522,8 +525,9 @@ function DoneStep({ o, onGo }: { o: Onboarding; onGo: (s: OnbStepId) => void }) 
         </div>
       ) : (
         <div className="ob-actions">
+          <OnbNextUp o={o} />
           <Button icon="mail" onClick={() => nav.go({ page: "Sales", tab: "recall" })}>See it in Retention</Button>
-          <Button variant="primary" icon="list" onClick={() => nav.setParams({})}>Back to all onboardings</Button>
+          <Button variant="ghost" icon="list" onClick={() => nav.setParams({})}>Back to all onboardings</Button>
         </div>
       )}
     </Card>

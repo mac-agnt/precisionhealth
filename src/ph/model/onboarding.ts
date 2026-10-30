@@ -125,6 +125,8 @@ export interface Onboarding {
   xero: { billing: OnbBilling; contactRef: string | null; createdAt: Iso | null };
   welcomeEmailId: string | null;
   completedAt: Iso | null;
+  /** The onboarding form link sent to the client to fill in (Clients journey, simulated). */
+  clientLink?: { url: string; sentAt: Iso; sentTo: string; completedAt: Iso | null };
 }
 
 export function onbStepDone(o: Onboarding): Record<OnbStepId, boolean> {

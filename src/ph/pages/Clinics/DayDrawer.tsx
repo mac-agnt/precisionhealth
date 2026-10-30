@@ -13,6 +13,7 @@ import { clientContact, requestClientPortalProgramme } from "../ClientPortal/dat
 import { daysAct } from "./daysActions";
 import { DayEditor, DayStrip } from "./DayParts";
 import type { Sources } from "./DayParts";
+import { JourneyStrip } from "../Journey/JourneyStrip";
 
 export const canManageDays = (p: Persona) => !p.isParticipant && (p.perms.has("bookings.manage") || p.role === "clinical_review");
 
@@ -45,7 +46,7 @@ export function DayDrawer({ day, onClose }: { day: ScreeningDay | null; onClose:
         <EditMode day={day} form={form} sources={sources}
           onChange={(f, k) => { setForm(f); setSources((s) => ({ ...s, [k]: "person" })); }}
           onDone={() => { setMode("view"); setForm(null); }} />
-      ) : <ViewMode day={day} />}
+      ) : <><JourneyStrip programme={day.programmeId} at="day" /><ViewMode day={day} /></>}
     </Drawer>
   );
 }
@@ -80,6 +81,7 @@ function NextStep({ day }: { day: ScreeningDay }) {
         <span className="sd-next-ico"><Icon name="check" size={17} stroke={2.2} /></span>
         <div className="sd-next-text"><b>Live on the {client} client portal</b>Published by {day.publishedBy} on {day.publishedAt ? fmtDateTime(day.publishedAt) : ""}. HR sees the date, time, room and screen type. Never names or results.</div>
         {nav.openClientPortal ? <Button icon="users" onClick={openPortal}>See it in the client portal</Button> : null}
+        <Button icon="mail" onClick={() => nav.go({ page: "Programmes", tab: "invitations", params: { programme: day.programmeId } })}>Invite employees</Button>
       </div>
     );
   }

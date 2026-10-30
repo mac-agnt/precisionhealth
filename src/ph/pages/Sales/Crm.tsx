@@ -21,6 +21,7 @@ import { FirstTouchNote, FollowUps, JourneyBar, LEAD_FLOW_CSS, NextStep, NotesEd
 import ProposalBuilder from "./ProposalBuilder";
 import type { LeadPrefill } from "./LeadForms";
 import { STAGE_LOOK, StagePill, useSalesRights } from "./shared";
+import { JourneyStrip } from "../Journey/JourneyStrip";
 
 const STAGES: SalesStage[] = ["new", "proposal_sent", "won", "lost"];
 /* Values after any discount in the proposal's deal instructions. */
@@ -193,6 +194,7 @@ function LeadWorkspace({ v, onClose, onMove }: { v: SalesLeadView; onClose: () =
     <Drawer open onClose={onClose} width={680} title={L.company}
       sub={<>{L.services.map((x) => SALES_SERVICE_LABEL[x]).join(", ") || "Service to confirm"} · {SALES_SOURCE_LABEL[L.source]}{L.sourceRef ? ` (${L.sourceRef})` : ""} · received {fmtDate(L.receivedOn)} · owner {staff(L.ownerId)}</>}>
       <div className="ph-stack" style={{ gap: 18 }}>
+        <JourneyStrip lead={L.id} at={L.stage === "won" ? "won" : journey.done.reply ? "proposal" : "lead"} compact />
         <JourneyBar leadId={L.id} />
         <NextStep lead={L} onBuild={() => setBuilding(true)} />
         <FirstTouchNote lead={L} />

@@ -19,6 +19,7 @@ import type { ViewerModel } from "./Sheet";
 import { AdviceBox, ConfirmReplace, LibrarySelect, SourcePill, SuggestedCodes, TraceList, notInsertableText } from "./AdviceCodes";
 import { libAct } from "./libraryActions";
 import { releasedLine } from "./LabImport";
+import { retReleaseQueue } from "../Sales/onbSelect";
 import { snippetSuggestions } from "./libraryModel";
 
 /* ---- checklist ---- */
@@ -421,6 +422,9 @@ export function ReleasedCard({ b, onNext }: { b: Bundle; onNext?: () => void }) 
               Availability notice <span className="phr-mono">{msg.id}</span> by {msg.channel === "sms" ? "SMS" : "email"} to {msg.destination}: {msg.status}. It says a report is ready and contains no results. <DemoTag>Simulated</DemoTag>
             </div>
           </div>
+        ) : null}
+        {retReleaseQueue(state).some((x) => x.programmeId === b.programme.id) ? (
+          <div className="phr-banner" style={{ flexDirection: "column", alignItems: "flex-start", gap: 8 }}><div><Icon name="mail" size={14} style={{ color: "var(--accent)", verticalAlign: "-2px", marginRight: 6 }} /><b>Next: tell {b.programme.clientName} the results are out.</b> The results-out email to HR, with the feedback form and invoice note, is waiting in Retention.</div><Button size="sm" variant="primary" icon="arrow" onClick={() => nav.go({ page: "Sales", tab: "recall" })}>Open Retention</Button></div>
         ) : null}
         <div className="phr-row">
           <Button icon="user" onClick={() => nav.openPortal(b.person.id)} title={p.isParticipant ? undefined : "Opens the participant portal preview as this participant"}>Participant portal preview</Button>
