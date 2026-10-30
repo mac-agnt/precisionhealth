@@ -16,6 +16,12 @@ import { ix, memo } from "./selectors/core";
 import { episodeHeldByRow, expectedTests } from "./selectors/clinical";
 import { fmtDayMonth, fmtTime } from "./time";
 
+/* ---------- the matching rule, said the same way everywhere ---------- */
+/** Neil's three-identifier rule, in one sentence. Used by imports, the matching queue, the batch drawer and the Home chat. */
+export const ID_RULE = "A lab result goes onto a participant's record only when three identifiers match: name, date of birth and Precision ID.";
+/** The barcode alternative, explained once on the Lab imports page. */
+export const PRECISION_ID_NOTE = "The Precision ID is printed on the lab request form (for example COMP02783). If the lab sends the specimen barcode instead (for example PH-S-1181), Pulse reads it as the Precision ID.";
+
 /* ---------- state ---------- */
 export type LabRecordStatus = "matched" | "flagged" | "resolved" | "rejected" | "duplicate";
 export interface LabFileIdentity { surname: string; given: string; dobText: string; dob: LocalDate | null; uniqueId: string }
@@ -99,7 +105,7 @@ const FIELD_ALIASES: Record<IdentityField, string[]> = {
   unit: ["unit", "units"],
 };
 export const LAB_FIELD_LABEL: Record<IdentityField, string> = {
-  uniqueId: "Unique ID", surname: "Surname", given: "First name", name: "Name", dob: "Date of birth", collected: "Date collected", test: "Test", result: "Result", unit: "Unit",
+  uniqueId: "Precision ID", surname: "Surname", given: "First name", name: "Name", dob: "Date of birth", collected: "Date collected", test: "Test", result: "Result", unit: "Unit",
 };
 
 /** A header cell to an analyte: the code (TC, HBA1C) or the name (Total cholesterol), ignoring a unit in brackets. */
@@ -176,7 +182,7 @@ export function parseLabCsv(text: string): ParsedLabFile {
   const testCols = columns.map((c, i) => (c.kind === "test" ? i : -1)).filter((i) => i >= 0);
   const long = iTest >= 0 && iRes >= 0;
   if (!long && !testCols.length) return empty("No test columns were recognised. Use test codes such as TC, HDL or HBA1C as column headings, or a Test and a Result column.");
-  if (iId < 0) return empty("No Unique ID column. Add a column called Precision ID (or Unique ID or Specimen ID).");
+  if (iId < 0) return empty("No Precision ID column. Add a column called Precision ID (a Unique ID or Specimen ID column works too).");
   if (iDob < 0) return empty("No date of birth column. Add a column called DOB or Date of birth.");
   if (iSur < 0 && iName < 0) return empty("No name column. Add Surname and First name columns, or one Name column.");
   if (long) columns.forEach((c) => { if (c.kind === "test") { c.kind = "ignored"; c.label = "Not used"; } });
@@ -274,7 +280,7 @@ export function matchRecord(state: PhState, rec: { file: LabFileIdentity; result
     const own = byId && byId.personId === personId ? byId : labEpisodeFor(state, personId);
     if (!own) return { kind: "skipped", why: "This person has no screening episode" };
     const d = diffFor(state, own, rec.file);
-    if (d.name && d.dob && d.id) return { kind: "skipped", why: "Not this patient" };
+    if (d.name && d.dob && d.id) return { kind: "skipped", why: "Not this participant" };
     if (differs(d)) return { kind: "flagged", candidate: own, diff: d };
     const fresh = newResultsFor(state, own, rec.results).length;
     return fresh ? { kind: "matched", episode: own, newResults: fresh } : { kind: "duplicate", episode: own, why: "Results already in Pulse" };
@@ -405,12 +411,12 @@ const BASE: Partial<Record<AnalyteCode, number>> = {
   FT4: 13.5, TSH: 1.8, IRON: 17.5, FERR: 80, TIBC: 60, VITD: 68, B12: 420, FOLATE: 8.2, CA: 2.36, MG: 0.86, PO4: 1.1, PSA: 0.8,
 };
 /** Who is in the sample file, and how the file row differs from Pulse for the flagged ones. */
-const SAMPLE_PEOPLE: Array<{ episodeId: Id; values?: Partial<Record<AnalyteCode, number>>; name?: { surname: string; given: string }; dob?: LocalDate; uniqueId?: string }> = [
+const SAMPLE_PEOPLE: Array<{ episodeId: Id; values?: Partial<Record<AnalyteCode, number>>; name?: { surname: string; given?: string }; dob?: LocalDate; uniqueId?: string }> = [
   { episodeId: "PH-E-1181", values: { TC: 4.3, HDL: 1.7, LDL: 2.2, VITD: 74 } },
   { episodeId: "PH-E-1186", values: { TC: 5.6, LDL: 3.6, HDL: 1.3, HBA1C: 44, VITD: 38, PSA: 0.4 } },
   { episodeId: "PH-E-1200", values: { FERR: 11, HB: 11.6, IRON: 7.8 } },
   { episodeId: "PH-E-1206", dob: "1977-02-09", values: { TG: 2.4, TC: 5.2, HB: 14.9 } },
-  { episodeId: "PH-E-1212", name: { surname: "Bourke", given: "Helen" } },
+  { episodeId: "PH-E-1212", name: { surname: "Bourke" } },
 ];
 const fmtDmy = (d: LocalDate) => `${d.slice(8, 10)}/${d.slice(5, 7)}/${d.slice(0, 4)}`;
 const csvCell = (s: string) => (/[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s);
@@ -429,7 +435,7 @@ function sampleLine(state: PhState, s: (typeof SAMPLE_PEOPLE)[number], cols: Ana
     const v = s.values?.[code] ?? (code === "HB" && male ? 14.6 : code === "CREAT" && male ? 88 : BASE[code]!);
     return formatResult(code, v);
   });
-  const name = s.name || { surname: p.family, given: p.given };
+  const name = { surname: s.name ? s.name.surname : p.family, given: s.name?.given ?? p.given };
   return [s.uniqueId || ep.screeningRef, name.surname, name.given, fmtDmy(s.dob || p.dob), fmtDmy(ep.collectedAt.slice(0, 10)), ...cells].map(csvCell).join(",");
 }
 

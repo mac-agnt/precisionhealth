@@ -537,9 +537,9 @@ export function buildClinical(plan: RosterPlan): ClinicalBuild {
         state = "quarantined";
         quarantine = {
           reason: "unknown_specimen",
-          detail: "Specimen identifier PH-S-O202 is not on any collection record. It contains the letter O where a zero may be expected.",
+          detail: "Precision ID PH-S-O202 is not on any collection record. It contains the letter O where a zero may be expected.",
           candidateEpisodeIds: [],
-          suggestion: "Closest collection record: PH-S-0202 (PH-E-0202). Suggestion only. A person must confirm two identifiers before the row is accepted.",
+          suggestion: "Closest collection record: PH-S-0202 (PH-E-0202). Suggestion only. A person checks name, date of birth and Precision ID before the row is accepted.",
         };
       }
       if (ep.personId === "PH-P-0701" && code === "HDL") {

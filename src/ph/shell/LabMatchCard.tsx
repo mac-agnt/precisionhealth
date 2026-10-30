@@ -14,7 +14,7 @@ export default function LabMatchCard() {
   if (!items.length || !p.perms.has("imports.view")) return null;
   const I = ix(state);
   const open = (params: Record<string, string> = { view: "queue" }) => nav.go({ page: "Results", tab: "imports", params });
-  const word = (d: { name: boolean; dob: boolean; id: boolean }) => [d.name ? "name" : null, d.dob ? "date of birth" : null, d.id ? "Unique ID" : null].filter(Boolean).join(", ");
+  const word = (d: { name: boolean; dob: boolean; id: boolean }) => [d.name ? "name" : null, d.dob ? "date of birth" : null, d.id ? "Precision ID" : null].filter(Boolean).join(", ");
   return (
     <section className="ph-card lab-home-card" style={{ padding: "14px 16px 12px", borderLeft: "3px solid var(--warn)" }} aria-label="Lab rows need matching">
       <div className="ph-row-flex" style={{ gap: 8, marginBottom: 4 }}>
@@ -22,7 +22,7 @@ export default function LabMatchCard() {
         <div className="ph-grow" style={{ fontSize: 13.5, fontWeight: 600, color: "var(--ink)" }}>{items.length} lab {items.length === 1 ? "row needs" : "rows need"} matching</div>
         <Pill tone="warn" icon={null}>Top priority</Pill>
       </div>
-      <div className="ph-faint" style={{ fontSize: 11.5, lineHeight: 1.45, marginBottom: 6 }}>These results are not on any record yet. Name, date of birth and Unique ID must all agree before they attach.</div>
+      <div className="ph-faint" style={{ fontSize: 11.5, lineHeight: 1.45, marginBottom: 6 }}>These results are not on any record yet. Name, date of birth and Precision ID must all agree before they attach.</div>
       {items.slice(0, 3).map((q) => {
         const who = q.candidate ? I.personById.get(q.candidate.personId) : null;
         return (

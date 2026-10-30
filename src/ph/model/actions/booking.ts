@@ -288,7 +288,7 @@ handlers["clinic/checkIn"] = (c, a: { bookingId: string }) => {
   if (poc) { cap.variant = "poc"; cap.form = pocFormPrefill(cap.form); }
   c.s.captureDrafts[b.id] = cap;
   c.emit({ verb: "clinic.checkin", summary: `${c.first()} checked in ${c.personName(b.personId)} for ${b.slotStart} (${b.id})${poc ? ` on the ${POC_FORM_NAME} form` : ""}.`, entity: { kind: "booking", id: b.id }, programmeId: b.programmeId, personId: b.personId });
-  return c.ok(poc ? `Checked in on the ${POC_FORM_NAME} form. Choose the screen type and confirm identity first.` : "Checked in. Confirm identity before any specimen is created.", "ok", b.id);
+  return c.ok(poc ? "Checked in. Choose the screen type, then confirm their identity." : "Checked in. Confirm their identity first.", "ok", b.id);
 };
 
 handlers["clinic/confirmIdentity"] = (c, a: { bookingId: string; dob: string; reference: string }) => {
@@ -306,7 +306,7 @@ handlers["clinic/confirmIdentity"] = (c, a: { bookingId: string; dob: string; re
   ];
   cap.rev++;
   cap.savedAt = c.stamp();
-  return c.ok("Two identifiers confirmed. Specimen creation is unlocked.", "ok");
+  return c.ok("Identity confirmed.", "ok");
 };
 
 handlers["clinic/saveCapture"] = (c, a: { bookingId: string; baseRev: number; measures?: Partial<Record<MeasureKey, { value: number | null; state: "recorded" | "missing" | "not_done" | "declined"; provenance?: "measured" | "self_reported" }>>; urine?: ClinicalCapture["urine"]; notes?: string; form?: Record<string, NurseFormValue> }) => {
@@ -361,7 +361,7 @@ handlers["clinic/toggleChecklist"] = (c, a: { bookingId: string; key: "specimens
   const blocked = canWork(c, a.bookingId); if (blocked) return c.fail(blocked);
   const cap = captureOf(c, a.bookingId);
   if (!cap) return c.fail("Check the participant in first.");
-  if ((a.key === "specimens" || a.key === "labels") && cap.identity.some((x) => !x.confirmed)) return c.fail("Confirm identity with two identifiers before creating a specimen or labels.");
+  if ((a.key === "specimens" || a.key === "labels") && cap.identity.some((x) => !x.confirmed)) return c.fail("Confirm their identity first: name, date of birth and booking reference.");
   cap.checklist[a.key] = !cap.checklist[a.key];
   cap.rev++;
   return c.ok();

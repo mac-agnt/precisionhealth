@@ -101,7 +101,7 @@ export function buildOps(plan: RosterPlan, clin: ClinicalBuild): OpsBuild {
   });
   const maeveEp = clin.episodes.find((e) => e.personId === "PH-P-0003")!;
   const tasks: Task[] = [
-    t(1, "Resolve laboratory identity exceptions", "Resolve each held row in the Eurofins batch with a documented two-identifier check.", "ST-01", "brenda", "programme-operations", "high", "2026-10-05T09:00:00.000Z", false, ref("batch", BASELINE_BATCH_ID)),
+    t(1, "Resolve laboratory identity exceptions", "Match each waiting lab row in the Eurofins file by checking name, date of birth and Precision ID.", "ST-01", "brenda", "programme-operations", "high", "2026-10-05T09:00:00.000Z", false, ref("batch", BASELINE_BATCH_ID)),
     t(2, "Clinical review of episodes held for identity", "Review each held episode once its identity exception is resolved.", "ST-01", "neil", "clinical-review", "medium", "2026-10-05T11:00:00.000Z", true, ref("batch", BASELINE_BATCH_ID)),
     t(3, "Clear the clinician review queue", "Review and release ready episodes individually. No bulk release.", "ST-02", "neil", "clinical-review", "high", "2026-10-05T15:00:00.000Z", true, ref("programme", "PRG-SISK-26")),
     t(4, "Decide how to fill available IBM capacity today", "Approve or reject the draft invitation list. Available capacity, not lost revenue.", "ST-03", "stephen", "client-programmes", "high", "2026-10-05T10:00:00.000Z", false, ref("invitation", "INV-IBM-01")),
@@ -229,7 +229,7 @@ export function buildOps(plan: RosterPlan, clin: ClinicalBuild): OpsBuild {
     { entity: ref("episode", "PH-E-0104"), restricted: true, publicSummary: "Data Quality raised an item on a clinical episode", simulated: true });
 
   // Two to four seeded actions per agent, each linked to the record behind it.
-  push("2026-10-05T05:34:00.000Z", agent("lab", "Lab Reconciliation"), "agent.explained", `Lab Reconciliation explained the ${quar.length} validation exceptions in ${BASELINE_BATCH_ID}: none was fuzzy-matched, and each needs a person to confirm two identifiers.`,
+  push("2026-10-05T05:34:00.000Z", agent("lab", "Lab Reconciliation"), "agent.explained", `Lab Reconciliation explained the ${quar.length} validation exceptions in ${BASELINE_BATCH_ID}: none was matched on a guess, and each needs a person to check name, date of birth and Precision ID.`,
     { entity: ref("batch", BASELINE_BATCH_ID), integrationId: "eurofins", storyId: "ST-01", simulated: true });
   push("2026-10-02T14:30:00.000Z", agent("drafting", "Clinical Drafting"), "agent.prepared", "Clinical Drafting loaded 6 approved sample advice wordings for drafting previews. Demo content, no model connected.", { simulated: true });
   push("2026-10-05T05:45:00.000Z", agent("drafting", "Clinical Drafting"), "agent.declined", "Clinical Drafting did not draft advice for PH-E-0201: a Data Quality item is open and a clinician must review it first.",

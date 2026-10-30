@@ -228,7 +228,7 @@ export function globalSearch(state: PhState, query: string, limit = 24): SearchH
   const has = (...s: Array<string | undefined>) => s.join(" ").toLowerCase().includes(q);
   PAGES.forEach((pg) => {
     if (has(pg.label, pg.hint)) hits.push({ id: "pg-" + pg.id, group: "Pages", title: pg.label, subtitle: pg.hint, target: { page: pg.id } });
-    pg.tabs.forEach((t) => { if (has(pg.label, t.label)) hits.push({ id: `pg-${pg.id}-${t.id}`, group: "Pages", title: `${pg.label}: ${t.label}`, subtitle: pg.hint, target: { page: pg.id, tab: t.id } }); });
+    pg.tabs.forEach((t) => { if (!t.hidden && has(pg.label, t.label)) hits.push({ id: `pg-${pg.id}-${t.id}`, group: "Pages", title: `${pg.label}: ${t.label}`, subtitle: pg.hint, target: { page: pg.id, tab: t.id } }); });
   });
   if (!p.isParticipant) {
     state.programmes.forEach((x) => { if (has(x.name, x.id, x.clientName)) hits.push({ id: x.id, group: "Programmes", title: x.name, subtitle: x.id, target: linkFor("programme", x.id) }); });

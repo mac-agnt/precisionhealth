@@ -473,7 +473,7 @@ export interface ReportVersion {
 }
 
 /* ---- laboratory imports ---- */
-export type RowState = "imported" | "duplicate" | "quarantined" | "resolved";
+export type RowState = "imported" | "duplicate" | "quarantined" | "resolved" | "rejected";
 export type QuarantineReason = "dob_mismatch" | "unknown_specimen" | "multiple_candidates";
 
 export interface ImportRow {

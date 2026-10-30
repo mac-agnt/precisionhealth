@@ -596,7 +596,7 @@ export const REPORT_STATE_LABEL: Record<ReportState, string> = {
 };
 export const HOLD_LABEL: Record<HoldKind, string> = {
   identity_dob_mismatch: "Identity: date of birth mismatch",
-  identity_unknown_specimen: "Identity: unknown specimen identifier",
+  identity_unknown_specimen: "Identity: Precision ID not found",
   identity_candidates: "Identity: two candidate episodes",
   source_unit_discrepancy: "Source unit discrepancy",
   urgent_follow_up: "Clinician-assigned urgent follow-up",

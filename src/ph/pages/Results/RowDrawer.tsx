@@ -1,12 +1,12 @@
 /* Human reconciliation drawer for one laboratory row: the row exactly as received, source
    provenance, the unique key, the participant check, and for a held row the collection
    record ("requisition") of each candidate so a person can compare identifiers. A suggestion
-   is only ever shown as a suggestion. Resolution needs two identifiers and a reason, and
-   commits the row once. A source-unit row can be confirmed by the clinical reviewer, keeping
+   is only ever shown as a suggestion. Matching needs the three identifiers (name, date of birth
+   and Precision ID) and a reason, and adds the row once. A source-unit row can be confirmed by the clinical reviewer, keeping
    the value as received. Values are hidden, not blurred, for roles without clinical access. */
 import { useState } from "react";
 import {
-  ANALYTES, act, canViewEpisodeClinical, fmtDateTime, fmtNumericDate, fmtShortDateTime, fmtTime, ix, latestObservations, persona,
+  ANALYTES, ID_RULE, act, canViewEpisodeClinical, labAct, fmtDateTime, fmtNumericDate, fmtShortDateTime, fmtTime, ix, latestObservations, persona,
   reportStateLabel, rowCandidates, staffName,
 } from "../../model";
 import type { Episode, ImportRow, Observation, PhState } from "../../model";
@@ -66,7 +66,7 @@ function RowBody({ row }: { row: ImportRow }) {
         <div className="phr-csv">{csv}</div>
         <div style={{ marginTop: 8 }}>
           <Kv tight items={[
-            { k: "Specimen ID", v: <span className="phr-mono">{row.specimenKey}</span> },
+            { k: "Precision ID", v: <span className="phr-mono">{row.specimenKey}</span> },
             { k: "Name in file", v: row.nameInFile },
             { k: "Date of birth in file", v: row.dobInFile ? fmtNumericDate(row.dobInFile) : "Not supplied" },
             { k: "Test", v: `${ANALYTES[row.analyteCode].name} (${row.analyteCode})` },
@@ -77,7 +77,7 @@ function RowBody({ row }: { row: ImportRow }) {
       </section>
 
       <section>
-        <SecTitle>Source provenance</SecTitle>
+        <SecTitle>Where it came from</SecTitle>
         <Kv tight items={[
           { k: "Batch", v: <EntityLink kind="batch" id={row.batchId} /> },
           { k: "File", v: <span className="phr-mono" style={{ fontSize: 11 }}>{batch.filename}</span> },
@@ -93,10 +93,10 @@ function RowBody({ row }: { row: ImportRow }) {
       <section>
         <SecTitle>Checks</SecTitle>
         <Kv items={[
-          { k: "Unique key (specimen + test)", v: <><span className="phr-mono">{row.specimenKey} + {row.analyteCode}</span><div className="phr-sub">{row.state === "duplicate" ? "Already imported. Skipped, no second observation." : row.state === "quarantined" ? "Not imported while held." : "New key, imported once."}</div></> },
-          { k: "Participant check", v: <><CheckPill check={check} /><div className="phr-sub">{check.fileDob || check.recordDob ? `File ${check.fileDob ? fmtNumericDate(check.fileDob) : "none"}, record ${check.recordDob ? fmtNumericDate(check.recordDob) : "none"}` : "No record to compare"}</div></> },
-          { k: "Specimen identifier", v: check.episode ? <>On collection record <span className="phr-mono">{check.episode.specimenIds[0]}</span></> : <span style={{ color: "var(--warn)" }}>Not on any collection record</span> },
-          { k: "Unique ID", v: check.episode ? <><span className="phr-mono">{check.episode.screeningRef}</span><div className="phr-sub">Episode {check.episode.id}</div></> : <span className="ph-faint">Not matched</span> },
+          { k: "Rule", v: ID_RULE, wide: true },
+          { k: "Date of birth", v: <><CheckPill check={check} /><div className="phr-sub">{check.fileDob || check.recordDob ? `File ${check.fileDob ? fmtNumericDate(check.fileDob) : "none"}, record ${check.recordDob ? fmtNumericDate(check.recordDob) : "none"}` : "No record to compare"}</div></> },
+          { k: "Precision ID", v: check.episode ? <><span className="phr-mono">{check.episode.screeningRef}</span><div className="phr-sub">Barcode {check.episode.specimenIds[0]} on the collection record</div></> : <span style={{ color: "var(--warn)" }}>Not on any collection record</span> },
+          { k: "Added twice?", v: row.state === "duplicate" ? "Already in Pulse. Skipped." : row.state === "quarantined" ? "Not added while it waits." : row.state === "rejected" ? "Rejected. Nothing was added." : "Added once." },
           { k: "Unit", v: unitDiffers ? <span style={{ color: "var(--warn)" }}>Differs from the template. No silent conversion.</span> : "Matches the template unit" },
         ]} />
       </section>
@@ -124,19 +124,22 @@ function StatusLine({ row, obs, dupOf, dupRowLine }: { row: ImportRow; obs: Obse
   if (row.state === "quarantined" && row.quarantine) {
     return (
       <Banner tone="warn" icon="alert">
-        <b>Quarantined: {QUARANTINE_LABEL[row.quarantine.reason]}.</b> {row.quarantine.detail}
+        <b>Needs matching: {QUARANTINE_LABEL[row.quarantine.reason]}.</b> {row.quarantine.detail}
       </Banner>
     );
   }
   if (row.state === "duplicate") {
     return (
       <Banner tone="neutral" icon="layers">
-        <b>Duplicate, skipped.</b> The same specimen and test were already imported as <span className="phr-mono">{dupOf ? dupOf.id : row.duplicateOfObservationId}</span>{dupRowLine ? ` from ${dupRowLine}` : ""}. No second observation was created.
+        <b>Already in Pulse, skipped.</b> The same specimen and test were already imported as <span className="phr-mono">{dupOf ? dupOf.id : row.duplicateOfObservationId}</span>{dupRowLine ? ` from ${dupRowLine}` : ""}. No second observation was created.
       </Banner>
     );
   }
   if (row.state === "resolved") {
-    return <Banner tone="ok" icon="shield"><b>Resolved and committed once</b> as <span className="phr-mono">{row.observationId}</span> after a documented identity check.</Banner>;
+    return <Banner tone="ok" icon="shield"><b>Matched by a person and added once</b>{row.episodeId ? <> to <EntityLink kind="episode" id={row.episodeId}>the report</EntityLink></> : null}, after checking name, date of birth and Precision ID.</Banner>;
+  }
+  if (row.state === "rejected") {
+    return <Banner tone="neutral" icon="x"><b>Rejected.</b> Nothing was added to any participant. The reason is in the audit trail below.</Banner>;
   }
   return <Banner tone="ok" icon="check"><b>Imported</b> as <span className="phr-mono">{obs ? obs.id : row.observationId}</span>{row.episodeId ? <> for <EntityLink kind="episode" id={row.episodeId} /></> : null}.</Banner>;
 }
@@ -151,26 +154,29 @@ function ResolveForm({ row }: { row: ImportRow }) {
   const [lookup, setLookup] = useState("");
   const [choice, setChoice] = useState<string | null>(null);
   const [method, setMethod] = useState(METHODS[0].id);
+  const [chkName, setChkName] = useState(false);
   const [chkSpec, setChkSpec] = useState(false);
   const [chkDob, setChkDob] = useState(false);
+  const [rejecting, setRejecting] = useState(false);
   const [reason, setReason] = useState("");
   const looked = lookup.trim() ? episodeBySpecimen(state, lookup) : null;
   const options = cands.concat(looked && !cands.includes(looked.id) ? [looked.id] : []);
   const missing: string[] = [];
   if (!choice) missing.push("select the collection record you compared");
-  if (!chkSpec || !chkDob) missing.push("confirm both identifiers");
+  if (!chkName || !chkSpec || !chkDob) missing.push("tick all three identifiers");
   if (reason.trim().length < 8) missing.push("record a reason of at least a short sentence");
   const ready = canResolve && missing.length === 0;
   const submit = () => {
     if (!choice) return;
     const m = METHODS.find((x) => x.id === method)!;
-    const r = dispatch(act.resolveRow(row.id, choice, ["specimen", "dob"], `${m.label}. ${reason.trim()}`));
-    if (!r.ok) { setChkSpec(false); setChkDob(false); }
+    const r = dispatch(act.resolveRow(row.id, choice, ["name", "dob", "specimen"], `${m.label}. ${reason.trim()}`));
+    if (!r.ok) { setChkName(false); setChkSpec(false); setChkDob(false); }
   };
+  const reject = () => { const r = dispatch(labAct.rejectFeedRow(row.id, reason)); if (r.ok) setRejecting(false); };
 
   return (
     <section>
-      <SecTitle right={<span className="phr-sub">Nothing is matched automatically</span>}>Resolve the identity exception</SecTitle>
+      <SecTitle right={<span className="phr-sub">Pulse never matches on a guess</span>}>Match this row to a participant</SecTitle>
       <div className="phr-gap">
         {row.quarantine && row.quarantine.suggestion ? (
           <Banner tone="info" icon="info">
@@ -178,17 +184,17 @@ function ResolveForm({ row }: { row: ImportRow }) {
           </Banner>
         ) : null}
         {cands.length === 0 ? (
-          <Field label="Look up a collection record by its exact specimen ID" help="Exact match only. A near match is never accepted automatically.">
+          <Field label="Look up a collection record by its exact Precision ID or barcode" help="Exact match only. A near match is never accepted automatically.">
             <div className="phr-row" style={{ flexWrap: "nowrap" }}>
-              <TextInput value={lookup} onChange={(e) => { setLookup(e.target.value); setChoice(null); }} placeholder="For example PH-S-0202" aria-label="Specimen ID to look up" />
+              <TextInput value={lookup} onChange={(e) => { setLookup(e.target.value); setChoice(null); }} placeholder="For example PH-S-0202" aria-label="Precision ID to look up" />
               {suggested ? <Button size="sm" onClick={() => { setLookup(suggested); setChoice(null); }}>Use {suggested}</Button> : null}
             </div>
-            {lookup.trim() && !looked ? <div className="ph-err">No collection record has the specimen ID {lookup.trim()}.</div> : null}
+            {lookup.trim() && !looked ? <div className="ph-err">No collection record has the Precision ID {lookup.trim()}.</div> : null}
           </Field>
         ) : null}
         {options.length ? (
           <div role="radiogroup" aria-label="Collection records to compare" className="phr-compare">
-            {options.map((id) => <CandidateCard key={id} row={row} episodeId={id} selected={choice === id} onSelect={() => { setChoice(id); setChkSpec(false); setChkDob(false); }} />)}
+            {options.map((id) => <CandidateCard key={id} row={row} episodeId={id} selected={choice === id} onSelect={() => { setChoice(id); setChkName(false); setChkSpec(false); setChkDob(false); }} />)}
           </div>
         ) : null}
         {canResolve ? (
@@ -198,22 +204,25 @@ function ResolveForm({ row }: { row: ImportRow }) {
                 {METHODS.map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}
               </Select>
             </Field>
-            <Checkbox checked={chkSpec} onChange={setChkSpec} disabled={!choice}
-              label={choice ? `The specimen on this row is the specimen on ${choice}'s collection record` : "The specimen on this row is the specimen on the selected collection record"}
-              hint="First identifier." />
-            <Checkbox checked={chkDob} onChange={setChkDob} disabled={!choice}
-              label="The date of birth is confirmed against the collection record" hint="Second identifier. A name alone is never enough." />
+            <div className="phr-sub">{ID_RULE}</div>
+            <Checkbox checked={chkName} onChange={setChkName} disabled={!choice} label="Name confirmed against the collection record" hint="1 of 3." />
+            <Checkbox checked={chkDob} onChange={setChkDob} disabled={!choice} label="Date of birth confirmed against the collection record" hint="2 of 3." />
+            <Checkbox checked={chkSpec} onChange={setChkSpec} disabled={!choice} label="Precision ID confirmed: the barcode on this row is the one on the collection record" hint="3 of 3." />
             <Field label="Reason" help="Kept with the row and in the activity log.">
               <Textarea rows={3} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="What you checked and why this row belongs to the selected episode." />
             </Field>
             <div className="phr-row">
-              <Button variant="primary" icon="shield" disabled={!ready} onClick={submit}>Resolve and commit the row once</Button>
+              <Button variant="primary" icon="shield" disabled={!ready} onClick={submit}>Match and add the result</Button>
+              {rejecting
+                ? <><Button variant="danger" icon="x" onClick={reject}>Reject row</Button><Button variant="ghost" onClick={() => setRejecting(false)}>Cancel</Button></>
+                : <Button variant="ghost" icon="x" onClick={() => setRejecting(true)}>Reject row</Button>}
             </div>
-            {!ready ? <div className="phr-sub">To resolve: {missing.join("; ")}.</div> : <div className="phr-sub">The row is committed once to the selected episode. The row as received is kept unchanged.</div>}
+            {rejecting ? <div className="phr-sub">Rejecting adds nothing to any participant. The reason above is kept, and the report waits for the lab to send this result again.</div>
+              : !ready ? <div className="phr-sub">To match: {missing.join("; ")}.</div> : <div className="phr-sub">The result is added once to the selected participant. The row as received is kept unchanged.</div>}
           </div>
         ) : (
-          <RestrictedNotice title="Resolution needs identity resolution access">
-            {p.name} ({p.roleLabel}) can view this row. Operations and the clinical reviewer resolve identity exceptions.
+          <RestrictedNotice title="Matching is for operations and the clinical reviewer">
+            {p.name} ({p.roleLabel}) can view this row. Operations and the clinical reviewer match lab rows.
           </RestrictedNotice>
         )}
       </div>
@@ -246,7 +255,7 @@ function CandidateCard({ row, episodeId, selected, onSelect }: { row: ImportRow;
         <dt className="ph-faint" style={{ fontSize: 10.5, marginTop: 5 }}>Date of birth on record</dt>
         <dd style={{ margin: 0 }}>{fmtNumericDate(rec.person.dob)}{cmp(dobMatch, "Same as the row", `Row says ${row.dobInFile ? fmtNumericDate(row.dobInFile) : ""}`, "Row has no date of birth")}</dd>
         <dt className="ph-faint" style={{ fontSize: 10.5, marginTop: 5 }}>Name on record</dt>
-        <dd style={{ margin: 0 }}>{nameOnRecord}<span className="phr-sub" style={{ display: "block" }}>Row says {row.nameInFile}. A name is never a key.</span></dd>
+        <dd style={{ margin: 0 }}>{nameOnRecord}<span className="phr-sub" style={{ display: "block" }}>Row says {row.nameInFile}.</span></dd>
         <dt className="ph-faint" style={{ fontSize: 10.5, marginTop: 5 }}>Collected</dt>
         <dd style={{ margin: 0 }}>{fmtShortDateTime(rec.episode.collectedAt)}, {rec.session.siteName}</dd>
         <dt className="ph-faint" style={{ fontSize: 10.5, marginTop: 5 }}>Checked at the appointment</dt>
@@ -267,7 +276,7 @@ function ResolutionRecord({ row }: { row: ImportRow }) {
       <SecTitle>Resolution record</SecTitle>
       <Kv items={[
         { k: "Resolved by", v: `${staffName(state, r.by)}, ${fmtDateTime(r.at)}` },
-        { k: "Identifiers confirmed", v: r.checks.map((c) => (c === "dob" ? "date of birth" : c === "specimen" ? "specimen identifier" : c)).join(" and ") },
+        { k: "Identifiers confirmed", v: r.checks.map((c) => (c === "dob" ? "date of birth" : c === "specimen" ? "Precision ID" : c)).join(", ") },
         { k: "Episode", v: <EntityLink kind="episode" id={r.chosenEpisodeId} /> },
         { k: "Episode now", v: ep ? <ReportStatePill state={ep.reportState} /> : "Unknown" },
         { k: "Reason", v: r.reason, wide: true },

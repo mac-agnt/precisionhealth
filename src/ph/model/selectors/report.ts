@@ -146,10 +146,10 @@ export function nurseFormRows(state: PhState, episodeId: Id): NurseFormRow[] | n
       if (poc ? !pocFieldVisible(f, ep.capture, ctx) : !nurseFieldVisible(f, ep.capture, ctx)) continue;
       let value: string;
       if (f.store === "record") value = recordValue(person, booking ? booking.slotStart : "", ep.collectedAt, f.recordKey!);
-      else if (f.store === "calc" && f.key === "pocArmSpanGtHeight") { const a = pocArmSpan(ep.capture); value = a.exceeds === null ? "" : a.exceeds ? "TRUE" : "FALSE"; }
+      else if (f.store === "calc" && f.key === "pocArmSpanGtHeight") { const a = pocArmSpan(ep.capture); value = a.exceeds === null ? "" : a.exceeds ? "Yes" : "No"; }
       else if (f.store === "calc") { const b = bmiFromCapture(ep.capture); value = b == null ? "" : b.toFixed(1); }
       else if (f.store === "measure") { const m = ep.capture.measures[f.measureKey!]; value = m.state === "recorded" && m.value != null ? `${m.value} ${f.unit || ""}`.trim() : m.state === "not_done" ? "Not done" : m.state === "declined" ? "Declined" : ""; }
-      else { const v = nurseFieldValue(ep.capture, f); value = v === null ? "" : typeof v === "boolean" ? (v ? "TRUE" : "FALSE") : String(v); }
+      else { const v = nurseFieldValue(ep.capture, f); value = v === null ? "" : typeof v === "boolean" ? (v ? "Yes" : "No") : String(v); }
       out.push({ section: s.key, sectionTitle: s.title, key: f.key, label: f.label, value: value || "Not recorded", answered: !!value, prefillFrom: f.prefillFrom });
     }
   }
@@ -277,7 +277,7 @@ export function reportDocument(state: PhState, episodeId: Id, versionId?: Id): R
       sum.smoker ? row("cv_smoking", "Smoking", sum.smoker, "", "n/a", "resulted") : row("cv_smoking", "Smoking", "Not recorded", "", "n/a", "not_done"),
       { ...bmiRow, key: "cv_bmi" },
       { ...tcHdl, test: "Total:HDL Cholesterol", key: "cv_tchdl" },
-      sum.familyHistoryCvd === null ? row("cv_family", "Family History", "Not recorded", "", "n/a", "not_done") : row("cv_family", "Family History", sum.familyHistoryCvd ? "TRUE" : "FALSE", "", "n/a", "resulted"),
+      sum.familyHistoryCvd === null ? row("cv_family", "Family History", "Not recorded", "", "n/a", "not_done") : row("cv_family", "Family History", sum.familyHistoryCvd ? "Yes" : "No", "", "n/a", "resulted"),
       row("cv_score", "10-year risk", qText(q?.score10y != null ? `${q.score10y.toFixed(2)}%` : ""), "", "less than 10%", qStatus, qStatus === "resulted" ? scoreBand : "not_tested", qStatus === "resulted" && scoreBand === "borderline" ? "HIGHER RISK" : ""),
       row("cv_heart_age", "Heart Age", qText(q?.heartAge != null ? String(q.heartAge) : ""), "years", "Same as or less than your real age", qStatus, qStatus === "resulted" ? heartBand : "not_tested"),
       row("cv_rr", "Relative risk", qText(rr != null ? rr.toFixed(1) : ""), "", "n/a", qStatus),
@@ -343,7 +343,8 @@ export function reportDocument(state: PhState, episodeId: Id, versionId?: Id): R
       ...(ctx.age >= 25 ? [{ question: "Are you up to date with your cervical screening (smear test)?", answer: yn(a.cervicalScreening) }] : []),
     ] });
 
-    const clinicianId = v ? v.releasedBy || v.createdBy : null;
+    // Before the first version exists, the reviewing doctor is the one assigned to the episode.
+    const clinicianId = v ? v.releasedBy || v.createdBy : ep.reviewAssigneeId || null;
     const clinician = clinicianId ? I.staffById.get(clinicianId)?.displayName || null : null;
     return {
       episodeId, versionId: v ? v.id : null, version: v ? v.version : null, versionStatus: v ? v.status : "preview",

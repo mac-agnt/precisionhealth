@@ -6,6 +6,8 @@
                    created twice.
    labcsv/resolve  a person matches a queued row to the suggested patient, with a reason.
    labcsv/reject   a person rejects a queued row. Nothing is attached.
+   labcsv/rejectFeedRow  the same for a row held from the Eurofins feed: nothing is attached, the
+                   held report goes back to waiting for that result.
 
    Integrity guard: an action that changes or releases results fails when it is attributed to an
    agent (action.actor.kind === "agent", or action.agentId). Agents can draft wording only. */
@@ -71,7 +73,7 @@ function refreshBatch(c: Ctx, uploadId: string): void {
   const rejected = recs.filter((r) => r.status === "rejected").length;
   b.status = open ? "partial" : "complete";
   b.specimenCount = matched;
-  b.note = `${plural(matched, "patient row", "patient rows")} matched${rejected ? `, ${rejected} rejected` : ""}. ${open ? `${plural(open, "row needs", "rows need")} matching by a person.` : "Nothing is waiting for a person."}`;
+  b.note = `${plural(matched, "participant row", "participant rows")} matched${rejected ? `, ${rejected} rejected` : ""}. ${open ? `${plural(open, "row needs", "rows need")} matching by a person.` : "Nothing is waiting for a person."}`;
 }
 
 function guardStaff(c: Ctx, what: string): ActionResult | null {
@@ -83,11 +85,11 @@ const handlers: Record<string, Handler> = {
     const d = c.need("imports.view", "import laboratory results") || guardStaff(c, "import laboratory results"); if (d) return d;
     const filename = String(a.filename || "lab_results.csv").trim().slice(0, 120) || "lab_results.csv";
     const personId = a.personId || null;
-    if (personId && !c.ix().personById.has(personId)) return c.fail("Unknown patient.");
+    if (personId && !c.ix().personById.has(personId)) return c.fail("Unknown participant.");
     const pv = previewLabFile(c.s, String(a.text || ""), personId);
     if (!pv.file.ok) return c.fail(pv.file.error || "The file could not be read.");
     if (!pv.matched && !pv.flagged) {
-      return c.fail(pv.duplicate ? `Nothing new in ${filename}. ${plural(pv.duplicate, "row is", "rows are")} already in Pulse or already waiting for matching, so nothing was imported twice.` : "No row in this file is for this patient. Nothing was imported.");
+      return c.fail(pv.duplicate ? `Nothing new in ${filename}. ${plural(pv.duplicate, "row is", "rows are")} already in Pulse or already waiting for matching, so nothing was imported twice.` : "No row in this file is for this participant. Nothing was imported.");
     }
     const at = c.stamp();
     const date = localDateOf(c.now);
@@ -120,25 +122,25 @@ const handlers: Record<string, Handler> = {
     }
     c.inv();
     refreshBatch(c, uploadId);
-    const text = `${plural(pv.matched, "row", "rows")} matched on name, date of birth and Unique ID (${plural(created, "result", "results")} added)${pv.flagged ? `, ${plural(pv.flagged, "row", "rows")} sent to the matching queue` : ""}${pv.duplicate ? `, ${pv.duplicate} already in Pulse` : ""}.`;
+    const text = `${plural(pv.matched, "row", "rows")} matched on name, date of birth and Precision ID (${plural(created, "result", "results")} added)${pv.flagged ? `, ${plural(pv.flagged, "row", "rows")} sent to the matching queue` : ""}${pv.duplicate ? `, ${pv.duplicate} already in Pulse` : ""}.`;
     c.emit({ verb: "labcsv.imported", summary: `${c.first()} imported ${filename} (${batchId}): ${text}`, entity: { kind: "batch", id: batchId }, personId, integrationId: "eurofins", simulated: true });
     return c.ok(`${filename} imported. ${text.charAt(0).toUpperCase()}${text.slice(1)}`, pv.flagged ? "info" : "ok", batchId);
   },
 
   "labcsv/resolve": (c, a: { recordId: string; episodeId: string; reason: string }) => {
-    const d = c.need("identity.resolve", "match lab rows to a patient") || guardStaff(c, "match lab rows"); if (d) return d;
+    const d = c.need("identity.resolve", "match lab rows to a participant") || guardStaff(c, "match lab rows"); if (d) return d;
     const rec = c.s.labCsv.records.find((r) => r.id === a.recordId);
     if (!rec || rec.status !== "flagged") return c.fail("This row is no longer waiting for matching.");
-    if (!rec.candidateEpisodeId) return c.fail("No patient in Pulse is close to this row. Reject it and ask the lab to check the request form.");
-    if (a.episodeId !== rec.candidateEpisodeId) return c.fail("Match the row to the patient shown next to it.");
+    if (!rec.candidateEpisodeId) return c.fail("No participant in Pulse is close to this row. Reject it and ask the lab to check the request form.");
+    if (a.episodeId !== rec.candidateEpisodeId) return c.fail("Match the row to the participant shown next to it.");
     const reason = String(a.reason || "").trim();
-    if (reason.length < 8) return c.fail("Say briefly why this row belongs to this patient, for example \"Lab confirmed a typing error in the date of birth\".");
+    if (reason.length < 8) return c.fail("Say briefly why this row belongs to this participant, for example \"Lab confirmed a typing error in the date of birth\".");
     const ep = c.ix().episodeById.get(rec.candidateEpisodeId);
     if (!ep) return c.fail("Unknown episode.");
     if (!newResultsFor(c.s, ep, rec.results).length) return c.fail(`${ep.id} already has these results. Reject the row instead, so nothing is imported twice.`);
     const up = c.s.labCsv.uploads.find((u) => u.id === rec.uploadId)!;
     const diff = diffFor(c.s, ep, rec.file);
-    const checks = (["name", "dob", "id"] as const).filter((k) => diff[k]).map((k) => (k === "dob" ? "date of birth" : k === "id" ? "Unique ID" : "name"));
+    const checks = (["name", "dob", "id"] as const).filter((k) => diff[k]).map((k) => (k === "dob" ? "date of birth" : k === "id" ? "Precision ID" : "name"));
     const by = c.persona().id as StaffId;
     const at = c.stamp();
     rec.created = commitResults(c, ep, rec.file, rec.results, up.batchId, rec.line, { by, at, chosenEpisodeId: ep.id, checks: checks.map((x) => `differs: ${x}`), reason });
@@ -158,12 +160,32 @@ const handlers: Record<string, Handler> = {
     const d = c.need("identity.resolve", "reject lab rows") || guardStaff(c, "reject lab rows"); if (d) return d;
     const rec = c.s.labCsv.records.find((r) => r.id === a.recordId);
     if (!rec || rec.status !== "flagged") return c.fail("This row is no longer waiting for matching.");
-    const reason = String(a.reason || "").trim() || "Does not match a Precision Health patient. Ask the lab to check the request form.";
+    const reason = String(a.reason || "").trim() || "Does not match a Precision Health participant. Ask the lab to check the request form.";
     rec.status = "rejected";
     rec.decision = { by: c.persona().id as StaffId, at: c.stamp(), reason, kind: "rejected" };
     refreshBatch(c, rec.uploadId);
-    c.emit({ verb: "labcsv.rejected", summary: `${c.first()} rejected lab row ${rec.id} (${rec.file.surname}, ${rec.file.given}, Unique ID ${rec.file.uniqueId || "missing"}). Nothing was attached. Reason: ${reason.replace(/[.\s]+$/, "")}.`, entity: { kind: "batch", id: c.s.labCsv.uploads.find((u) => u.id === rec.uploadId)!.batchId }, integrationId: "eurofins", simulated: true });
-    return c.ok("Row rejected. Nothing was attached to any patient.", "info");
+    c.emit({ verb: "labcsv.rejected", summary: `${c.first()} rejected lab row ${rec.id} (${rec.file.surname}, ${rec.file.given}, Precision ID ${rec.file.uniqueId || "missing"}). Nothing was attached. Reason: ${reason.replace(/[.\s]+$/, "")}.`, entity: { kind: "batch", id: c.s.labCsv.uploads.find((u) => u.id === rec.uploadId)!.batchId }, integrationId: "eurofins", simulated: true });
+    return c.ok("Row rejected. Nothing was attached to any participant.", "info");
+  },
+
+  "labcsv/rejectFeedRow": (c, a: { rowId: string; reason?: string }) => {
+    const d = c.need("identity.resolve", "reject lab rows") || guardStaff(c, "reject lab rows"); if (d) return d;
+    const at = c.s.importRows.findIndex((r) => r.id === a.rowId);
+    if (at < 0 || c.s.importRows[at].state !== "quarantined") return c.fail("This row is no longer waiting for matching.");
+    const reason = String(a.reason || "").trim() || "Does not match a Precision Health participant. Ask the lab to check the request form.";
+    // Rows are shared with the previous state: replace the element with a changed copy.
+    const row: ImportRow = { ...c.s.importRows[at], state: "rejected" };
+    c.s.importRows[at] = row;
+    const held = c.s.episodes.find((e) => e.hold && e.hold.rowId === row.id);
+    if (held) { held.hold = null; c.inv(); c.settleEpisode(held); }
+    c.inv();
+    const batch = c.s.batches.find((b) => b.id === row.batchId);
+    if (batch) {
+      const left = c.s.importRows.filter((r) => r.batchId === row.batchId && r.state === "quarantined").length;
+      batch.status = left ? "partial" : "complete";
+    }
+    c.emit({ verb: "labcsv.rejected", summary: `${c.first()} rejected lab row ${row.id} (${row.nameInFile}, Precision ID ${row.specimenKey}). Nothing was attached.${held ? ` ${held.id} waits for the lab to send this result again.` : ""} Reason: ${reason.replace(/[.\s]+$/, "")}.`, entity: { kind: "row", id: row.id }, programmeId: held ? held.programmeId : undefined, personId: held ? held.personId : undefined, integrationId: "eurofins", simulated: true });
+    return c.ok(held ? `Row rejected. Nothing was attached. ${c.personName(held.personId)}'s report waits for the lab to send this result again.` : "Row rejected. Nothing was attached to any participant.", "info");
   },
 };
 
@@ -173,7 +195,7 @@ export const AGENT_RESULTS_RULE = "Agents can draft wording but cannot change re
 export const RESULT_EDIT_ACTIONS = [
   "import/commitPreview", "import/resolveRow", "import/confirmUnit", "import/deliverSampleResults", "resultsui/confirmUnit",
   "review/release", "review/releaseRoutine", "correction/start", "correction/release",
-  "labcsv/import", "labcsv/resolve", "labcsv/reject",
+  "labcsv/import", "labcsv/resolve", "labcsv/reject", "labcsv/rejectFeedRow",
 ];
 type MaybeAgent = { actor?: { kind?: string; label?: string; id?: string }; agentId?: string };
 export function agentActor(a: MaybeAgent): string | null {
@@ -200,4 +222,5 @@ export const labAct = {
   importCsv: (filename: string, text: string, personId?: string | null) => ({ type: "labcsv/import", filename, text, personId: personId || null }),
   resolve: (recordId: string, episodeId: string, reason: string) => ({ type: "labcsv/resolve", recordId, episodeId, reason }),
   reject: (recordId: string, reason?: string) => ({ type: "labcsv/reject", recordId, reason }),
+  rejectFeedRow: (rowId: string, reason?: string) => ({ type: "labcsv/rejectFeedRow", rowId, reason }),
 };

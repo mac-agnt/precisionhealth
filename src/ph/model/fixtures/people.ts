@@ -301,6 +301,19 @@ export function buildRoster(): RosterPlan {
           gender = x < 0.47 ? "woman" : x < 0.95 ? "man" : x < 0.97 ? "non_binary" : x < 0.985 ? "prefer_not_to_say" : "not_recorded";
           sex = gender === "woman" ? "female" : gender === "man" ? "male" : r.chance(0.5) ? "not_recorded" : r.pick(["female", "male"] as SexRecorded[]);
         }
+        // The first name follows the recorded sex (no "Rebecca" recorded as male). Chosen without using
+        // the random stream, so ages, sites and every other generated value stay exactly as before.
+        // Gráinne Mooney (the advice codes demo, PH-E-1210) keeps her name and is recorded as a woman.
+        if (id === "PH-P-0369") { sex = "female"; gender = "woman"; }
+        const wrongList = sex === "male" ? FIRST_NAMES_F : sex === "female" ? FIRST_NAMES_M : null;
+        if (wrongList && wrongList.includes(given)) {
+          const right = sex === "male" ? FIRST_NAMES_M : FIRST_NAMES_F;
+          used.delete(given + " " + family);
+          let k = wrongList.indexOf(given) % right.length;
+          for (let step = 0; step < right.length && used.has(right[k] + " " + family); step++) k = (k + 1) % right.length;
+          given = right[k];
+          used.add(given + " " + family);
+        }
       }
       const r2 = rng.fork("c" + n);
       const site = siteOf.get(id) || prog.sites[r2.int(0, prog.sites.length - 1)];

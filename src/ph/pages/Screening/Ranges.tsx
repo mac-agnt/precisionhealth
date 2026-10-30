@@ -1,17 +1,17 @@
-/* Reference ranges: every test from Precision Health's table, the version in force today, and a
-   drawer per test with the generated sentence for each cohort, the bands, the cells as sent, open
-   questions, gaps and overlaps, and the full version history. Superadmins edit from the drawer. */
+/* Reference ranges: every test from Precision Health's table in one simple table (test, normal range,
+   mildly abnormal, significantly abnormal), one chip row to filter, and a drawer per test with the
+   sentence for each cohort, the bands, the cells as sent, open questions, gaps and overlaps, and the
+   full version history. Superadmins edit from the drawer. Deep link: #/Screening/ranges?test=tc */
 import { useMemo, useState } from "react";
 import {
-  RR_BASIS_LABEL, RR_GROUPS, RR_QUESTIONS, RR_SOURCE_DOC, RR_TESTS, RR_TEST_BY_ID, boundsShort, cohortText, fmtDate, rowFor, rowSentence, rrVersionInForce, rrVersionsOf, today,
+  RR_BASIS_LABEL, RR_GROUPS, RR_QUESTIONS, RR_TESTS, RR_TEST_BY_ID, boundsShort, cohortText, fmtDate, rowFor, rowSentence, rrVersionInForce, rrVersionsOf, today,
 } from "../../model";
 import type { RrGroup, RrTest, RrVersion } from "../../model";
 import { dispatch, getState as usePhStateSnapshot, usePersona, usePhState } from "../../store";
-import { Button, Card, Chip, DataTable, Drawer, Field, Kpi, KpiStrip, PageHeader, Pill, SearchBox, Section, Segmented, TextInput, Textarea } from "../../ui";
-import type { Column } from "../../ui";
+import { Button, Card, Chip, Drawer, Field, PageHeader, Pill, SearchBox, Section, Select, TextInput, Textarea } from "../../ui";
 import { useNav } from "../../nav-context";
 import { rrAct } from "./actions";
-import { draftImpact, isSuperadmin, rowBandsShort, rrDiff, testStatus, versionIssues } from "./select";
+import { draftImpact, isSuperadmin, rrDiff, testStatus, versionIssues } from "./select";
 import { BandsTable, Callout, RangeBar, VersionPill, staffNameOf, whoWhen } from "./shared";
 import { RangeEditor } from "./Editor";
 
@@ -23,9 +23,8 @@ export default function Ranges() {
   const [q, setQ] = useState("");
   const [group, setGroup] = useState<RrGroup | "all">("all");
   const [filter, setFilter] = useState<Filter>("all");
-  const [view, setView] = useState<"list" | "table">("table");
   const rows = useMemo(() => RR_TESTS.map((t) => ({ t, st: testStatus(s, t) })), [s]);
-  const counts = {
+  const counts: Record<Filter, number> = {
     all: rows.length,
     issues: rows.filter((r) => r.st.issues.length).length,
     confirm: rows.filter((r) => r.st.open.length).length,
@@ -36,66 +35,43 @@ export default function Ranges() {
     && (!q || `${r.t.name} ${r.t.group} ${r.t.unit}`.toLowerCase().includes(q.toLowerCase()))
     && (filter === "all" || (filter === "issues" && r.st.issues.length) || (filter === "confirm" && r.st.open.length) || (filter === "notset" && (r.st.notSet || r.st.partly)) || (filter === "drafts" && r.st.draft)));
   const openId = nav.params.test || null;
-  const t0 = today(s);
-  const cohorts = rows.reduce((n, r) => n + (r.st.v?.rows.length || 0), 0);
-
-  const cols: Column<(typeof rows)[number]>[] = [
-    { key: "name", header: "Test", sort: (a, b) => a.t.name.localeCompare(b.t.name), cell: (r) => <div><div style={{ fontWeight: 500, color: "var(--ink)" }}>{r.t.name}</div><div className="ph-faint" style={{ fontSize: 11.5 }}>{r.t.group}</div></div> },
-    { key: "unit", header: "Unit", nowrap: true, cell: (r) => <span className={/not supplied/i.test(r.t.unit) ? "ph-faint" : ""}>{r.t.unit}</span> },
-    { key: "normal", header: "Normal range in force", cell: (r) => {
-      const v = r.st.v;
-      if (!v) return <span className="ph-faint">Not set</span>;
-      if (r.t.kind === "recorded") return <span className="ph-faint">Recorded only</span>;
-      return <div style={{ fontSize: 12, lineHeight: 1.45 }}>{v.rows.slice(0, 3).map((row) => <div key={row.id}>{v.rows.length > 1 ? <span className="ph-faint">{shortCohort(row.cohort)}: </span> : null}{rowBandsShort(r.t, row).split(" · ").find((x) => x.startsWith("NORMAL") || x.includes("REGULAR") || x.includes("NEGATIVE")) || rowBandsShort(r.t, row)}</div>)}{v.rows.length > 3 ? <div className="ph-faint">+{v.rows.length - 3} more</div> : null}</div>;
-    } },
-    { key: "ver", header: "Version", nowrap: true, cell: (r) => r.st.v ? <span className="ph-num">v{r.st.v.version} <span className="ph-faint">from {fmtDate(r.st.v.effectiveFrom)}</span></span> : "" },
-    { key: "status", header: "Status", cell: (r) => (
-      <div className="ph-row-flex ph-wrap" style={{ gap: 5 }}>
-        {r.st.draft ? <Pill tone="warn" icon="edit">Draft v{r.st.draft.version}</Pill> : null}
-        {r.st.issues.length ? <Pill tone="bad" icon="alert">{r.st.issues.length === 1 ? "1 gap or overlap" : `${r.st.issues.length} gaps or overlaps`}</Pill> : null}
-        {r.st.notSet ? <Pill tone="neutral">Not set</Pill> : r.st.partly ? <Pill tone="neutral">Partly set</Pill> : null}
-        {r.st.open.length ? <Pill tone="info">To confirm</Pill> : null}
-        {r.st.scheduled.length ? <Pill tone="info" icon="calendar">v{r.st.scheduled[0].version} from {fmtDate(r.st.scheduled[0].effectiveFrom)}</Pill> : null}
-        {r.st.recorded ? <Pill tone="neutral">Recorded only</Pill> : null}
-        {!r.st.recorded && !r.st.draft && !r.st.issues.length && !r.st.notSet && !r.st.partly && !r.st.open.length ? <Pill tone="ok" icon="check">Set</Pill> : null}
-      </div>) },
-  ];
+  const admins = s.referenceRanges.settings.superadmins.map((id) => staffNameOf(s, id)).join(" and ");
+  const LABEL: Record<Filter, string> = { all: "All tests", drafts: "Drafts", issues: "Gaps or overlaps", confirm: "To confirm", notset: "Not set" };
 
   return (
     <>
-      <PageHeader eyebrow="Health Screening" title="Reference ranges"
-        sub={<>Every test, cohort and band from {RR_SOURCE_DOC}. Each result is judged against the version in force on its sample date, and the version used is recorded. Only superadmins change ranges, always as a draft first.</>} />
-      <KpiStrip>
-        <Kpi label="Tests" value={rows.length} sub={`${cohorts} cohort ranges`} icon="flask" />
-        <Kpi label="Gaps or overlaps found" value={counts.issues} tone={counts.issues ? "bad" : "ok"} sub="Values in no band, or in two" onClick={() => setFilter("issues")} />
-        <Kpi label="To confirm" value={counts.confirm} tone={counts.confirm ? "info" : "ok"} sub="Defaults applied for now" onClick={() => setFilter("confirm")} />
-        <Kpi label="Not set" value={counts.notset} tone="neutral" sub="Not supplied in the table" onClick={() => setFilter("notset")} />
-        <Kpi label="Drafts waiting" value={counts.drafts} tone={counts.drafts ? "warn" : "ok"} sub="Not in use until published" onClick={() => setFilter("drafts")} />
-      </KpiStrip>
+      <PageHeader title="Reference ranges"
+        sub={<>The normal and abnormal ranges Pulse uses to judge every result. Open a test to see its history or change a number. Only {admins || "superadmins"} can change them.</>} />
       <Card>
         <div className="scr-filters">
-          <Segmented value={view} onChange={setView} label="View" options={[{ id: "table", label: "Your table" }, { id: "list", label: "Status list" }]} />
-          <SearchBox value={q} onChange={setQ} placeholder="Search tests" />
-          <Segmented value={filter} onChange={setFilter} label="Filter" options={[
-            { id: "all", label: "All", count: counts.all }, { id: "issues", label: "Gaps or overlaps", count: counts.issues }, { id: "confirm", label: "To confirm", count: counts.confirm },
-            { id: "notset", label: "Not set", count: counts.notset }, { id: "drafts", label: "Drafts", count: counts.drafts }]} />
+          <div className="scr-chips ph-grow" role="group" aria-label="Show">
+            {(["all", "drafts", "issues", "confirm", "notset"] as Filter[]).filter((f) => f === "all" || counts[f] > 0 || f === filter).map((f) => (
+              <Chip key={f} on={filter === f} onClick={() => setFilter(f)} count={counts[f]}>{LABEL[f]}</Chip>
+            ))}
+          </div>
+          <div className="scr-tools">
+            <Select value={group} onChange={(e) => setGroup(e.target.value as RrGroup | "all")} aria-label="Group">
+              <option value="all">All groups</option>
+              {RR_GROUPS.map((g) => <option key={g} value={g}>{g}</option>)}
+            </Select>
+            <SearchBox value={q} onChange={setQ} placeholder="Search tests" />
+          </div>
         </div>
-        <div className="scr-chips" style={{ marginBottom: 12 }}>
-          <Chip on={group === "all"} onClick={() => setGroup("all")}>All groups</Chip>
-          {RR_GROUPS.map((g) => <Chip key={g} on={group === g} onClick={() => setGroup(g)} count={rows.filter((r) => r.t.group === g).length}>{g}</Chip>)}
-        </div>
-        {view === "table" ? <YourTable tests={shown.map((r) => r.t)} onOpen={(id) => nav.setParams({ test: id })} /> : <DataTable rows={shown} columns={cols} rowKey={(r) => r.t.id} pageSize={40} selectedKey={openId}
-          onRowClick={(r) => nav.setParams({ test: r.t.id })} caption="Reference ranges"
-          empty={<div className="ph-faint" style={{ padding: 20 }}>No tests match.</div>}
-          footerNote={<>Range checks run on every save. Today in the demo: {fmtDate(t0)}.</>} />}
+        <RangesTable rows={shown} onOpen={(id) => nav.setParams({ test: id })} />
       </Card>
       {openId && RR_TEST_BY_ID[openId] ? <TestDrawer test={RR_TEST_BY_ID[openId]} onClose={() => nav.setParams({})} /> : null}
     </>
   );
 }
 
-const shortCohort = (c: { sex: string; ageMin: number | null; ageMax: number | null; ethnicities: "any" | string[]; pregnancy: string }) =>
-  [c.sex === "male" ? "M" : c.sex === "female" ? "F" : "", c.ageMin !== null || c.ageMax !== null ? `${c.ageMin ?? 0}${c.ageMax !== null ? `-${c.ageMax - 1}` : "+"}` : "", c.ethnicities !== "any" ? "ethnicity" : ""].filter(Boolean).join(" ") || "All";
+/** One short status word per test, only when something needs attention. */
+function StatusPills({ st }: { st: ReturnType<typeof testStatus> }) {
+  const out: JSX.Element[] = [];
+  if (st.draft) out.push(<Pill key="d" tone="warn" icon="edit">Draft v{st.draft.version}</Pill>);
+  if (st.issues.length) out.push(<Pill key="i" tone="bad" icon="alert">{st.issues.length === 1 ? "Gap or overlap" : `${st.issues.length} gaps or overlaps`}</Pill>);
+  if (st.scheduled.length) out.push(<Pill key="s" tone="info" icon="calendar">v{st.scheduled[0].version} from {fmtDate(st.scheduled[0].effectiveFrom)}</Pill>);
+  return out.length ? <div className="ph-row-flex ph-wrap" style={{ gap: 4, marginTop: 4 }}>{out}</div> : null;
+}
 
 export function TestDrawer({ test, onClose }: { test: RrTest; onClose: () => void }) {
   const s = usePhState();
@@ -279,11 +255,12 @@ function QuickChange({ test, base, onDone }: { test: RrTest; base: RrVersion; on
   );
 }
 
-/* ---------- the developer table, in Precision Health's own layout, generated live from the ranges in force ---------- */
-function YourTable({ tests, onOpen }: { tests: RrTest[]; onOpen: (id: string) => void }) {
+/* ---------- the ranges table: Precision Health's own columns, built live from the ranges in force ---------- */
+function RangesTable({ rows, onOpen }: { rows: Array<{ t: RrTest; st: ReturnType<typeof testStatus> }>; onOpen: (id: string) => void }) {
   const s = usePhState();
   const t0 = today(s);
   const cell = (test: RrTest, sex: "male" | "female", keys: string[]): string => {
+    if (test.kind === "recorded") return keys.includes("normal") ? "Recorded only, no range" : "";
     const v = rrVersionInForce(s.referenceRanges.versions, test.id, t0);
     if (!v) return "Not set";
     const row = rowFor(v.rows, { sex, age: 40, ethnicity: null, pregnant: false }).row;
@@ -292,29 +269,27 @@ function YourTable({ tests, onOpen }: { tests: RrTest[]; onOpen: (id: string) =>
     if (row.status === "not_applicable") return "Not applicable";
     if (test.kind === "qualitative") return keys.includes("normal") ? row.expected || "" : "Not defined";
     const parts = row.bands.filter((b) => keys.includes(b.key)).map((b) => boundsShort(b, test.decimals));
-    return parts.length ? parts.join(" OR ") : "Not defined";
+    return parts.length ? parts.join(" or ") : "None";
   };
   const both = (test: RrTest, keys: string[]) => {
     const m = cell(test, "male", keys), f = cell(test, "female", keys);
-    return m === f ? m : `Male: ${m}; female: ${f}`;
+    return m === f ? m : `Men ${m}; women ${f}`;
   };
+  if (!rows.length) return <div className="ph-faint" style={{ padding: 20 }}>No tests match.</div>;
   return (
-    <div className="ph-tablewrap">
-      <table className="ph-table yt">
-        <thead><tr><th>Test / measurement</th><th>Unit</th><th>Male normal / reference range</th><th>Female normal / reference range</th><th>Mildly abnormal band</th><th>Significantly abnormal / GP-review band</th><th>Severity-band status</th></tr></thead>
-        <tbody>{tests.map((test) => (
-          <tr key={test.id} onClick={() => onOpen(test.id)} style={{ cursor: "pointer" }}>
-            <td style={{ color: "var(--ink)", fontWeight: 500 }}>{test.source?.url ? <a className="ph-link" href={test.source.url} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}>{test.name}</a> : test.name}</td>
-            <td className="ph-faint">{test.unit}</td>
-            <td className="yt-n">{cell(test, "male", ["normal"])}</td>
-            <td className="yt-n">{cell(test, "female", ["normal"])}</td>
-            <td className="yt-m">{both(test, ["low_mild", "high_mild"])}</td>
-            <td className="yt-s">{both(test, ["low_severe", "high_severe", "high_critical"])}</td>
-            <td className="ph-faint">{test.asSent.status || ""}</td>
-          </tr>))}</tbody>
-      </table>
-      <style>{`.yt td{font-size:12.5px;vertical-align:top}.yt td.yt-n{box-shadow:inset 3px 0 0 var(--b-normal)}.yt td.yt-m{box-shadow:inset 3px 0 0 var(--b-mild)}.yt td.yt-s{box-shadow:inset 3px 0 0 var(--b-sig)}`}</style>
-      <div className="ph-faint" style={{ fontSize: 11.5, padding: "10px 4px" }}>Same layout as your Screening Reference Ranges developer table, built live from the ranges in force today. Click a test to see its bands, history or change a number.</div>
+    <div className="rr-list" role="table" aria-label="Reference ranges">
+      <div className="rr-row rr-head" role="row">
+        <span role="columnheader">Test</span><span role="columnheader">Normal</span><span role="columnheader">Mildly abnormal</span><span role="columnheader">Significantly abnormal</span>
+      </div>
+      {rows.map(({ t, st }) => (
+        <button key={t.id} type="button" className="rr-row" role="row" onClick={() => onOpen(t.id)}>
+          <span role="cell" className="rr-test"><b>{t.name}</b><span className="ph-faint"> {/not supplied/i.test(t.unit) ? "" : t.unit}</span><StatusPills st={st} /></span>
+          <span role="cell" className="rr-n"><i>Normal</i>{both(t, ["normal"])}</span>
+          <span role="cell" className="rr-m"><i>Mildly abnormal</i>{both(t, ["low_mild", "high_mild"])}</span>
+          <span role="cell" className="rr-s"><i>Significantly abnormal</i>{both(t, ["low_severe", "high_severe", "high_critical"])}</span>
+        </button>
+      ))}
+      <div className="ph-faint" style={{ fontSize: 11.5, padding: "10px 4px 0" }}>Built live from the ranges in force today, {fmtDate(t0)}. Open a test for its bands by age and sex, the cells exactly as you sent them and the version history.</div>
     </div>
   );
 }

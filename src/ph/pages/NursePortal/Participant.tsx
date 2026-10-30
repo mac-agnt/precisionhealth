@@ -90,7 +90,7 @@ function Arrival({ row }: { row: ApptRow }) {
           <h3 className="ph-h2">Waiting to arrive{row.slotPassed ? ". The slot time has passed" : ""}</h3>
           <ul className="np-mini" style={{ marginTop: 10 }}>
             <li><Icon name="check" size={13} /><span>Check in when the participant arrives. The nurse form opens with {fromQ} answers carried over from the booking and the pre-visit questionnaire for you to confirm.</span></li>
-            <li><Icon name="shield" size={13} /><span>Then confirm identity with two identifiers, date of birth and booking reference, before anything clinical.</span></li>
+            <li><Icon name="shield" size={13} /><span>Then confirm their identity: name, date of birth and booking reference, before anything clinical.</span></li>
             {sessionUsesPoc(row.session)
               ? <li><Icon name="flask" size={13} /><span>Point-of-care day: you enter cholesterol, HDL and HbA1c from the machine, so the doctor can release the report today.</span></li>
               : <li><Icon name="flask" size={13} /><span>Laboratory day: the blood sample goes to the laboratory, and the report waits for the results.</span></li>}

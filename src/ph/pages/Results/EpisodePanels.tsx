@@ -1,6 +1,7 @@
 /* The episode's clinical picture, used by Review and Corrections: identifiers, status
    banners, laboratory values with source and previous version, risk factors and lifestyle
    answers, the nurse form as recorded, and the history. */
+import { useState } from "react";
 import type { ReactNode } from "react";
 import {
   ANALYTES, HOLD_CATEGORY, HOLD_LABEL, LIMITS_DISCLAIMER, episodeBundle, fmtAge,
@@ -22,6 +23,7 @@ export type Bundle = NonNullable<ReturnType<typeof episodeBundle>>;
 /* ---- identifiers ---- */
 export function EpisodeHeader({ b, right, compact }: { b: Bundle; right?: ReactNode; compact?: boolean }) {
   const state = usePhState();
+  const [details, setDetails] = useState(false);
   const ready = b.episode.readyAt;
   const idHold = !!b.episode.hold && HOLD_CATEGORY[b.episode.hold.kind] === "identity";
   const idOk = !idHold && b.episode.capture.identity.every((c) => c.confirmed);
@@ -38,28 +40,35 @@ export function EpisodeHeader({ b, right, compact }: { b: Bundle; right?: ReactN
             <LabAware state={state} ep={b.episode}><ReportStatePill state={b.episode.reportState} /></LabAware>
             {b.episode.capture.variant === "poc" && b.episode.reportState === "ready_for_review" ? <Pill tone="brand" icon="flask" title="Point-of-care results were recorded at the clinic. Nothing waits for a laboratory, so the report can be reviewed and released today.">Same-day release</Pill> : null}
             {idOk ? <Pill tone="ok" icon="shield">Identity verified</Pill> : <Pill tone="warn" icon="alert">Identity not verified</Pill>}
-            <Pill tone="neutral" icon={null}>{b.programme.code}</Pill>
-            <span className="phr-mono" style={{ color: "var(--ink)" }} title="Precision Health unique ID">{b.episode.screeningRef}</span>
+            {compact ? null : <><Pill tone="neutral" icon={null}>{b.programme.code}</Pill><span className="phr-mono" style={{ color: "var(--ink)" }} title="Precision ID">{b.episode.screeningRef}</span></>}
           </div>
-          <div className="phr-sub" style={{ marginTop: 3 }}>{b.programme.name}. Fictional participant. {summary}</div>
+          <div className="phr-sub" style={{ marginTop: 3 }}>{compact ? <EntityLink kind="programme" id={b.programme.id}>{b.programme.name}</EntityLink> : b.programme.name}. {summary}</div>
         </div>
         {right ? <div className="phr-row" style={{ flex: "none" }}>{right}</div> : null}
       </div>
       {compact ? (
-        <div className="phr-idline">
-          <span><i>DOB</i> {fmtNumericDate(b.person.dob)}</span>
-          <span><i>Episode</i> <span className="phr-mono">{b.episode.id}</span></span>
-          <span><i>Specimen</i> <span className="phr-mono">{b.episode.specimenIds.join(", ")}</span></span>
-          <span><i>Collected</i> {fmtShortDateTime(b.episode.collectedAt)}, <EntityLink kind="session" id={b.session.id}>{b.session.siteName}</EntityLink></span>
-          <span><i>Ready</i> {ready ? `${fmtWhen(ready, state.clock.nowUtc)} (${fmtAge(hoursBetween(ready, state.clock.nowUtc))})` : "Not yet"}</span>
-          <span><i>Reviewer</i> {staffName(state, b.episode.reviewAssigneeId)}</span>
-          <span><i>Person</i> <EntityLink kind="person" id={b.person.id} /></span>
-          <span><i>Booking</i> <EntityLink kind="booking" id={b.booking.id} /></span>
-        </div>
+        <>
+          <div className="phr-idline">
+            <span><i>Date of birth</i> {fmtNumericDate(b.person.dob)}</span>
+            <span><i>Precision ID</i> <span className="phr-mono">{b.episode.screeningRef}</span></span>
+            <span><i>Reviewer</i> {staffName(state, b.episode.reviewAssigneeId)}</span>
+            <button type="button" className="ph-link" style={{ fontSize: 11.5 }} aria-expanded={details} onClick={() => setDetails(!details)}>{details ? "Hide details" : "Details"}</button>
+          </div>
+          {details ? (
+            <div className="phr-idline">
+              <span><i>Collected</i> {fmtShortDateTime(b.episode.collectedAt)}, <EntityLink kind="session" id={b.session.id}>{b.session.siteName}</EntityLink></span>
+              <span><i>Ready</i> {ready ? `${fmtWhen(ready, state.clock.nowUtc)} (${fmtAge(hoursBetween(ready, state.clock.nowUtc))})` : "Not yet"}</span>
+              <span><i>Participant</i> <EntityLink kind="person" id={b.person.id}>{b.name}</EntityLink></span>
+              <span><i>Booking</i> <EntityLink kind="booking" id={b.booking.id} /></span>
+              <span><i>Episode</i> <span className="phr-mono">{b.episode.id}</span></span>
+              <span><i>Specimen</i> <span className="phr-mono">{b.episode.specimenIds.join(", ") || "None"}</span></span>
+            </div>
+          ) : null}
+        </>
       ) : (
       <div style={{ marginTop: 8 }}>
         <Kv tight items={[
-          { k: "Unique ID", v: <span className="phr-mono">{b.episode.screeningRef}</span> },
+          { k: "Precision ID", v: <span className="phr-mono">{b.episode.screeningRef}</span> },
           { k: "Episode", v: <span className="phr-mono">{b.episode.id}</span> },
           { k: "Person", v: <EntityLink kind="person" id={b.person.id} /> },
           { k: "Date of birth", v: fmtNumericDate(b.person.dob) },
@@ -202,7 +211,7 @@ export function ResultsTable({ b, showValues, collapsed }: { b: Bundle; showValu
 }
 
 /* ---- risk factors and lifestyle answers ---- */
-const tfText = (v: boolean | null) => (v === true ? "TRUE" : v === false ? "FALSE" : "Not recorded");
+const tfText = (v: boolean | null) => (v === true ? "Yes" : v === false ? "No" : "Not recorded");
 
 /** Risk factors as the clinician viewer reads them (nurse form first), and the lifestyle questionnaire as the report prints it. */
 export function AnswersCard({ b }: { b: Bundle }) {
