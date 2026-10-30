@@ -134,7 +134,7 @@ function EventLink({ entity }: { entity: EntityRef }) {
   const nav = useNav();
   const s = usePhState();
   const special = settingsTarget(entity);
-  if (special) return <button type="button" className="ph-link" onClick={() => nav.go(special)}>Settings, AI Controls</button>;
+  if (special) return <button type="button" className="ph-link" onClick={() => nav.go(special)}>Settings, AI controls</button>;
   if (entity.kind === "system" && !KNOWN_SYSTEMS.has(entity.id)) return null;
   return <EntityLink kind={entity.kind} id={entity.id}>{entityLabel(s, entity)}</EntityLink>;
 }

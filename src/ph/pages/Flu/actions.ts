@@ -20,7 +20,7 @@ function manage(c: Ctx, what: string): ActionResult | null {
   const p = c.persona();
   if (p.isParticipant) return c.fail(`The participant preview cannot ${what}. This is a staff action.`);
   if (fluAccessFor(p.id) !== "manage") {
-    return c.fail(`${p.name} (${p.roleLabel}) cannot ${what}. Stephen, Martina and Brenda manage flu in this demo. Switch role in Settings, Experience to try it.`);
+    return c.fail(`${p.name} (${p.roleLabel}) cannot ${what}. Stephen, Martina and Brenda manage flu in this demo. Switch role in Settings, Display to try it.`);
   }
   return null;
 }
@@ -51,7 +51,7 @@ registerHandlers({
   "flu/setPrecisionLive": (c, a: { live: boolean }) => {
     const deny = manage(c, "change whether Precision flu bookings are live");
     if (deny) return deny;
-    if (me(c) !== FLU_SUPPLY_OWNER) return c.fail("Stephen Kelly decides when Precision flu bookings go live. Switch to Stephen in Settings, Experience to try it.");
+    if (me(c) !== FLU_SUPPLY_OWNER) return c.fail("Stephen Kelly decides when Precision flu bookings go live. Switch to Stephen in Settings, Display to try it.");
     if (typeof a.live !== "boolean") return c.fail("Choose live or waiting for vaccine supply.");
     const f = c.s.flu;
     if (f.precisionLive === a.live) return c.fail(a.live ? "Precision flu bookings are already live." : "Precision flu bookings are already waiting for vaccine supply.");

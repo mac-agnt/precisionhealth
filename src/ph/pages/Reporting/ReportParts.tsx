@@ -1,4 +1,4 @@
-/* Pieces of an employer report, shared by the Report Builder canvas, the printable report and the
+/* Pieces of an employer report, shared by the Report builder canvas, the printable report and the
    PowerPoint preview, so every surface renders the same numbers the same way.
    Disclosure rules: a suppressed cell shows the word "Suppressed" and nothing else. No count, no bar
    length, no tooltip and no aria label carries a hidden value. Blocked cohorts have no breakdowns. */

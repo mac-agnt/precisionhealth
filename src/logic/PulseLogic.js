@@ -1422,7 +1422,7 @@ export default class PulseLogic extends DCLogic {
     
     
     
-    const railStyle = (active) => "position:relative;width:" + (st.railOpen ? "100%" : "44px") + ";height:42px;flex:none;display:flex;align-items:center;"
+    const railStyle = (active) => "position:relative;width:" + (st.railOpen ? "100%" : "44px") + ";height:38px;flex:none;display:flex;align-items:center;"
       + (st.railOpen ? "gap:13px;justify-content:flex-start;padding:0 14px;font-size:14px;" : "gap:0;justify-content:center;")
       + "border:0;border-radius:14px;cursor:pointer;overflow:visible;"
       + "transition:background .42s var(--ease),color .35s var(--ease),box-shadow .42s var(--ease),transform .3s cubic-bezier(.16,1.4,.3,1);"
@@ -2096,6 +2096,16 @@ export default class PulseLogic extends DCLogic {
     // Below these widths the nav keeps its room and the softer furniture gives way:
     // the context hint first, then the search label, then the profile text.
     const roomy = st.w >= 1320, mid = st.w >= 1120;
+    // Tabs come first: estimate their width from the labels, and only open the search field
+    // (then the profile name) when there is room left over. Otherwise they fold away and
+    // every tab stays in view.
+    const barInner = st.w - (st.railOpen ? 252 : 68) - 12;
+    const tabPadPx = barInner >= 1088 && contextNav.length < 6 ? 18 : barInner >= 988 && contextNav.length < 7 ? 12 : 10;
+    const tabsW = contextNav.reduce((a, t) => a + String(t.label).length * 7.8 + tabPadPx * 2 + (t.count ? 30 : 0), 0);
+    const chromeW = 96 + 84 + 64 + (roomy && st.barOpen && contextHint ? 190 : 0);
+    const profileW = 170;
+    const searchRoom = contextNav.length <= 6 && barInner >= 780 && barInner - chromeW - profileW - tabsW >= 260;
+    const profileRoom = roomy && barInner - chromeW - 46 - tabsW >= profileW;
     return {
       nav, contextNav, contextHint, searchHint, 
       isRecords: page === "Records",
@@ -2108,7 +2118,7 @@ export default class PulseLogic extends DCLogic {
       /* rail */
       railOuter: "position:relative;z-index:2;width:" + (railOpen ? "252px" : "68px")
         + ";flex:none;display:flex;flex-direction:column;align-items:" + (railOpen ? "stretch" : "center")
-        + ";gap:4px;padding:22px " + (railOpen ? "16px" : "0") + " 16px"
+        + ";gap:2px;padding:22px " + (railOpen ? "16px" : "0") + " 16px"
         + ";background:transparent;"
         + "overflow-y:auto;overflow-x:hidden;scrollbar-width:none;"
         + "transition:width .32s var(--ease),padding .32s var(--ease)",
@@ -2544,7 +2554,7 @@ export default class PulseLogic extends DCLogic {
         ? "position:absolute;left:0;right:0;top:0;height:76px;z-index:3;pointer-events:none;background:var(--accent)"
         : "display:none",
       headerPillStyle: "display:flex;align-items:center;gap:4px;height:54px;padding:5px;box-sizing:border-box;max-width:100%;min-width:0;overflow:hidden;"
-        + ((contextNav.length <= 6 && (st.w - (st.railOpen ? 252 : 68) - 12) >= 780) ? "" : "width:fit-content;margin:0 auto;")
+        + (searchRoom ? "" : "width:fit-content;margin:0 auto;")
         + "background:var(--surface);border:1px solid var(--border);border-radius:999px;"
         + "backdrop-filter:blur(24px) saturate(1.4);-webkit-backdrop-filter:blur(24px) saturate(1.4);"
         + "box-shadow:0 1px 0 rgba(255,255,255,.05) inset,0 10px 30px rgba(0,0,0,.28)",
@@ -2598,18 +2608,19 @@ export default class PulseLogic extends DCLogic {
         + "transition:transform .45s cubic-bezier(.22,.9,.16,1) " + (st.setBtnHover ? ".08s" : "0s") + ",opacity .3s var(--ease) " + (st.setBtnHover ? ".08s" : "0s"),
       showTeam: (st.w - (st.railOpen ? 252 : 68)) >= 1000 || contextNav.length <= 3,
       showTheme: (st.w - (st.railOpen ? 252 : 68)) >= 820 || contextNav.length <= 3,
-      tabPad: (st.w - (st.railOpen ? 252 : 68)) >= 1100 ? "0 18px" : (st.w - (st.railOpen ? 252 : 68)) >= 1000 ? "0 12px" : "0 10px",
+      // Busy pages pack their tabs a little tighter so every tab stays in view.
+      tabPad: tabPadPx === 18 ? "0 18px" : tabPadPx === 12 ? "0 12px" : "0 10px",
       
       tabsLoose: !((st.w - (st.railOpen ? 252 : 68)) < 1000 && contextNav.length >= 4),
       
       tabActiveBg: ((st.w - (st.railOpen ? 252 : 68)) < 1000 && contextNav.length >= 4) ? "var(--surface-2)" : "none",
-      searchWrapFlex: (contextNav.length <= 6 && (st.w - (st.railOpen ? 252 : 68) - 12) >= 780) ? "1 1 auto" : "0 0 auto",
+      searchWrapFlex: searchRoom ? "1 1 auto" : "0 0 auto",
       barLabel: st.barOpen ? "Collapse the bar" : "Expand the bar",
       barChevronStyle: "transition:transform .3s var(--ease);transform:rotate(" + (st.barOpen ? "0deg" : "180deg") + ")",
       toggleBar: () => this.setState(prev => ({barOpen: !prev.barOpen})),
-      showHint: roomy && st.barOpen,
+      showHint: roomy && st.barOpen && !!contextHint,
       
-      showProfileText: roomy,
+      showProfileText: profileRoom,
       // Tabs size to their own labels; NavThumb measures, so equal tracks aren't needed.
       navGroupStyle: "position:relative;display:inline-grid;grid-auto-flow:column;grid-auto-columns:max-content;"
         + "width:max-content;max-width:100%;align-items:center;padding:0;flex:" + (contextNav.length <= 3 ? "none" : "0 1 auto") + ";min-width:0;border-radius:999px;"
@@ -2626,7 +2637,7 @@ export default class PulseLogic extends DCLogic {
       
       // The bar is one row: the fewer sub-nav segments a page has, the more of the
       // leftover width the search field takes.
-      searchExpanded: contextNav.length <= 6 && (st.w - (st.railOpen ? 252 : 68) - 12) >= 780,
+      searchExpanded: searchRoom,
       searchBarStyle: (() => {
         const segs = contextNav.length;
         // No min-width floor: when the sub-nav pill group is wide, the search

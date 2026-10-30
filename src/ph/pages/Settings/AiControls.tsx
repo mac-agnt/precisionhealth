@@ -1,4 +1,4 @@
-/* Settings, AI Controls: the optional drafting preview, the locked human-approval rule, the
+/* Settings, AI controls: the optional drafting preview, the locked human-approval rule, the
    permitted data scope and the prohibited actions. Demo content, no model connected: no AI API is
    called. Turning the preview off leaves manual advice and manual employer narrative fully
    usable, and the live counts below show where manual authoring already happens. */
@@ -40,7 +40,7 @@ export default function AiControls() {
   return (
     <div className="ph-page">
       <SettingsHeader
-        title="AI Controls"
+        title="AI controls"
         sub="An optional drafting preview, clearly marked. Demo content, no model connected. A human approves everything, and the core workflow is complete without AI."
         actions={<DemoTag title="No AI API is called. Drafts are deterministic, prewritten demo content.">Demo content, no model connected</DemoTag>}
       />
@@ -119,7 +119,7 @@ export default function AiControls() {
                   </li>
                   <li>
                     <div className="phs-strong" style={{ fontSize: 12.5 }}>Manual employer narrative</div>
-                    <div className="phs-small ph-dim" style={{ marginTop: 2 }}>Reporting, Report Builder keeps a manual narrative editor. A clinician still approves the narrative before export.</div>
+                    <div className="phs-small ph-dim" style={{ marginTop: 2 }}>Reporting, Report builder keeps a manual narrative editor. A clinician still approves the narrative before export.</div>
                     <div style={{ marginTop: 6 }}>
                       <Button size="sm" icon="edit" onClick={() => nav.go(linkFor("employer_report", "ER-SISK-01"))}>Write the ER-SISK-01 narrative</Button>
                       {!canBuild ? <div className="phs-note" style={{ marginTop: 4 }}>Needs the {rolesLabelFor("reports.build")} role to edit.</div> : null}

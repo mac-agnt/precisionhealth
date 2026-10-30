@@ -50,7 +50,7 @@ export class Ctx {
   fail(message: string): ActionResult { return { ok: false, message, tone: "warn" }; }
   /** Returns a failure result when the current persona lacks a permission, otherwise null. */
   need(p: Perm, what: string): ActionResult | null {
-    return this.can(p) ? null : this.fail(`${this.persona().name} (${this.persona().roleLabel}) cannot ${what}. Switch role in Settings, Experience to try it.`);
+    return this.can(p) ? null : this.fail(`${this.persona().name} (${this.persona().roleLabel}) cannot ${what}. Switch role in Settings, Display to try it.`);
   }
   /** Staff only: the participant preview cannot do this. Returns a failure result, otherwise null. */
   staffOnly(what: string): ActionResult | null {

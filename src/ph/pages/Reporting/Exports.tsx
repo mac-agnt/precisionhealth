@@ -110,10 +110,10 @@ function NoSnapshot() {
   return (
     <Card pad={false}>
       <EmptyState title="No approved snapshot yet" icon="print"
-        action={first ? <Button variant="primary" icon="edit" onClick={() => nav.go({ page: "Reporting", tab: "report-builder", params: { report: first.id } })}>Open Report Builder</Button> : undefined}>
+        action={first ? <Button variant="primary" icon="edit" onClick={() => nav.go({ page: "Reporting", tab: "report-builder", params: { report: first.id } })}>Open Report builder</Button> : undefined}>
         Exports come only from an approved snapshot. {s.employerReports.length
           ? s.employerReports.map((r) => `${r.id} is ${r.status === "draft" ? "a draft awaiting disclosure review" : r.status === "reviewed" ? "awaiting clinician approval" : r.status}`).join("; ") + "."
-          : "No employer report has been drafted."} Complete the disclosure review and clinician approval in the Report Builder first.
+          : "No employer report has been drafted."} Complete the disclosure review and clinician approval in the Report builder first.
       </EmptyState>
     </Card>
   );

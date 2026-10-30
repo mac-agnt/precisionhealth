@@ -1,4 +1,4 @@
-/* Settings: Organisation, Teams, Permissions, Systems & Integrations, Governance, AI Controls and
+/* Settings: Organisation, Teams, Permissions, Integrations, Governance, AI controls and
    Experience. The top-bar tabs come from the page registry; this component renders the tab body. */
 import { usePersona } from "../../store";
 import { RestrictedNotice } from "../../ui";

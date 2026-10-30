@@ -1,4 +1,4 @@
-/* Settings, Experience: theme, density and accessibility for this browser session (owned by the
+/* Settings, Display: theme, density and accessibility for this browser session (owned by the
    app shell), the demo clock, role preview and Reset demo. Reset restores the exact baseline and
    asks for confirmation inside the app. The comparison table is computed against a fresh baseline
    built by the same deterministic fixtures, so it shows exactly what a reset will undo. */
@@ -84,7 +84,7 @@ export default function Experience() {
     <div className="ph-page">
       <SettingsHeader
         gated={false}
-        title="Experience"
+        title="Display"
         sub="Theme, density and accessibility for this browser session, the demo clock, role preview and Reset demo."
       />
       <div className="ph-stack">

@@ -14,7 +14,7 @@ function superadmin(c: Ctx, what: string): ActionResult | null {
   const p = c.persona();
   if (p.isParticipant) return c.fail(`The participant preview cannot ${what}.`);
   if (!c.s.referenceRanges.settings.superadmins.includes(me(c))) {
-    return c.fail(`${p.name} is not a superadmin, so cannot ${what}. Reference ranges are changed only by superadmins (Dr Neil Reddy in this demo). Switch role in Settings, Experience to try it.`);
+    return c.fail(`${p.name} is not a superadmin, so cannot ${what}. Reference ranges are changed only by superadmins (Dr Neil Reddy in this demo). Switch role in Settings, Display to try it.`);
   }
   return null;
 }

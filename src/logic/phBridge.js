@@ -41,7 +41,8 @@ export function phContext(logic, page, seg, contextNav, contextHint, searchHint)
   const label = tabLabel(page, tab);
   return {
     contextNav: tabs,
-    contextHint: (def.label + " · " + label).toUpperCase(),
+    // No hint on tabbed pages: the tabs say where you are and need the width.
+    contextHint: "",
     searchHint: "Search " + (label ? label.toLowerCase() : def.label.toLowerCase()),
   };
 }

@@ -16,7 +16,7 @@ export default function OccHealth({ tab }: { tab: string }) {
     return (
       <div className="ph-page">
         <PageHeader eyebrow="Occupational health" title="Occupational health" />
-        <RestrictedNotice>The participant preview has no access to occupational health. Switch to a staff role in Settings, Experience.</RestrictedNotice>
+        <RestrictedNotice>The participant preview has no access to occupational health. Switch to a staff role in Settings, Display.</RestrictedNotice>
       </div>
     );
   }
