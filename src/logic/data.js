@@ -329,8 +329,13 @@ const STREAM_DEFS = [
 ];
 
 /* The rail: Home, Agents directly under Home, then the business modules. Settings has its own button. */
-const NAV = PAGES.filter(p => p.id !== "Settings").map(p => ({label:p.label, icon:p.icon, page:p.id,
-  dot: ["Programmes","Participants","Results","Reporting","Work","Activity"].indexOf(p.id) > -1}));
+const NAV = PAGES.filter(p => p.id !== "Settings").flatMap((p, i, all) => {
+  const item = {label:p.label, icon:p.icon, page:p.id,
+    dot: ["Programmes","Participants","Results","Reporting","Work","Activity"].indexOf(p.id) > -1};
+  /* A labelled divider wherever the business section changes (Sell, Deliver, Services, Run the business). */
+  const prev = i > 0 ? all[i - 1].section : undefined;
+  return p.section && p.section !== prev ? [{divider:true, label:p.section}, item] : [item];
+});
 
 /* Inbox items follow the real InboxItem shape: what happened, why it matters, what I can do. */
 const ITEMS = {

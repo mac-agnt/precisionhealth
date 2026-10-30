@@ -111,7 +111,7 @@ try {
   /* ---------- nav ---------- */
   const idx = M.PAGES.findIndex((p) => p.id === "Calendar");
   eq("Agents directly under Home", [M.PAGES[0].id, M.PAGES[1].id], ["Home", "Agents"]);
-  eq("Calendar sits directly after Dashboard", M.PAGES[idx - 1].id, "Dashboard");
+  eq("Calendar sits directly under Agents (scheduling first)", M.PAGES[idx - 1].id, "Agents");
   check("Calendar is a PH screen", M.isPhScreen("Calendar", "all"));
   eq("type words in links resolve to groups", ["clinic", "flu", "task", "flu_clinic", "recall", "nonsense"].map(M.calGroupFromParam), ["clinics", "flu", "tasks", "flu", "retention", null]);
   eq("calendar hash parses", M.parseHash("#/Calendar/all?view=week&date=2026-11-06&types=clinic,flu"), { page: "Calendar", tab: "all", params: { view: "week", date: "2026-11-06", types: "clinic,flu" } });

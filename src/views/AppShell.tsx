@@ -53,7 +53,9 @@ export default function AppShell({ v }: Props) {
           <Fragment key={i0}>
             {item?.isDivider && (
               <>
-                <div style={{"width":"20px","height":"1px","background":"var(--track)","margin":"7px 0"}} />
+                {item?.label
+                  ? <div style={{"fontFamily":"var(--mono)","fontSize":"9.5px","letterSpacing":"0.14em","textTransform":"uppercase","color":"var(--faint)","padding":"14px 12px 5px","whiteSpace":"nowrap"}}>{txt(item.label)}</div>
+                  : <div style={{"width":"20px","height":"1px","background":"var(--track)","margin":"9px 0"}} />}
               </>
             )}
             {item?.isItem && (

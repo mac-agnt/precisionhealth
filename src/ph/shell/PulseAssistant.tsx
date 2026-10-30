@@ -65,7 +65,6 @@ export function pulseHits(state: PhState, nav: PhNav, raw: string, close: () => 
   if (has(q, "nurse")) out.push({ id: "nurse", icon: "heart", title: "Open the nurse portal", sub: "Clinic day, check in, measurements, sign-off", run: () => { nav.openNursePortal?.(); close(); } });
   if (has(q, "client portal", "hr portal", "employer")) out.push({ id: "client", icon: "users", title: "Open the client (HR) portal", sub: "Dates, rooms and live counts", run: () => { nav.openClientPortal?.(); close(); } });
   if (has(q, "participant portal", "patient portal", "booking journey")) out.push({ id: "pp", icon: "user", title: "Open the participant portal", sub: "My results and booking", run: () => { nav.openPortal(); close(); } });
-  if (has(q, "demo")) out.push({ id: "demo", icon: "spark", title: "Demo guide", sub: "Every section and portal, one click away", run: go({ page: "Demo", tab: "guide" }) });
 
   /* Finding people and clients */
   const words = q.toLowerCase().replace(/[^a-z' -]/g, " ").split(/\s+/).filter((w) => w.length > 2 && !["find", "open", "show", "the", "for", "results", "result", "release", "patient", "participant"].includes(w));

@@ -1458,7 +1458,7 @@ export default class PulseLogic extends DCLogic {
         + "transition:transform .5s cubic-bezier(.22,1.2,.36,1),font-weight .2s var(--ease)"
       : "display:none";
     const nav = NAV.map((n, idx) => n.divider
-      ? {isDivider:true, isItem:false}
+      ? {isDivider:true, isItem:false, label: railOpen ? (n.label || "") : ""}
       : {isItem:true, isDivider:false, label:n.label, hint: railOpen ? (n.hint || "") : "", d:ICONS[n.icon],
          dot: n.dot === true && this.phDot(n.page),
          dotStyle: "position:absolute;top:5px;" + (railOpen ? "left:30px" : "right:6px")

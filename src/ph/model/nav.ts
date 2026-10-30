@@ -6,10 +6,10 @@ import type { EntityKind } from "./types";
 export type PageId =
   | "Home" | "Agents" | "Dashboard" | "Programmes" | "Clinics" | "Participants"
   | "Results" | "Reporting" | "Work" | "Records" | "Activity" | "Settings"
-  | "Sales" | "Flu" | "OccHealth" | "Screening" | "Demo" | "Calendar";
+  | "Sales" | "Flu" | "OccHealth" | "Screening" | "Calendar";
 
 export interface TabDef { id: string; label: string }
-export interface PageDef { id: PageId; label: string; icon: string; hint: string; tabs: TabDef[] }
+export interface PageDef { id: PageId; label: string; icon: string; hint: string; tabs: TabDef[]; /** Side-rail section heading; a labelled divider appears where it changes. */ section?: string }
 
 /* Agents sits directly under Home and Records opens on Ontology: locked layout rules from CLAUDE.md.
    They override the order in the client brief. */
@@ -17,44 +17,43 @@ export const PAGES: PageDef[] = [
   { id: "Home", label: "Home", icon: "helios", hint: "Chat first", tabs: [] },
   { id: "Agents", label: "Agents", icon: "navAgents", hint: "Seven agents", tabs: [
     { id: "conversations", label: "Conversations" }, { id: "activity", label: "Activity" }] },
-  { id: "Demo", label: "Demo guide", icon: "navDemo", hint: "Every section and portal, one click away", tabs: [{ id: "guide", label: "Demo guide" }] },
+  { id: "Calendar", label: "Calendar", icon: "navCalendar", hint: "Everything with a date, in one place", tabs: [{ id: "all", label: "Everything" }] },
   { id: "Dashboard", label: "Dashboard", icon: "navDash", hint: "Executive, clinics, delivery", tabs: [
     { id: "executive", label: "Executive" }, { id: "clinic-operations", label: "Clinic Operations" }, { id: "clinical-delivery", label: "Clinical Delivery" }] },
-  { id: "Calendar", label: "Calendar", icon: "navCalendar", hint: "Everything with a date, in one place", tabs: [{ id: "all", label: "Everything" }] },
-  { id: "Sales", label: "Sales", icon: "navSales", hint: "Leads, proposals, recall", tabs: [
+  { id: "Sales", section: "Sell", label: "Sales", icon: "navSales", hint: "Leads, proposals, recall", tabs: [
     { id: "pipeline", label: "Pipeline" }, { id: "proposals", label: "Proposals" }, { id: "price-list", label: "Price list" }, { id: "onboarding", label: "Onboarding" },
     { id: "recall", label: "Retention" }, { id: "partners", label: "Irish Life Health" }] },
-  { id: "Programmes", label: "Programmes", icon: "navProgrammes", hint: "Screening programmes", tabs: [
+  { id: "Programmes", section: "Deliver screening", label: "Programmes", icon: "navProgrammes", hint: "Screening programmes", tabs: [
     { id: "overview", label: "Overview" }, { id: "programmes", label: "Programmes" }, { id: "forms-templates", label: "Forms & Templates" }, { id: "invitations", label: "Invitations" }] },
-  { id: "Clinics", label: "Clinics", icon: "navClinics", hint: "Capacity and sessions", tabs: [
+  { id: "Clinics", section: "Deliver screening", label: "Clinics", icon: "navClinics", hint: "Capacity and sessions", tabs: [
     { id: "overview", label: "Overview" }, { id: "days", label: "Screening days" }, { id: "schedule", label: "Schedule" }, { id: "appointments", label: "Appointments" }, { id: "team-resources", label: "Team & Resources" }] },
-  { id: "Participants", label: "Participants", icon: "navParticipants", hint: "People and messages", tabs: [
+  { id: "Participants", section: "Deliver screening", label: "Participants", icon: "navParticipants", hint: "People and messages", tabs: [
     { id: "directory", label: "Directory" }, { id: "screening-history", label: "Screening History" }, { id: "communications", label: "Communications" }, { id: "portal-admin", label: "Portal admin" }] },
-  { id: "Results", label: "Results", icon: "navResults", hint: "Imports and review", tabs: [
+  { id: "Results", section: "Deliver screening", label: "Results", icon: "navResults", hint: "Imports and review", tabs: [
     { id: "inbox", label: "Inbox" }, { id: "imports", label: "Imports" }, { id: "review", label: "Review" }, { id: "follow-up", label: "Follow-up" }, { id: "corrections", label: "Corrections" }] },
-  { id: "Screening", label: "Health Screening", icon: "navScreening", hint: "Reference ranges and change control", tabs: [
+  { id: "Screening", section: "Deliver screening", label: "Health Screening", icon: "navScreening", hint: "Reference ranges and change control", tabs: [
     { id: "ranges", label: "Reference ranges" }, { id: "check", label: "Test run" }, { id: "changes", label: "Change control" },
     { id: "impact", label: "Results impact" }, { id: "calculations", label: "Calculations" }, { id: "cohorts", label: "Cohorts" }, { id: "questions", label: "To confirm" }] },
-  { id: "Reporting", label: "Reporting", icon: "navReporting", hint: "Employer reports", tabs: [
-    { id: "overview", label: "Overview" }, { id: "report-builder", label: "Report Builder" }, { id: "exports", label: "Exports" }] },
-  { id: "Flu", label: "Flu", icon: "navFlu", hint: "Flu clinics and vaccine stock", tabs: [
+  { id: "Flu", section: "Services", label: "Flu", icon: "navFlu", hint: "Flu clinics and vaccine stock", tabs: [
     { id: "overview", label: "Overview" }, { id: "bookings", label: "Bookings by week" }, { id: "stock", label: "Vaccine stock" }, { id: "cold-chain", label: "Cold chain" }] },
-  { id: "OccHealth", label: "Occupational Health", icon: "navOcc", hint: "OH clients, onboarding, Meddbase", tabs: [
+  { id: "OccHealth", section: "Services", label: "Occupational Health", icon: "navOcc", hint: "OH clients, onboarding, Meddbase", tabs: [
     { id: "clients", label: "Clients & onboarding" }, { id: "questionnaires", label: "Questionnaires" }, { id: "sessions", label: "Meddbase sessions" }, { id: "agreements", label: "Agreements" }] },
-  { id: "Work", label: "Work", icon: "navWork", hint: "Tasks and approvals", tabs: [
+  { id: "Reporting", section: "Run the business", label: "Reporting", icon: "navReporting", hint: "Employer reports", tabs: [
+    { id: "overview", label: "Overview" }, { id: "report-builder", label: "Report Builder" }, { id: "exports", label: "Exports" }] },
+  { id: "Work", section: "Run the business", label: "Work", icon: "navWork", hint: "Tasks and approvals", tabs: [
     { id: "automations", label: "Automations" }, { id: "tasks", label: "Tasks" }, { id: "approvals", label: "Approvals" }, { id: "workflows", label: "Workflows" }, { id: "schedules", label: "Schedules" }] },
-  { id: "Records", label: "Records", icon: "navRecords", hint: "Companies, staff, files", tabs: [
+  { id: "Records", section: "Run the business", label: "Records", icon: "navRecords", hint: "Companies, staff, files", tabs: [
     { id: "ontology", label: "Ontology" }, { id: "files", label: "Files" }, { id: "contacts", label: "Contacts" }, { id: "companies", label: "Companies" }, { id: "staff", label: "Staff" }] },
-  { id: "Activity", label: "Activity", icon: "pulseLine", hint: "Audit history", tabs: [
+  { id: "Activity", section: "Run the business", label: "Activity", icon: "pulseLine", hint: "Audit history", tabs: [
     { id: "everything", label: "Everything" }, { id: "people", label: "People" }, { id: "agents", label: "Agents" }, { id: "needs-attention", label: "Needs Attention" }] },
-  { id: "Settings", label: "Settings", icon: "navSettings", hint: "Organisation and governance", tabs: [
+  { id: "Settings", section: "Run the business", label: "Settings", icon: "navSettings", hint: "Organisation and governance", tabs: [
     { id: "organisation", label: "Organisation" }, { id: "teams", label: "Teams" }, { id: "permissions", label: "Permissions" },
     { id: "systems-integrations", label: "Systems & Integrations" }, { id: "governance", label: "Governance" }, { id: "ai-controls", label: "AI Controls" }, { id: "experience", label: "Experience" }] },
 ];
 export const PAGE_BY_ID: Record<PageId, PageDef> = Object.fromEntries(PAGES.map((p) => [p.id, p])) as Record<PageId, PageDef>;
 /** True when this page and tab are rendered by a PH component rather than the original Pulse view. */
 export function isPhScreen(page: string, tab: string): boolean {
-  if (["Dashboard", "Programmes", "Clinics", "Participants", "Results", "Reporting", "Work", "Activity", "Settings", "Sales", "Flu", "OccHealth", "Screening", "Demo", "Calendar"].includes(page)) return true;
+  if (["Dashboard", "Programmes", "Clinics", "Participants", "Results", "Reporting", "Work", "Activity", "Settings", "Sales", "Flu", "OccHealth", "Screening", "Calendar"].includes(page)) return true;
   if (page === "Agents") return tab === "activity";
   if (page === "Records") return tab === "companies" || tab === "staff";
   return false;
