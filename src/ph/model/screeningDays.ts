@@ -9,7 +9,7 @@
    pages/Clinics/daysActions.ts. Contacts, rooms and phone numbers are fictional. */
 import type { Hhmm, Iso, LocalDate } from "./time";
 import { addDays, fmtDate, fmtDateLong, fmtWeekdayDate, hhmmToMinutes, minutesToHhmm, weekdayOf } from "./time";
-import type { ClinicSession, PhState, ProgrammeId, Slot, Staff, StaffId } from "./types";
+import type { ClinicSession, PhState, Programme, ProgrammeId, Slot, Staff, StaffId } from "./types";
 import { CLINIC_DAY, NURSE_ROLE_KEYS, PROGRAMME_BY_ID, PROGRAMME_ORDER, STAFF, buildSlots } from "./constants";
 import type { SessionLogistics } from "./nurseOps";
 import { isRealDate } from "./capture";
@@ -393,19 +393,45 @@ export function parseDate(text: string, today: LocalDate): { date: LocalDate; sa
   return null;
 }
 
-function findClient(text: string): { id: ProgrammeId; said: string } | null {
+/** The programmes the agent can choose from: the caller's state when given, else every programme in the current state. */
+const agentProgrammes = (list?: Programme[]): Programme[] => (list && list.length ? list : PROGRAMME_ORDER.map((id) => PROGRAMME_BY_ID[id]).filter(Boolean));
+const CLIENT_STOP = /^(the|and|irish|dublin|cork|group|limited|ltd|new|day|lab|nurse|room)$/i;
+const escRe = (x: string) => x.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+/** "IBM, Sisk or Salesforce", from the programmes in state. */
+export function agentClientChoices(list?: Programme[]): string {
+  const names = [...new Set(agentProgrammes(list).map((p) => p.clientName))];
+  return names.length <= 1 ? names.join("") : `${names.slice(0, -1).join(", ")} or ${names[names.length - 1]}`;
+}
+
+/**
+ * Which programme a request names: client name, programme code or the client's first word. When a
+ * client has more than one programme, the one whose window holds the date wins, then the live one
+ * whose window is nearest the date.
+ */
+function findClient(text: string, list?: Programme[], date?: LocalDate | ""): { id: ProgrammeId; said: string } | null {
   const t = strip(text);
-  const hits: Array<{ id: ProgrammeId; at: number; said: string }> = [];
-  for (const id of PROGRAMME_ORDER) {
-    const p = PROGRAMME_BY_ID[id];
-    const names = [p.clientName, p.code, p.clientName === "Salesforce" ? "sales force" : ""].filter(Boolean);
+  const progs = agentProgrammes(list);
+  const hits: Array<{ id: ProgrammeId; at: number; len: number; said: string }> = [];
+  for (const p of progs) {
+    const first = p.clientName.split(/\s+/)[0];
+    const names = [p.clientName, p.code, p.clientName === "Salesforce" ? "sales force" : "", first.length >= 3 && !CLIENT_STOP.test(first) ? first : ""].filter(Boolean);
     for (const n of names) {
-      const m = t.match(new RegExp(`\\b${strip(n).replace(/\s+/g, "\\s*")}\\b`));
-      if (m && m.index !== undefined) hits.push({ id, at: m.index, said: text.substr(m.index, m[0].length) });
+      const m = t.match(new RegExp(`\\b${escRe(strip(n)).replace(/\s+/g, "\\s*")}\\b`));
+      if (m && m.index !== undefined) hits.push({ id: p.id, at: m.index, len: m[0].length, said: text.substr(m.index, m[0].length) });
     }
   }
-  hits.sort((a, b) => a.at - b.at);
-  return hits[0] || null;
+  if (!hits.length) return null;
+  hits.sort((x, y) => x.at - y.at || y.len - x.len);
+  const best = hits[0];
+  const client = progs.find((p) => p.id === best.id)!.clientName;
+  const same = progs.filter((p) => p.clientName === client);
+  if (same.length < 2) return { id: best.id, said: best.said };
+  const live = (p: Programme) => (p.setup?.status || "live") === "live";
+  if (!date) return { id: (same.filter(live).pop() || same[same.length - 1]).id, said: best.said };
+  const away = (p: Programme) => (date < p.windowStart ? Date.parse(p.windowStart) - Date.parse(date) : date > p.windowEnd ? Date.parse(date) - Date.parse(p.windowEnd) : 0);
+  const pool = same.some((p) => away(p) === 0) ? same : same.filter(live).length ? same.filter(live) : same;
+  const pick = pool.slice().sort((x, y) => away(x) - away(y))[0];
+  return { id: pick.id, said: best.said };
 }
 
 function findScreen(text: string): { screen: DayScreen; said: string } | null {
@@ -581,7 +607,11 @@ export interface AgentDraft {
   notes: string[];
 }
 
-export interface AgentCtx { today: LocalDate; staff: Staff[]; sessions: ClinicSession[]; days: ScreeningDay[] }
+export interface AgentCtx {
+  today: LocalDate; staff: Staff[]; sessions: ClinicSession[]; days: ScreeningDay[];
+  /** Programmes in state, so newly created clients are recognised. Defaults to every programme in the current state. */
+  programmes?: Programme[];
+}
 
 /** Nurses with nothing else on that date, in roster order. */
 export function freeNurses(ctx: Pick<AgentCtx, "staff" | "sessions">, date: LocalDate | "", start: Hhmm, end: Hhmm, ignoreSessionId?: string | null): Staff[] {
@@ -591,7 +621,7 @@ export function freeNurses(ctx: Pick<AgentCtx, "staff" | "sessions">, date: Loca
 }
 
 export function draftFromRequest(text: string, ctx: AgentCtx): AgentDraft {
-  const client = findClient(text);
+  const client = findClient(text, ctx.programmes, parseDate(text, ctx.today)?.date);
   const f = standardDay(client?.id || "");
   const source: AgentDraft["source"] = {};
   const why: AgentDraft["why"] = {};
@@ -600,7 +630,7 @@ export function draftFromRequest(text: string, ctx: AgentCtx): AgentDraft {
   const assumed = (k: DayField, w: string) => { source[k] = "assumed"; why[k] = w; };
   const needed = (k: DayField, w: string) => { source[k] = "needed"; why[k] = w; };
 
-  if (client) said("programmeId", client.said); else needed("programmeId", "Which client is this for? Choose IBM, Sisk or Salesforce.");
+  if (client) said("programmeId", client.said); else needed("programmeId", `Which client is this for? Choose ${agentClientChoices(ctx.programmes)}.`);
   const d = parseDate(text, ctx.today);
   if (d) { f.date = d.date; said("date", d.said); } else needed("date", "No date in the request. Choose the day.");
   const sc = findScreen(text);
@@ -697,7 +727,7 @@ export function editFromInstruction(text: string, cur: DayForm, ctx: AgentCtx & 
   }
   const d = parseDate(text, ctx.today);
   if (d) f.date = d.date;
-  const client = findClient(text);
+  const client = findClient(text, ctx.programmes, f.date);
   if (client && /\b(client|switch|change|for)\b/i.test(text) && client.id !== cur.programmeId) f.programmeId = client.id;
   const ap = findAppointments(text);
   if (ap.length) f.slotMinutes = ap.length.v;

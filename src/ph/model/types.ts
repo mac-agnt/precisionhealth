@@ -5,7 +5,8 @@ export type { Hhmm, Iso, LocalDate } from "./time";
 
 export type Id = string;
 
-export type ProgrammeId = "PRG-SISK-26" | "PRG-SF-26" | "PRG-IBM-26";
+/** The three seeded programmes, plus any programme created in Programmes (+ New programme). */
+export type ProgrammeId = "PRG-SISK-26" | "PRG-SF-26" | "PRG-IBM-26" | (string & {});
 export type StaffId = "neil" | "stephen" | "liz" | "fiona" | "anita" | "ian" | "martina" | "brenda" | "aisling" | "ciara";
 export type PersonaId = StaffId | "participant";
 export type TeamId = "programme-operations" | "nursing" | "clinical-review" | "client-programmes";
@@ -114,6 +115,8 @@ export interface Programme {
   sites: string[];
   eligibility: string;
   inviteCode: string;
+  /** Set on programmes created in Pulse (src/ph/pages/Programmes/progActions.ts). Absent on the seeded three. */
+  setup?: import("./programmeRegistry").ProgrammeSetup;
 }
 
 export interface AppointmentType {

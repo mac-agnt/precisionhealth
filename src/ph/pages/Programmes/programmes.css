@@ -12,7 +12,7 @@
    translate(-50%, -50%) centring. Modals now portal to the shell root, so this module marks
    its own modal bodies with .prg-modal and keeps the centring inside the entrance animation. */
 .prg-page .ph-modal, .ph-modal:has(.prg-modal) { animation: prgModalIn .26s var(--ease) both; }
-@keyframes prgModalIn { from { opacity: 0; transform: translate(-50%, calc(-50% - 6px)) scale(.97); } to { opacity: 1; transform: translate(-50%, -50%); } }
+@keyframes prgModalIn { from { opacity: 0; transform: translateY(-6px) scale(.97); } to { opacity: 1; transform: none; } }
 
 .prg-cq { container-type: inline-size; container-name: prg; min-width: 0; display: flex; flex-direction: column; gap: 14px; }
 

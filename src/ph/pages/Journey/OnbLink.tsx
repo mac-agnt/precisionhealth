@@ -10,6 +10,7 @@ import { createProgrammeTask } from "../Sales/LeadForms";
 import { journeyAct, onbLinkUrl } from "./actions";
 import { journeyKeyForOnb } from "./model";
 import "./journey.css";
+import { CreateProgrammeButton } from "../Programmes/CreateProgrammeButton";
 
 export function OnbLinkCard({ o }: { o: Onboarding }) {
   const p = usePersona();
@@ -56,7 +57,8 @@ export function OnbNextUp({ o }: { o: Onboarding }) {
     <>
       {lead && !lead.handoverTaskId && !prog ? <Button icon="list" onClick={() => createProgrammeTask(lead.id)}>Create the programme set-up task</Button> : null}
       {lead?.handoverTaskId ? <Button icon="list" onClick={() => nav.go({ page: "Work", tab: "tasks", params: { task: lead.handoverTaskId! } })}>Programme task {lead.handoverTaskId}</Button> : null}
-      <Button variant="primary" icon="calendar" onClick={plan}>Set up the first screening day</Button>
+      <CreateProgrammeButton o={o} />
+      {prog ? <Button variant="primary" icon="calendar" onClick={plan}>Set up the first screening day</Button> : null}
       <Button icon="flag" onClick={() => nav.go({ page: "Clients", tab: "journey", params: { who: journeyKeyForOnb(s, o.id) } })}>See the whole journey</Button>
     </>
   );

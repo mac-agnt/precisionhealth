@@ -142,7 +142,7 @@ function ChangeInWords({ day }: { day: ScreeningDay }) {
   const ask = (q: string) => {
     if (!q.trim()) return;
     setText(q);
-    setRes({ ...editFromInstruction(q, formOf(day), { today: today(state), staff: state.staff, sessions: state.sessions, days: state.screeningDays.days, ownSessionId: day.sessionId }), asked: q });
+    setRes({ ...editFromInstruction(q, formOf(day), { today: today(state), staff: state.staff, sessions: state.sessions, days: state.screeningDays.days, programmes: state.programmes, ownSessionId: day.sessionId }), asked: q });
   };
   const errs = res && res.understood ? dayErrors(res.form, { today: today(state), sessions: state.sessions, ownSessionId: day.sessionId, staff: state.staff }) : {};
   const firstErr = Object.values(errs)[0];

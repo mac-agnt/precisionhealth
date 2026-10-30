@@ -11,7 +11,6 @@
 import type { Hhmm, Iso, LocalDate } from "./time";
 import { addDays, dublinToUtc, fmtDate } from "./time";
 import type { PhState, StaffId } from "./types";
-import { PROGRAMMES } from "./constants";
 
 export type SchedKind = "meeting" | "call" | "follow_up" | "results_out" | "rebooking" | "task" | "flu" | "oh" | "training" | "leave";
 export type SchedStatus = "scheduled" | "done" | "cancelled";
@@ -148,7 +147,7 @@ export function schedClientOptions(s: PhState): Array<{ name: string; leadId: st
     out.push({ name, leadId, contact, email, group });
   };
   for (const l of s.sales.leads.filter((x) => x.stage !== "lost").slice().sort((a, b) => (a.company < b.company ? -1 : 1))) add(l.company, l.id, l.contact.name, l.contact.email, "Leads");
-  for (const p of PROGRAMMES) {
+  for (const p of s.programmes) {
     const ct = s.contacts.find((c) => c.companyId === p.clientId);
     add(p.clientName, null, ct?.name || "", ct?.email || "", "Screening clients");
   }

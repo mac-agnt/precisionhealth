@@ -92,7 +92,6 @@ export function PersonaMenu({ compact }: { compact?: boolean }) {
               </button>
             );
           })}
-          <div style={{ padding: "6px 8px 6px" }}><Button size="sm" variant="ghost" onClick={() => { setOpen(false); nav.go({ page: "Settings", tab: "permissions" }); }}>See the role matrix</Button></div>
         </div>,
         host,
       ) : null}

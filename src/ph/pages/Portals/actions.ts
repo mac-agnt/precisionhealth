@@ -49,6 +49,8 @@ function goLive(c: Ctx, a: { id: string }): ActionResult {
   if (r.status === "live") return c.fail(`${r.company}'s portal is already live.`);
   r.status = "live";
   r.history.push({ at: c.stamp(), by: c.persona().name, text: "Put live" });
+  const prog = r.programmeId ? c.s.programmes.find((p) => p.id === r.programmeId) : undefined;
+  if (prog?.setup && prog.setup.status !== "live") { prog.setup.status = "live"; prog.setup.history.push({ at: c.stamp(), by: c.persona().name, text: "Put live with the client portal" }); }
   c.emit({ verb: "portals.client_live", summary: `${c.first()} put the ${r.company} client portal live. Code ${r.code}.` });
   return c.ok(`${r.company}'s portal is live. HR can now share ${r.code} with employees.`);
 }

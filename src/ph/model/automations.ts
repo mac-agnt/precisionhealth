@@ -809,7 +809,7 @@ export const AUTOMATIONS: AutomationDef[] = [
     conditions: ["A nurse and any support staff are assigned", "No nurse, support or room overlap", "Edits that affect bookings show the impact first"],
     steps: [
       { actor: { kind: "staff", label: "Programme Operations", role: "operations" }, action: "Schedules the clinic: date, site, room, times and breaks", channel: "Clinics, Schedule", output: "Clinic session with bookable slots", source: "client_spec" },
-      { actor: { kind: "staff", label: "Director of Nursing", role: "nursing_lead" }, action: "Assigns the nurse and support staff", channel: "Clinics, Team and resources", output: "Assignment on the session" },
+      { actor: { kind: "staff", label: "Director of Nursing", role: "nursing_lead" }, action: "Assigns the nurse and support staff", channel: "Clinics, Nurse rota", output: "Assignment on the session" },
       { actor: { kind: "system", label: "Pulse" }, action: "Checks nurse, support and room overlaps across sessions before saving", channel: "Pulse schedule rules", output: "Overlap list, empty when clear" },
       { actor: { kind: "agent", label: "Ops Watchdog", agentId: "watchdog" }, action: "Re-checks each morning and flags clashes and capacity gaps", channel: "Ops Watchdog agent", output: "Flag for a person" },
       { actor: { kind: "system", label: "Pulse" }, action: "Generates the clinic preparation checklist the day before", channel: "Work, Schedules", output: "Preparation tasks" },
