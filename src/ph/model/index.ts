@@ -29,6 +29,7 @@ export * from "./portalsHub";
 export * from "./companyDirectory";
 export * from "./programmeRegistry";
 export * from "./rota";
+export * from "./dateRequests";
 export { createInitialState } from "./fixtures";
 export { reduce, act, registerHandlers } from "./reducer";
 export type { Action } from "./reducer";

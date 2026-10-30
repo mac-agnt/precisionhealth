@@ -22,6 +22,7 @@ import { initialLabCsvState } from "../labCsv";
 import { seedScreeningDays } from "../screeningDays";
 import { initialScheduledState } from "../scheduledActions";
 import { initialPortalsHubState } from "../portalsHub";
+import { initialDateRequestsState } from "../dateRequests";
 import { resetProgrammeRegistry, syncProgrammeRegistry } from "../programmeRegistry";
 
 export function createInitialState(): PhState {
@@ -113,6 +114,7 @@ export function createInitialState(): PhState {
     onboarding: initialOnboardingState(),
     scheduled: initialScheduledState(),
     portalsHub: initialPortalsHubState(),
+    dateRequests: initialDateRequestsState(),
   };
   state.portal = buildPortalBaseline(state);
   seedSalesFlow(state);

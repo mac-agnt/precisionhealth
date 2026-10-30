@@ -17,6 +17,7 @@ import { daysAct } from "./daysActions";
 import { DayEditor, useDayCheck } from "./DayParts";
 import type { Sources } from "./DayParts";
 import { DayDrawer, canManageDays } from "./DayDrawer";
+import { ClientRequestsSection } from "../DateRequests/StaffSection";
 
 interface Draft { form: DayForm; sources: Sources; why: AgentDraft["why"]; notes: string[]; via: "agent" | "form"; request: string }
 type Filter = "all" | "draft" | "published";
@@ -109,6 +110,8 @@ export default function ScreeningDays() {
             ))}
           </div>
         </section>
+
+        <ClientRequestsSection />
 
         {draft ? <DraftCard ref={draftRef} draft={draft} onChange={change} onSave={save} onCancel={() => setDraft(null)} manage={manage} denyText={`${p.name} (${p.roleLabel}) cannot set up screening days. Switch to Stephen, Liz, Brenda or Dr Neil Reddy.`} /> : null}
 

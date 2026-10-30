@@ -22,6 +22,8 @@ import type { BandKpi } from "../KpiBand";
 import { AsOf, DASH_CSS } from "../shared";
 import { DeliveryCard, TodayCard } from "../OpsCards";
 import { controlAct } from "./actions";
+import { DateRequestReview } from "../../DateRequests/ReviewDialog";
+import { AskDatesDialog } from "../../DateRequests/AskDialog";
 import { ControlDialog } from "./dialogs";
 import type { CtlDialog } from "./dialogs";
 import { CTL_CSS, CtlGroup, CtlLine } from "./parts";
@@ -73,6 +75,7 @@ export default function ControlPanel() {
             <Button size="sm" icon="edit" onClick={() => nav.go({ page: "Screening", tab: "check", params: { show: "awaiting" } })}>Enter results</Button>
             <Button size="sm" icon="flask" onClick={() => nav.go({ page: "Results", tab: "imports" })}>Import lab file</Button>
             <Button size="sm" icon="calendar" onClick={() => nav.go({ page: "Clinics", tab: "days" })}>Set up screening day</Button>
+            <Button size="sm" icon="send" onClick={() => setF({ askdates: "1" })}>Ask a client for dates</Button>
             <Button size="sm" icon="shield" onClick={() => nav.go({ page: "Flu", tab: "bookings" })}>Add flu clinic</Button>
             <Button size="sm" icon="layers" onClick={() => nav.go({ page: "Programmes", tab: "programmes", params: { new: "1" } })}>New programme</Button>
             <Button size="sm" icon="clock" onClick={() => setScheduling(true)}>Schedule something</Button>
@@ -105,6 +108,8 @@ export default function ControlPanel() {
         ) : null}
       </div>
       <ControlDialog d={dialog} onClose={() => setDialog(null)} />
+      <DateRequestReview id={P.request} onClose={() => setF({ request: null })} />
+      <AskDatesDialog open={!!P.askdates} onClose={() => setF({ askdates: null })} />
       {scheduling ? (
         <ScheduleDialog date={today(s)} time={null} onClose={() => setScheduling(false)}
           onCreated={(calId, d) => { setScheduling(false); nav.go({ page: "Calendar", tab: "all", params: { date: d, ev: calId } }); }} />
@@ -200,6 +205,14 @@ function Row({ r, open }: { r: CtlRow; open: (d: CtlDialog) => void }) {
           b("Open", go(to), { icon: "arrow" }),
         ].filter(Boolean) as ReactNode[], to,
         <>{d.status === "draft" ? <Pill tone="neutral" icon="edit">Draft</Pill> : <Pill tone="ok" icon="check">Published</Pill>}{d.nurseClash ? <Pill tone="bad" icon="alert">Nurse double-booked</Pill> : null}{d.roomTbc ? <Pill tone="warn" icon="pin">Room to confirm</Pill> : null}</>);
+    }
+    case "datereq": {
+      const q = r.req;
+      const review = () => nav.setParams({ ...nav.params, request: q.id });
+      return line(`${r.client} · ${q.daysNeeded} ${q.daysNeeded === 1 ? "day" : "days"} needed`,
+        `${q.contactName} suggested ${q.picks.map((x) => fmtWeekdayDate(x.date)).join(", ")}${q.room ? ` · ${q.room}` : ""}`,
+        [b("Review and approve", review, { primary: true, icon: "check" })], { page: "Clinics", tab: "days", params: { request: q.id } },
+        <Pill tone="warn" icon="clock">From the client portal</Pill>);
     }
     case "rrq":
       return line(r.q.topic, r.q.question, [b("Answer", () => open({ kind: "answer", q: r.q }), { primary: true, icon: "check" })], { page: "Screening", tab: "questions" });

@@ -1059,6 +1059,8 @@ export interface PhState {
   scheduled: import("./scheduledActions").ScheduledState;
   /** Client portals created on the Portals page, nurses added there and people invited there. */
   portalsHub: import("./portalsHub").PortalsHubState;
+  /** Client date requests: HR suggests screening dates in the client portal, Neil approves (Clinics, Screening days). */
+  dateRequests: import("./dateRequests").DateRequestsState;
   /** Control panel (Dashboard): End of Day reminders sent from it. Created on first use. */
   control?: { chased: Record<string, { at: string; by: string }> };
 }

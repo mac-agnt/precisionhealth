@@ -19,6 +19,8 @@ import { workflowSegments } from "./palette";
 import { WeeklyProgress } from "./Weekly";
 import { JourneyStrip } from "../Journey/JourneyStrip";
 import { ProgrammeManage } from "./ProgrammeManage";
+import { useState } from "react";
+import { AskDatesDialog } from "../DateRequests/AskDialog";
 
 const vnum = (v: string) => { const [a, b] = v.split(".").map(Number); return (a || 0) * 1000 + (b || 0); };
 
@@ -30,6 +32,8 @@ function Header({ pid }: { pid: ProgrammeId }) {
   const win = windowInfo(s, p);
   const at = s.appointmentTypes.find((a) => a.id === p.appointmentTypeId);
   const next = programmeSessions(s, pid).find((x) => !x.isPast);
+  const [asking, setAsking] = useState(false);
+  const openReq = s.dateRequests.requests.find((r) => r.programmeId === pid && (r.status === "asked" || r.status === "suggested" || r.status === "countered"));
   return (
     <Card>
       <div className="ph-row-flex" style={{ gap: 8, marginBottom: 8, flexWrap: "wrap" }}>
@@ -50,6 +54,9 @@ function Header({ pid }: { pid: ProgrammeId }) {
           <Button size="sm" icon="mail" onClick={() => nav.go({ page: "Programmes", tab: "invitations", params: { programme: p.id } })}>Invitations</Button>
           <Button size="sm" icon="layers" onClick={() => nav.go({ page: "Programmes", tab: "forms-templates", params: { template: p.templateId } })}>Template</Button>
           <Button size="sm" icon="calendar" onClick={() => nav.go(next ? linkFor("session", next.session.id) : { page: "Clinics", tab: "schedule" })}>Clinic schedule</Button>
+          {openReq ? <Button size="sm" icon="clock" onClick={() => nav.go({ page: "Clinics", tab: "days", params: { request: openReq.id } })}>Date request {openReq.id}</Button>
+            : <Button size="sm" icon="send" onClick={() => setAsking(true)}>Ask the client for dates</Button>}
+          <AskDatesDialog open={asking} programmeId={pid} onClose={() => setAsking(false)} />
         </div>
       </div>
       <div style={{ marginTop: 14 }}><WindowBar win={win} /></div>

@@ -9,7 +9,7 @@ import {
   ohStepsDone, onbCurrentStep, publishBlockers, openFollowUps, OH_STEPS, ONB_STEP_LABEL, routineEligibility, rotaConflictsBetween, rotaItemsOn, rotaUnstaffed, startOfWeek, today,
 } from "../../../model";
 import type {
-  Episode, ExpenseRequest, FluBatch, FluClinic, FluColdChainRow, FluStock, LocalDate, OhAgreementsStage, OhClient, OhDiary, Onboarding, PhState, RotaConflict, RotaItem, ScreeningDay,
+  DateRequest, Episode, ExpenseRequest, FluBatch, FluClinic, FluColdChainRow, FluStock, LocalDate, OhAgreementsStage, OhClient, OhDiary, Onboarding, PhState, RotaConflict, RotaItem, ScreeningDay,
 } from "../../../model";
 import type { FollowUpView } from "../../../model";
 import { missingEods } from "../../Clinics/EndOfDay";
@@ -32,6 +32,7 @@ export type CtlRow = Base & (
   | { kind: "followup"; fu: FollowUpView }
   | { kind: "day"; day: DayRow; screeningDay: ScreeningDay | null; rota: RotaItem | null; blocked: string | null }
   | { kind: "rrq"; q: (typeof RR_QUESTIONS)[number] }
+  | { kind: "datereq"; req: DateRequest }
   | { kind: "flu"; clinic: FluClinic; rota: RotaItem | null; canRecord: boolean }
   | { kind: "stock"; stock: FluStock; short: number; nextOrderId: string | null }
   | { kind: "cold"; row: FluColdChainRow }
@@ -53,6 +54,7 @@ export const GROUPS: Record<Service, Array<{ id: string; title: string; empty: s
     { id: "review", title: "Ready for review", empty: "No reports waiting for review." },
     { id: "followup", title: "Urgent follow-ups", empty: "No urgent calls open." },
     { id: "enter", title: "Results waiting", empty: "No results waiting." },
+    { id: "datereq", title: "Client date requests", empty: "No client dates waiting for you." },
     { id: "day", title: "Screening days", empty: "No screening days in the next 14 days." },
     { id: "rrq", title: "Range questions to confirm", empty: "Every range question is answered." },
   ],
@@ -107,6 +109,11 @@ export function controlRows(s: PhState): CtlRow[] {
   }
   for (const e of awaitingLabEpisodes(s)) {
     out.push({ id: `enter:${e.id}`, service: "screening", group: "enter", client: progClient(e.programmeId), urgent: false, kind: "enter", episode: e, name: name(e.personId) });
+  }
+  /* Dates a client suggested in their portal, waiting for Neil. Urgent when a suggested day is within two weeks. */
+  for (const r of s.dateRequests?.requests || []) {
+    if (r.status !== "suggested") continue;
+    out.push({ id: `datereq:${r.id}`, service: "screening", group: "datereq", client: progClient(r.programmeId), urgent: r.picks.some((p) => p.date <= addDays(t, 14)), kind: "datereq", req: r });
   }
   const horizon = addDays(t, 14);
   const days = dayRows(s, addDays(t, 1), horizon);

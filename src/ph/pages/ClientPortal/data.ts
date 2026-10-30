@@ -5,7 +5,7 @@
 import { CONTACTS, PROGRAMME_BY_ID, PROGRAMME_ORDER, addDays, fmtDayMonth, fmtInt, localDateOf, programmeCounts, rate, sessionStats, sessionUsesPoc, startOfWeek, suppressCells, today } from "../../model";
 import type { Contact, EmployerMetrics, EmployerReport, LocalDate, PhState, ProgrammeId } from "../../model";
 
-export type ClientView = "overview" | "share" | "reports" | "support";
+export type ClientView = "overview" | "share" | "reports" | "support" | "dates";
 export const CLIENT_VIEWS: Array<{ id: ClientView; label: string; icon: "chart" | "link" | "file" | "mail" }> = [
   { id: "overview", label: "Programme overview", icon: "chart" },
   { id: "share", label: "Share booking link", icon: "link" },

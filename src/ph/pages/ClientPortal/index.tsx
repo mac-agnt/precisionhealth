@@ -22,6 +22,8 @@ import {
   CLIENT_PROGRAMMES, CLIENT_VIEWS, announcementText, bookingUptake, clientContact, isApprovedReport, precisionContacts, programmeFunnel, suppressionNotices, takeRequestedCustom, takeRequestedProgramme, upcomingClinicDays,
 } from "./data";
 import { NewClientApp } from "../Portals/NewClientApp";
+import { ClientDateBanner, ClientDatesPage } from "../DateRequests/ClientDates";
+import { drForProgramme } from "../../model";
 
 type DeviceId = "desktop" | "tablet" | "phone";
 const DEVICES: Array<{ id: DeviceId; label: string; width: number }> = [
@@ -46,7 +48,10 @@ export function ClientPortalPreview({ open, onClose }: { open: boolean; onClose:
   const setOverlay = useCallback((el: HTMLDivElement | null) => { overlayEl.current = el; measureOverlay(el); }, [measureOverlay]);
 
   useEffect(() => { if (open) overlayEl.current?.focus(); }, [open]);
-  useEffect(() => { if (open) { const p = takeRequestedProgramme(); if (p) setProgrammeId(p); setCustomId(takeRequestedCustom()); } }, [open]);
+  /* Opens on the requested client, else on a client with a date request waiting for HR. */
+  const st = usePhState();
+  const needsHr = (id: ProgrammeId) => { const r = drForProgramme(st, id); return !!r && (r.status === "asked" || r.status === "countered"); };
+  useEffect(() => { if (open) { const p = takeRequestedProgramme(); const w = CLIENT_PROGRAMMES.find(needsHr); if (p) setProgrammeId(p); else if (w) setProgrammeId(w); setCustomId(takeRequestedCustom()); } }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (!open) return;
     const h = (e: KeyboardEvent) => {
@@ -85,7 +90,7 @@ export function ClientPortalPreview({ open, onClose }: { open: boolean; onClose:
             <div className="pp-chrome-group" role="group" aria-label="Client" style={compact ? { flexBasis: "100%" } : undefined}>
               <span className="ph-faint" style={{ fontSize: 11 }}>Client</span>
               {CLIENT_PROGRAMMES.map((id) => (
-                <Chip key={id} on={programmeId === id && !custom} onClick={() => { setProgrammeId(id); setCustomId(null); stageEl.current?.scrollTo({ top: 0 }); }}>{PROGRAMME_BY_ID[id].clientName}</Chip>
+                <Chip key={id} on={programmeId === id && !custom} count={needsHr(id) ? 1 : undefined} onClick={() => { setProgrammeId(id); setCustomId(null); stageEl.current?.scrollTo({ top: 0 }); }}>{PROGRAMME_BY_ID[id].clientName}</Chip>
               ))}
               {customs.map((x) => <Chip key={x.id} on={custom?.id === x.id} onClick={() => { setCustomId(x.id); stageEl.current?.scrollTo({ top: 0 }); }}>{x.company}</Chip>)}
             </div>
@@ -159,11 +164,13 @@ function ClientApp({ programmeId, view, setView }: { programmeId: ProgrammeId; v
         </header>
         {side ? null : nav("pp-nav")}
         <main className="pp-main">
+          {view === "dates" ? null : <ClientDateBanner programmeId={programmeId} onOpen={() => setView("dates")} />}
           <div className="cp-banner" role="note">
             <Icon name="shield" size={15} />
             <span><strong>Aggregate view. Your organisation never sees individual results.</strong> Groups smaller than {threshold} people are hidden. There is no list of names and no way to drill down to a person.</span>
           </div>
-          {view === "share" ? <SharePage programmeId={programmeId} />
+          {view === "dates" ? <ClientDatesPage programmeId={programmeId} onDone={() => setView("overview")} />
+            : view === "share" ? <SharePage programmeId={programmeId} />
             : view === "reports" ? <ReportsPage programmeId={programmeId} />
               : view === "support" ? <SupportPage programmeId={programmeId} />
                 : <OverviewPage programmeId={programmeId} go={setView} />}

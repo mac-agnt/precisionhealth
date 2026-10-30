@@ -18,6 +18,7 @@ import { SALES_ILH_REQUESTED_LABEL, SALES_RECALL_STATUS_LABEL, SALES_SERVICE_LAB
 import { salesFollowSequence } from "./salesFlow";
 import { sessionStats, today, visibleTasks } from "./selectors";
 import { schedDays, schedForCalId, schedItems, schedStatusLabel, schedTemplate } from "./scheduledActions";
+import { drHours } from "./dateRequests";
 
 /* ================================================================================================
    Shape
@@ -383,6 +384,28 @@ export const CAL_SOURCES: CalSource[] = [
         link: report && er ? { page: "Reporting", tab: "report-builder", params: { report: er.id } } : { page: "Work", tab: "schedules", params: { job: j.id } },
         openLabel: report ? "Open report" : "Open schedule", secondary: report && er ? { label: "Job schedule", link: { page: "Work", tab: "schedules", params: { job: j.id } } } : undefined,
       } as CalEvent;
+    }),
+  },
+  /* Client date requests: dates HR suggested (waiting for Neil) or Neil proposed back (waiting for the
+     client), drawn tentative. Approved dates become screening days and show through "sessions". */
+  {
+    id: "dateRequests",
+    kinds: [{ id: "date_request", label: "Client date request", group: "clinics", color: "#C98A2B" }],
+    collect: (state) => (state.dateRequests?.requests || []).flatMap((r) => {
+      if (r.status !== "suggested" && r.status !== "countered") return [];
+      const client = state.programmes.find((p) => p.id === r.programmeId)?.clientName || "Client";
+      const picks = r.status === "countered" && r.counter ? r.counter.picks : r.picks;
+      return picks.map((p, i) => {
+        const h = drHours(p);
+        const nurse = r.status === "countered" && r.counter ? r.counter.picks[i]?.nurseId : undefined;
+        return {
+          id: `dr:${r.id}:${p.date}`, kind: "date_request", ...timed(p.date, h.start, h.end), client, staffIds: nurse ? [nurse] : [],
+          title: r.status === "countered" ? `${client}: date proposed to the client` : `${client}: suggested date`,
+          location: r.room || undefined, status: r.status === "countered" ? "Waiting for the client" : "Waiting for Neil", tone: r.status === "countered" ? "info" : "warn",
+          detail: `${r.id}, ${r.daysNeeded} ${r.daysNeeded === 1 ? "day" : "days"} needed. Not booked until approved.`, programmeId: r.programmeId,
+          link: { page: "Clinics", tab: "days", params: { request: r.id } }, openLabel: "Open the request", tentative: true,
+        } as CalEvent;
+      });
     }),
   },
 ];

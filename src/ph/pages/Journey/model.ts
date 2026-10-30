@@ -8,6 +8,7 @@
    Each stage carries one "open" link to the exact record and, when something is waiting, the next
    action. Actions are plain data: a page target, a store action, or a portal to open. */
 import {
+  DR_STATUS_LABEL, drOpen,
   DAY_SCREEN_LABEL, ONB_DOC_STATUS_LABEL, ONB_KIND_LABEL, ONB_STEP_LABEL, ONB_TEAM, SALES_SOURCE_LABEL, fmtDate, onbCurrentStep, programmeCounts,
   publishBlockers, retCompanyKey, salesInboundFor, salesJourney, salesLatestVersion, salesNetTotals, salesEurRange, salesRecalls, today,
 } from "../../model";
@@ -310,6 +311,11 @@ function stDay(x: Ctx): Part {
   const pub = x.days.filter((d) => d.status === "published");
   const drafts = x.days.filter((d) => d.status === "draft");
   const facts = [...pub.slice(0, 2).map((d) => `Published: ${dayLine(d)}`), ...drafts.slice(0, 2).map((d) => `Draft: ${dayLine(d)}`)];
+  /* Client date requests: ask HR to suggest dates, or open the one in progress. */
+  const dreq = (x.s.dateRequests?.requests || []).filter((r) => r.programmeId === p.id && drOpen(r)).pop();
+  if (dreq) facts.push(`Date request ${dreq.id}: ${DR_STATUS_LABEL[dreq.status].toLowerCase()}`);
+  const askDates: JAction = dreq ? go(dreq.status === "suggested" ? "Review the client's dates" : "Open the date request", { page: "Clinics", tab: "days", params: { request: dreq.id } })
+    : go("Ask the client for dates", { page: "Clinics", tab: "days", params: { askdates: p.id } });
   const acts: JAction[] = [];
   const d0 = drafts[0];
   if (d0) {
@@ -317,12 +323,13 @@ function stDay(x: Ctx): Part {
     else acts.push({ kind: "act", label: `Publish ${fmtDate(d0.date)} to the client portal`, action: { type: "days/publish", dayId: d0.id }, who: "Stephen, Liz, Brenda or Dr Neil Reddy" });
   }
   if (pub.length) acts.push({ kind: "portal", label: "See it in the client portal", portal: "client", programmeId: p.id });
+  acts.push(askDates);
   const first = pub[0] || d0;
   const open = first ? go("Open the screening day", { page: "Clinics", tab: "days", params: { day: first.id } }) : go("Open Screening days", { page: "Clinics", tab: "days" });
   if (!x.days.length) {
     const sess = x.s.sessions.filter((se) => se.programmeId === p.id && se.status !== "cancelled");
-    if (sess.length) return { status: "history", date: null, facts: [`${plural(sess.length, "clinic session")} on the schedule, set up before screening days were built in Pulse`], next: null, open: go("Open the schedule", { page: "Clinics", tab: "schedule", params: { session: sess[0].id } }), actions: [go("Build the next screening day", { page: "Clinics", tab: "days", params: { ask: `${x.name} screening day` } })] };
-    return { status: "todo", date: null, facts: ["No screening day yet."], next: "Build the first day with the agent.", open, actions: [go("Build the first screening day", { page: "Clinics", tab: "days", params: { ask: `${x.name} screening day` } })] };
+    if (sess.length) return { status: "history", date: null, facts: [`${plural(sess.length, "clinic session")} on the schedule, set up before screening days were built in Pulse`], next: null, open: go("Open the schedule", { page: "Clinics", tab: "schedule", params: { session: sess[0].id } }), actions: [go("Build the next screening day", { page: "Clinics", tab: "days", params: { ask: `${x.name} screening day` } }), askDates] };
+    return { status: "todo", date: null, facts: ["No screening day yet."], next: "Build the first day with the agent.", open, actions: [go("Build the first screening day", { page: "Clinics", tab: "days", params: { ask: `${x.name} screening day` } }), askDates] };
   }
   if (pub.length) return { status: "done", date: pub.map((d) => d.publishedAt).filter((v): v is string => !!v).sort()[0] || null, facts, next: drafts.length ? `${plural(drafts.length, "more day")} in draft.` : null, open, actions: acts };
   return { status: "progress", date: null, facts, next: publishBlockers(d0!).length ? "Confirm the room with HR, then publish." : "Publish it so HR sees it in their portal.", open, actions: acts };
