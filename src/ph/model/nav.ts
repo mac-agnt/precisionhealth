@@ -21,12 +21,12 @@ export const PAGES: PageDef[] = [
   { id: "Dashboard", label: "Dashboard", icon: "navDash", hint: "Executive, clinics, delivery", tabs: [
     { id: "executive", label: "Executive" }, { id: "clinic-operations", label: "Clinic Operations" }, { id: "clinical-delivery", label: "Clinical Delivery" }] },
   { id: "Sales", label: "Sales", icon: "navSales", hint: "Leads, proposals, recall", tabs: [
-    { id: "pipeline", label: "Pipeline" }, { id: "proposals", label: "Proposals" }, { id: "price-list", label: "Price list" },
-    { id: "recall", label: "Recall & repeat" }, { id: "partners", label: "Irish Life Health" }] },
+    { id: "pipeline", label: "Pipeline" }, { id: "proposals", label: "Proposals" }, { id: "price-list", label: "Price list" }, { id: "onboarding", label: "Onboarding" },
+    { id: "recall", label: "Retention" }, { id: "partners", label: "Irish Life Health" }] },
   { id: "Programmes", label: "Programmes", icon: "navProgrammes", hint: "Screening programmes", tabs: [
     { id: "overview", label: "Overview" }, { id: "programmes", label: "Programmes" }, { id: "forms-templates", label: "Forms & Templates" }, { id: "invitations", label: "Invitations" }] },
   { id: "Clinics", label: "Clinics", icon: "navClinics", hint: "Capacity and sessions", tabs: [
-    { id: "overview", label: "Overview" }, { id: "schedule", label: "Schedule" }, { id: "appointments", label: "Appointments" }, { id: "team-resources", label: "Team & Resources" }] },
+    { id: "overview", label: "Overview" }, { id: "days", label: "Screening days" }, { id: "schedule", label: "Schedule" }, { id: "appointments", label: "Appointments" }, { id: "team-resources", label: "Team & Resources" }] },
   { id: "Participants", label: "Participants", icon: "navParticipants", hint: "People and messages", tabs: [
     { id: "directory", label: "Directory" }, { id: "screening-history", label: "Screening History" }, { id: "communications", label: "Communications" }, { id: "portal-admin", label: "Portal admin" }] },
   { id: "Results", label: "Results", icon: "navResults", hint: "Imports and review", tabs: [
