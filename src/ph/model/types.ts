@@ -631,7 +631,8 @@ export type EntityKind =
   | "message"
   | "file"
   | "invitation"
-  | "system";
+  | "system"
+  | "onboarding";
 export interface EntityRef {
   kind: EntityKind;
   id: Id;
@@ -1040,4 +1041,6 @@ export interface PhState {
   adviceLibrary: import("./adviceLibrary").AdviceLibraryState;
   /** Health Screening reference ranges: versioned, superadmin-controlled (Health Screening module). */
   referenceRanges: import("./referenceRanges").ReferenceRangesState;
+  /** Client onboarding and retention (Sales, Onboarding and Retention). */
+  onboarding: import("./onboarding").OnboardingState;
 }

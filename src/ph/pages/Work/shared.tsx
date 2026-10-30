@@ -80,7 +80,7 @@ export const KIND_LABEL: Record<EntityKind, string> = {
   person: "Participant", episode: "Screening episode", booking: "Booking", session: "Clinic session", programme: "Programme",
   batch: "Import batch", row: "Import row", task: "Task", followup: "Follow-up", report: "Report version", employer_report: "Employer report",
   template: "Form template", company: "Company", staff: "Staff profile", agent: "Agent", approval: "Approval", message: "Message",
-  file: "File", invitation: "Invitation list", system: "System or setting",
+  file: "File", invitation: "Invitation list", system: "System or setting", onboarding: "Client onboarding",
 };
 
 /** A readable label for a linked record. Identifiers stay visible; clinical values never appear. */

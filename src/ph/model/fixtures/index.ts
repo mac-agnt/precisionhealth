@@ -12,6 +12,7 @@ import { buildPortalBaseline } from "../portalAdmin";
 import { initialSalesState } from "../sales";
 import { initialFluState } from "../flu";
 import { initialOccHealthState } from "../occHealth";
+import { initialOnboardingState } from "../onboarding";
 import { initialNurseOpsState } from "../nurseOps";
 import { initialAdviceLibraryState } from "../adviceLibrary";
 import { initialReferenceRangesState, setActiveRangeVersions } from "../referenceRangesData";
@@ -95,6 +96,7 @@ export function createInitialState(): PhState {
     nurseOps: initialNurseOpsState(),
     adviceLibrary: initialAdviceLibraryState(),
     referenceRanges: ranges,
+    onboarding: initialOnboardingState(),
   };
   state.portal = buildPortalBaseline(state);
   return state;

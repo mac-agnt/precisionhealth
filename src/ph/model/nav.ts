@@ -110,6 +110,7 @@ export function linkFor(kind: EntityKind, id: string): NavTarget {
     case "file": return { page: "Records", tab: "files", params: { file: id } };
     case "invitation": return { page: "Programmes", tab: "invitations", params: { draft: id } };
     case "system": return { page: "Settings", tab: "systems-integrations", params: { system: id } };
+    case "onboarding": return { page: "Sales", tab: "onboarding", params: { onb: id } };
   }
   return { page: "Home" };
 }

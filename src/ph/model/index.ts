@@ -18,6 +18,7 @@ export * from "./selectors";
 export * from "./ai";
 export * from "./automations";
 export * from "./portalAdmin";
+export * from "./onboarding";
 export { createInitialState } from "./fixtures";
 export { reduce, act, registerHandlers } from "./reducer";
 export type { Action } from "./reducer";
