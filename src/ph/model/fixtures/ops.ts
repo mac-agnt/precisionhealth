@@ -53,7 +53,7 @@ export function buildOps(plan: RosterPlan, clin: ClinicalBuild): OpsBuild {
       attempts: [{ at, outcome: "delivered", reason: null, auto: false }], cohort: null, at, provider: ch === "sms" ? "Esendex" : "Email",
     });
   }
-  // Today's 45 logical reminders, sent 24 hours before the 09:00 clinic start.
+  // Today's 45 reminders, sent 24 hours before the 09:00 clinic start.
   const todaySessions = plan.sessions.filter((s) => s.date === "2026-10-05");
   const todayBookings = plan.bookings
     .filter((b) => todaySessions.some((s) => s.id === b.sessionId))
@@ -239,8 +239,8 @@ export function buildOps(plan: RosterPlan, clin: ClinicalBuild): OpsBuild {
   push("2026-10-02T15:13:00.000Z", agent("reporting", "Programme Reporting"), "agent.flagged", "Programme Reporting suppressed the Site B, age 55+ group (6 participants) in the ER-SISK-01 snapshot. Complementary suppression applied.",
     { entity: ref("employer_report", "ER-SISK-01"), programmeId: "PRG-SISK-26", storyId: "ST-06", simulated: true });
 
-  push("2026-10-04T08:00:00.000Z", system("Reminder job"), "reminder.ran", "24-hour reminder job ran for today's clinics: 45 logical reminders scheduled.", { integrationId: "esendex", simulated: true });
-  push("2026-10-04T08:15:00.000Z", system("Esendex delivery"), "reminder.failed", "Reminder delivery failed for 2 of 45 scheduled logical reminders.", { integrationId: "esendex", storyId: "ST-05", simulated: true });
+  push("2026-10-04T08:00:00.000Z", system("Reminder job"), "reminder.ran", "24-hour reminder job ran for today's clinics: 45 reminders scheduled.", { integrationId: "esendex", simulated: true });
+  push("2026-10-04T08:15:00.000Z", system("Esendex delivery"), "reminder.failed", "Reminder delivery failed for 2 of 45 scheduled reminders.", { integrationId: "esendex", storyId: "ST-05", simulated: true });
   push("2026-10-05T06:30:00.000Z", agent("watchdog", "Ops Watchdog"), "agent.task", "Ops Watchdog opened a review task for Brenda: 2 failed reminders, due 08:45.", { storyId: "ST-05", simulated: true });
   push("2026-10-05T06:15:00.000Z", agent("watchdog", "Ops Watchdog"), "agent.checked", "Ops Watchdog checked today's three clinics: no nurse or room overlaps.", { simulated: true });
   push("2026-10-05T06:20:00.000Z", agent("watchdog", "Ops Watchdog"), "agent.flagged", "Ops Watchdog flagged available capacity at today's IBM clinic: 10 of 25 slots booked.", { programmeId: "PRG-IBM-26", storyId: "ST-03", entity: ref("session", "CLN-IBM-20261005"), simulated: true });

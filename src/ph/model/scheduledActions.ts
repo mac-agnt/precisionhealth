@@ -52,7 +52,9 @@ export interface SchedItem {
   createdBy: StaffId;
   history: SchedHistory[];
 }
-export interface ScheduledState { seq: number; items: SchedItem[] }
+/** A calendar view someone saved with "Save this view": a name and the calendar's URL filters. */
+export interface CalSavedView { id: string; name: string; params: Record<string, string>; createdBy: StaffId; createdAt: Iso }
+export interface ScheduledState { seq: number; items: SchedItem[]; /** Saved calendar views. Optional so older states still load. */ views?: CalSavedView[] }
 
 /** Follow up email templates, in Stephen's soft check-in style. */
 export const SCHED_FOLLOW_TEMPLATES: Array<{ id: string; label: string; subject: string; body: string }> = [

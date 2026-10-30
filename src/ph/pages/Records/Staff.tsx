@@ -87,7 +87,7 @@ export default function Staff() {
         eyebrow="Records"
         gated={false}
         title="Staff"
-        sub={`The ${s.staff.length} demonstration profiles taken from the public website. They are a demo roster, not the total headcount. Assignments and tasks are fictional.`}
+        sub={`The ${s.staff.length} demonstration profiles taken from the public website.`}
       />
       <div className="ph-stack">
         <div className="ph-card" style={{ display: "flex", alignItems: "center", gap: 14, padding: "14px 16px", borderStyle: "dashed" }}>

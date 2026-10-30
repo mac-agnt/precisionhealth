@@ -111,7 +111,7 @@ function create(c: Ctx, a: { form: SchedForm }): ActionResult {
       const x = newItem(c, { ...f, title: tpl.subject, template: tpl.id, staffIds: staffIds.length ? staffIds : [me(c)] }, {});
       leadNote(c, x.leadId, `Follow up email "${tpl.subject}" scheduled for ${when(x.date, x.start)} (in the calendar)`);
       c.emit({ verb: "calendar.scheduled", simulated: true, summary: `${c.first()} scheduled a follow up email ("${tpl.subject}") to ${client} for ${when(x.date, x.start)}. Simulated: nothing is sent.` });
-      return c.ok(`Follow up email to ${client} scheduled for ${when(x.date, x.start)}. Simulated.`, "ok", x.id);
+      return c.ok(`Follow up email to ${client} scheduled for ${when(x.date, x.start)}.`, "ok", x.id);
     }
     case "results_out": case "rebooking": {
       const bad = checkTimes(c, f, true); if (bad) return bad;
@@ -119,7 +119,7 @@ function create(c: Ctx, a: { form: SchedForm }): ActionResult {
       const tpl = RET_DEFAULT_TEMPLATES[f.kind];
       const x = newItem(c, { ...f, title: tpl.subject.replace("{company}", client), staffIds: staffIds.length ? staffIds : [me(c)] }, {});
       c.emit({ verb: "calendar.scheduled", simulated: true, summary: `${c.first()} scheduled the ${tpl.name.toLowerCase()} email to ${client} for ${when(x.date, x.start)}. Simulated: nothing is sent.` });
-      return c.ok(`${tpl.name} email to ${client} scheduled for ${when(x.date, x.start)}. It is listed in Retention. Simulated.`, "ok", x.id);
+      return c.ok(`${tpl.name} email to ${client} scheduled for ${when(x.date, x.start)}. It is listed in Retention.`, "ok", x.id);
     }
     case "task": {
       const bad = checkTimes(c, f, false); if (bad) return bad;

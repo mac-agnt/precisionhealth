@@ -290,7 +290,7 @@ function EsendexLine({ state }: { state: PhState }) {
   const r = reminderStats(state);
   return (
     <div className="phs-small" style={{ marginTop: 4, color: "var(--body)" }}>
-      {sms.length} simulated SMS messages, {sms.filter((m) => m.status === "failed").length} failed. Today's reminders: {r.delivered} of {r.logical} delivered.
+      {sms.length} SMS messages, {sms.filter((m) => m.status === "failed").length} failed. Today's reminders: {r.delivered} of {r.logical} delivered.
     </div>
   );
 }

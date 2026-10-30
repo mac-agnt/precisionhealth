@@ -38,7 +38,7 @@ export default function OnboardingForm({ open, onClose, onCreated }: { open: boo
         <>
           <Button variant="ghost" onClick={() => { setF(ohSampleForm()); setTried(false); }}>Fill sample answers</Button>
           <Button variant="ghost" onClick={() => { setF(ohBlankForm()); setTried(false); }}>Clear</Button>
-          <Button variant="primary" icon="send" disabled={!manage} title={manage ? undefined : VIEW_ONLY_TITLE} onClick={submit}>Submit (Simulated)</Button>
+          <Button variant="primary" icon="send" disabled={!manage} title={manage ? undefined : VIEW_ONLY_TITLE} onClick={submit}>Submit</Button>
         </>
       }>
       <div className="ph-stack">

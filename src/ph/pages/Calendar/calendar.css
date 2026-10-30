@@ -111,7 +111,8 @@
 .cal-tg-allcol { border-left: 1px solid var(--line); padding: 2px 4px 4px 2px; display: flex; flex-direction: column; gap: 2px; min-width: 0; min-height: 24px; }
 .cal-tg-allcol.over { background: color-mix(in srgb, var(--accent) 10%, transparent); }
 .cal-tg.wide .cal-tg-allcol { max-height: 200px; overflow-y: auto; scrollbar-width: thin; }
-.cal-tg-scroll { height: min(640px, calc(100vh - 300px)); min-height: 360px; overflow-y: auto; scrollbar-width: thin; }
+/* Short enough that on first load the grid's last hour sits above the footer bar. */
+.cal-tg-scroll { height: min(640px, calc(100vh - 520px)); min-height: 340px; overflow-y: auto; scrollbar-width: thin; }
 .cal-tg-body { position: relative; }
 .cal-tg-gutter { position: relative; }
 .cal-tg-hour { position: absolute; right: 8px; transform: translateY(-50%); font-size: 10px; color: var(--faint); white-space: nowrap; }
@@ -263,3 +264,28 @@
 .cal-tg-head, .cal-tg-all, .cal-tg-scroll { box-sizing: border-box; }
 .cal-block-more { position: absolute; height: 24px; display: inline-flex; align-items: center; justify-content: center; border-radius: 6px; border: 1px solid var(--border-strong, var(--border)); background: var(--surface); color: var(--ink); font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; z-index: 2; }
 .cal-block-more:hover { background: var(--track); }
+
+/* Views at the top of the left panel */
+.cal-views { display: flex; flex-direction: column; gap: 1px; padding-bottom: 10px; border-bottom: 1px solid var(--line); }
+.cal-views-h { font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--faint); padding: 2px 6px 6px; }
+.cal-view { display: flex; align-items: center; gap: 2px; border-radius: 8px; }
+.cal-view.on { background: var(--accent-soft); }
+.cal-view-pick { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; padding: 6px 8px; border: 0; background: none; font: inherit; font-size: 13px; color: var(--body); text-align: left; cursor: pointer; border-radius: 8px; }
+.cal-view-pick:hover { background: var(--track); }
+.cal-view.on .cal-view-pick { color: var(--ink); font-weight: 600; }
+.cal-view.on .cal-view-pick svg { color: var(--accent); }
+.cal-view-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cal-view-changed { font-size: 10.5px; font-weight: 500; color: var(--warn); }
+.cal-view-tools { display: inline-flex; gap: 0; padding-right: 2px; }
+.cal-view-tools .cal-iconbtn { width: 26px; height: 26px; }
+.cal-view-save { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border: 0; background: none; font: inherit; font-size: 12.5px; color: var(--accent); cursor: pointer; border-radius: 8px; text-align: left; }
+.cal-view-save:hover { background: var(--track); }
+.cal-view-edit { display: flex; gap: 6px; align-items: center; padding: 4px 2px; }
+.cal-view-edit input { min-width: 0; flex: 1; }
+
+/* People view */
+.cal-person { display: flex; align-items: center; gap: 8px; padding: 6px 8px 10px; border-left: 1px solid var(--line); min-width: 0; }
+.cal-person-txt { display: flex; flex-direction: column; min-width: 0; font-size: 12.5px; line-height: 1.3; }
+.cal-person-txt b { color: var(--ink); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cal-person-txt span { color: var(--faint); font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cal-person-none { width: 26px; height: 26px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; background: var(--track); color: var(--dim); font-size: 13px; flex: none; }

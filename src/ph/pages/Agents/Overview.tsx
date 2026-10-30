@@ -91,7 +91,7 @@ function agentInfo(state: PhState, def: AgentDef, feed: ActivityView[], clinical
       const ibmC = programmeCounts(state, "PRG-IBM-26");
       if (ibmC.drafts) items.push({ key: "drafts", label: `${plural(ibmC.drafts, "IBM invitee")} with a questionnaire in progress cannot confirm a booking yet`, tone: "info", target: { page: "Participants", tab: "directory" } });
       pending = pend.length;
-      context.push("Drafts lists and messages only. A person confirms the recipients before any simulated send.");
+      context.push("Drafts lists and messages only. A person confirms the recipients before anything is sent.");
       break;
     }
     case "lab": {
@@ -198,7 +198,7 @@ function OverviewBody() {
             </span>
             <span className="phf-small" style={{ display: "block", marginTop: 2 }}>{jobText(i.def)}</span>
             <span className="phf-note" style={{ display: "block", marginTop: 3 }}>
-              {i.last ? `Last action: ${fmtWhen(i.last.event.at, state.clock.nowUtc)}. ${i.last.text}` : "No simulated action yet."}
+              {i.last ? `Last action: ${fmtWhen(i.last.event.at, state.clock.nowUtc)}. ${i.last.text}` : "No action yet."}
             </span>
           </span>
           <span className="phf-agent-side"><Pill tone={i.statusTone}>{i.statusLabel}</Pill></span>
@@ -212,13 +212,13 @@ function OverviewBody() {
       <PageHeader
         eyebrow="Agents"
         title="Overview"
-        sub="Seven agents prepare, check and explain. People decide. Each agent sees only its permitted data, and every action it takes is a visible, simulated preparation in the activity log."
+        sub="Seven agents prepare, check and explain. People decide. Each agent sees only its permitted data, and every action it takes is a visible preparation in the activity log."
         actions={<DemoTag>Simulated agents, no model connected</DemoTag>}
       />
       <div className="ph-stack">
         <KpiStrip>
           <Kpi label="Agents" value={AGENT_DEFS.length} icon="spark" sub={`${AGENT_DEFS.filter((a) => !a.optional).length} core agents and ${AGENT_DEFS.filter((a) => a.optional).length} optional preview`} />
-          <Kpi label="Simulated actions" value={feed.length} icon="list" sub={`${totalToday} today. The same entries as Activity, Agents.`} onClick={() => nav.go({ page: "Agents", tab: "activity" })} hint="Open the agent activity feed" />
+          <Kpi label="Agent actions" value={feed.length} icon="list" sub={`${totalToday} today. The same entries as Activity, Agents.`} onClick={() => nav.go({ page: "Agents", tab: "activity" })} hint="Open the agent activity feed" />
           <Kpi label="Awaiting a human" value={awaiting} tone={awaiting ? "warn" : "ok"} sub={awaitingSub} hint="Distinct items agents prepared or flagged that wait for a person. Agents never decide." />
           <Kpi label="Clinical Drafting preview" value={on ? "On" : "Off"} icon="edit" sub="Set in Settings, AI controls. Manual workflows never depend on it." onClick={() => nav.go({ page: "Settings", tab: "ai-controls" })} hint="Open AI controls" />
         </KpiStrip>
@@ -300,7 +300,7 @@ function AgentDetail({ state, info, onOpenEvent, bare }: { state: PhState; info:
         <div className="phf-sectiontitle">Recent simulated actions, {info.events.length} in total</div>
         {recent.length ? (
           <Card flat pad={false}>{recent.map((v) => <EventRow key={v.event.id} v={v} onOpen={onOpenEvent} compact />)}</Card>
-        ) : <div className="phf-note">No simulated action yet.{d.id === "drafting" ? " It acts only when a clinician asks for a drafting preview." : ""}</div>}
+        ) : <div className="phf-note">No action yet.{d.id === "drafting" ? " It acts only when a clinician asks for a drafting preview." : ""}</div>}
       </div>
       <div className="ph-wrap" style={{ gap: 8 }}>
         <Button icon="sms" onClick={() => nav.go(linkFor("agent", d.id))}>Open conversation</Button>

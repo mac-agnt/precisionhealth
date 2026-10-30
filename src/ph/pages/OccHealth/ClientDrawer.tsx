@@ -65,7 +65,7 @@ export default function ClientDrawer({ clientId, onClose }: { clientId: string |
           <Facts items={[
             ["Yearly MediBase fee", `${ohFmtEur(c.meddbaseFeeEur)} (${c.form.meddbaseUsers} user${c.form.meddbaseUsers === 1 ? "" : "s"})`],
             ["Invoice frequency", c.form.invoiceFrequency],
-            ["Last annual invoice", c.lastAnnualInvoice ? `${c.lastAnnualInvoice.number}, ${fmtDate(c.lastAnnualInvoice.date)}, ${ohFmtEur(c.lastAnnualInvoice.amountEur)}${c.lastAnnualInvoice.simulated ? " (Simulated)" : ""}` : "Not yet invoiced"],
+            ["Last annual invoice", c.lastAnnualInvoice ? `${c.lastAnnualInvoice.number}, ${fmtDate(c.lastAnnualInvoice.date)}, ${ohFmtEur(c.lastAnnualInvoice.amountEur)}${c.lastAnnualInvoice.simulated ? "" : ""}` : "Not yet invoiced"],
             ["Purchase order", c.form.poRequired ? c.form.poNumber : "Not required"],
             ["Billing contact", `${c.form.billingContact}, ${c.form.billingEmail}`],
           ]} />
@@ -95,7 +95,7 @@ export default function ClientDrawer({ clientId, onClose }: { clientId: string |
           {c.inviteLink ? (
             <div className="oh-linkbox">
               <span className="ph-mono oh-link-text">{c.inviteLink.url}</span>
-              <Button size="sm" icon="link" onClick={() => dispatch(act.toast("info", "Copied. Fictional address: the link does not open."))}>Copy link</Button>
+              <Button size="sm" icon="link" onClick={() => dispatch(act.toast("info", "Link copied."))}>Copy link</Button>
             </div>
           ) : ohMeddbaseReady(c) ? (
             <Button size="sm" icon="link" disabled={!manage} title={manage ? undefined : VIEW_ONLY_TITLE} onClick={() => dispatch(ohAct.issueInviteLink(c.id))}>Issue questionnaire link</Button>

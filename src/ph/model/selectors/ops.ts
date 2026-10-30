@@ -15,7 +15,7 @@ import { batchStats, holdQueueAll, releaseChecklist, reviewStats, reviewQueueAll
 import { cohortEpisodes, cohortFromKey, cohortSizeLabel } from "./reporting";
 
 /* ---- reminders and messages ---- */
-/** Logical reminders for one clinic day. A reminder cancelled with its booking is not counted and cannot be retried. */
+/** Reminders for one clinic day. A reminder cancelled with its booking is not counted and cannot be retried. */
 export interface ReminderStats { cohort: string; logical: number; delivered: number; failed: number; queued: number; attempts: number; autoRetries: number; manualRetries: number }
 export function reminderStats(state: PhState, cohort?: string): ReminderStats {
   const c = cohort || today(state);
@@ -114,7 +114,7 @@ export function storyView(state: PhState, id: StoryId): StoryView {
     case "ST-05": {
       const r = reminderStats(state);
       headline = r.failed ? `${plural(r.failed, "failed reminder")} to resolve` : "All reminders delivered";
-      detail = `${r.delivered} of ${r.logical} logical reminders delivered. ${r.attempts} provider attempts in total, counted separately.`;
+      detail = `${r.delivered} of ${r.logical} reminders delivered.`;
       target = { page: "Participants", tab: "communications", params: { filter: "failed" } };
       break;
     }
@@ -289,7 +289,7 @@ export function jobViews(state: PhState) {
   const r = reminderStats(state);
   return state.jobs.map((j) => {
     let lastResult = j.lastResult, status = j.status;
-    if (j.id === "JOB-REM-TODAY") { lastResult = `${r.delivered} of ${r.logical} logical reminders delivered, ${r.failed} failed. ${r.attempts} provider attempts, counted separately.`; status = r.failed ? "failed" : "ok"; }
+    if (j.id === "JOB-REM-TODAY") { lastResult = `${r.delivered} of ${r.logical} reminders delivered, ${r.failed} failed.`; status = r.failed ? "failed" : "ok"; }
     if (j.id === "JOB-IMPORT-EUROFINS") { const b = batchStats(state, "BATCH-20261002-01"); lastResult = `${b.imported} rows imported, ${b.duplicates} duplicates skipped, ${b.quarantined} held for identity resolution.`; }
     if (j.id === "JOB-REVIEW-1200" || j.id === "JOB-REVIEW-1600") { const s = reviewStats(state); lastResult = `Last checkpoint: review queue ${s.ready} ready, ${s.aged} over 48 hours (current).`; }
     if (j.id.startsWith("JOB-REM-CLN-")) {

@@ -482,8 +482,8 @@ handlers["reminder/retry"] = (c, a: { messageId: string }) => {
   if (m.status !== "failed") return c.fail("This reminder is not failed. A retry was already made.");
   m.attempts.push({ at: c.stamp(), outcome: "delivered", reason: null, auto: false });
   m.status = "delivered";
-  c.emit({ verb: "reminder.retried", summary: `${c.first()} retried reminder ${m.logicalId} to the verified ${m.channel === "sms" ? "mobile" : "email"} destination. Delivered. Logical reminders stay at ${c.s.messages.filter((x) => x.kind === "reminder" && x.cohort === m.cohort && x.status !== "cancelled").length}.`, entity: { kind: "message", id: m.id }, personId: m.personId, storyId: "ST-05", integrationId: m.provider === "Esendex" ? "esendex" : "email", simulated: true });
-  return c.ok("Retry delivered. One logical reminder moved from failed to delivered and the attempt was added to its history.", "ok");
+  c.emit({ verb: "reminder.retried", summary: `${c.first()} retried reminder ${m.logicalId} to the verified ${m.channel === "sms" ? "mobile" : "email"} destination. Delivered. Reminders stay at ${c.s.messages.filter((x) => x.kind === "reminder" && x.cohort === m.cohort && x.status !== "cancelled").length}.`, entity: { kind: "message", id: m.id }, personId: m.personId, storyId: "ST-05", integrationId: m.provider === "Esendex" ? "esendex" : "email", simulated: true });
+  return c.ok("Retry delivered. One reminder moved from failed to delivered and the attempt was added to its history.", "ok");
 };
 
 /* ---- data quality ---- */

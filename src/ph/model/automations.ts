@@ -283,12 +283,12 @@ export const AUTOMATIONS: AutomationDef[] = [
     ],
     steps: [
       { actor: { kind: "system", label: "Pulse" }, action: "Queues one reminder per booking when the booking is made", channel: "Pulse scheduler", output: "Queued reminder job" },
-      { actor: { kind: "system", label: "Pulse" }, action: "Sends it 24 hours before the clinic", channel: "SMS through Esendex, or email", output: "Delivered or failed status per logical reminder" },
-      { actor: { kind: "system", label: "Pulse" }, action: "Retries a failed delivery once", channel: "Provider retry", output: "Attempt history, counted separately from logical reminders" },
+      { actor: { kind: "system", label: "Pulse" }, action: "Sends it 24 hours before the clinic", channel: "SMS through Esendex, or email", output: "Delivered or failed status per reminder" },
+      { actor: { kind: "system", label: "Pulse" }, action: "Retries a failed delivery once", channel: "Provider retry", output: "Attempt history, counted separately from reminders" },
       { actor: { kind: "agent", label: "Ops Watchdog", agentId: "watchdog" }, action: "Opens a review task for Programme Operations when reminders fail", channel: "Work, Tasks", output: "Task with a due time" },
       { actor: { kind: "staff", label: "Programme Operations", role: "operations" }, action: "Retries each remaining failure or uses the service contact route", channel: "Participants, Communications", output: "Delivered on retry, or contact recorded" },
     ],
-    outputs: ["One logical reminder per booking", "Failed-delivery queue with reasons", "Review task when reminders fail"],
+    outputs: ["One reminder per booking", "Failed-delivery queue with reasons", "Review task when reminders fail"],
     guardrails: [
       "Never sends a reminder for a cancelled booking",
       "Never creates or back-dates a reminder for a short-notice booking",
@@ -311,7 +311,7 @@ export const AUTOMATIONS: AutomationDef[] = [
       const r = reminderStats(s);
       const rem = s.messages.filter((m) => m.kind === "reminder");
       return {
-        runs: metric("logical", "logical reminders for today's clinics", r.logical),
+        runs: metric("logical", "reminders for today's clinics", r.logical),
         exceptions: exception("failed", "failed, in the staff queue", r.failed, "bad"),
         more: [
           metric("delivered", "delivered", r.delivered, "ok"),

@@ -41,7 +41,7 @@ export default function Sessions() {
     <div className="ph-page">
       <PageHeader eyebrow="Occupational health" title="MediBase sessions"
         sub="OH clinician diaries as they appear in MediBase, with Pulse's readiness check: is each employee's questionnaire in before they are seen. MediBase stays the system of record."
-        actions={<Button icon="link" onClick={() => dispatch(act.toast("info", `Simulated: this would open ${d.meddbaseRef} in MediBase. MediBase is not connected in the demo.`))}>Open in MediBase (Simulated)</Button>} />
+        actions={<Button icon="link" onClick={() => dispatch(act.toast("info", `Simulated: this would open ${d.meddbaseRef} in MediBase. MediBase is not connected in the demo.`))}>Open in MediBase</Button>} />
       <div className="ph-stack">
         <div className="oh-toolbar">
           {diaries.map((x) => <Chip key={x.id} on={x.id === d.id} onClick={() => nav.setParams({ diary: x.id })}>{x.clinicianName}, {fmtWeekdayDate(x.date)}</Chip>)}
@@ -52,7 +52,7 @@ export default function Sessions() {
             <Kpi label="Booked" value={st.booked} sub={`of ${st.slots} slots, ${st.free} free`} />
             <Kpi label="Questionnaires in" value={st.received} sub={`of ${st.booked} booked`} tone="ok" />
             <Kpi label="Missing" value={st.missing} sub={`${st.chased} chased`} tone={st.missing ? "warn" : "ok"} />
-            <Kpi label="In MediBase" value={st.inMeddbase} sub={`of ${st.received} received, Simulated`} />
+            <Kpi label="In MediBase" value={st.inMeddbase} sub={`of ${st.received} received`} />
           </KpiStrip>
         </Card>
         <OhNote>Chasing and sending are Simulated: no email, SMS or MediBase call is made. <DemoTag>Simulated</DemoTag></OhNote>

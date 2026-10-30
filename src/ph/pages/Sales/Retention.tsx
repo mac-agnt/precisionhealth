@@ -107,7 +107,7 @@ export default function Retention() {
                 <div key={it.programmeId} className="rt-item">
                   <span className="rt-item-icon"><Icon name="mail" size={16} /></span>
                   <div className="ph-grow">
-                    <div className="rt-item-title"><CompanyLink name={it.company} />: <ProgrammeLink id={it.programmeId}>{it.programme}</ProgrammeLink></div>
+                    <div className="rt-item-title"><ProgrammeLink id={it.programmeId}>{it.programme}</ProgrammeLink></div>
                     <div className="rt-item-sub">{it.newReports} new report{it.newReports === 1 ? "" : "s"} released ({it.released} in total) · To {it.contact ? <b>{it.contact.name}</b> : <span className="rt-bad">no contact chosen</span>}</div>
                     <JourneyStrip programme={it.programmeId} at="retention" mini />
                   </div>

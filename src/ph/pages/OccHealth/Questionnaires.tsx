@@ -43,7 +43,7 @@ export default function Questionnaires() {
           </ul>
         </Card>
         <Card>
-          <CardHeader title="Invite links per client" sub="Fictional addresses. A link is issued once the client is set up in MediBase." />
+          <CardHeader title="Invite links per client" sub="A link is issued once the client is set up in MediBase." />
           <ul className="oh-plain">
             {state.occHealth.clients.map((c) => (
               <li key={c.id} className="oh-line">

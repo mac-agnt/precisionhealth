@@ -183,7 +183,7 @@ function StaffCounts({ state, personId }: { state: PhState; personId: string }) 
     ...(ss ? [[`Today, ${code} clinic`, `${ss.booked} of ${ss.slots}, ${ss.available} free`] as [string, string]] : []),
     ["Today, all clinics", `${ts.booked} of ${ts.capacity}, ${ts.available} free`],
     ["Questionnaires in progress", `${tc.drafts} (not bookings)`],
-    ["Today's logical reminders", `${rs.logical}: ${rs.delivered} delivered, ${rs.failed} failed`],
+    ["Today's reminders", `${rs.logical}: ${rs.delivered} delivered, ${rs.failed} failed`],
     ["Screening episodes", `${tc.episodes}`],
   ];
   return (

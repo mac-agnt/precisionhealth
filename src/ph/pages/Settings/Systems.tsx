@@ -352,7 +352,7 @@ function MessagesPanel({ state, provider, title }: { state: PhState; provider: M
     <Section title={title} right={<DemoTag>Delivery simulation</DemoTag>}>
       <DefList items={[
         { label: `Through ${provider}`, value: `${msgs.length} messages: ${delivered} delivered, ${failed} failed` },
-        { label: "Today's reminders", value: `${r.logical} logical reminders across both channels: ${r.delivered} delivered, ${r.failed} failed. ${r.attempts} provider attempts, counted separately.` },
+        { label: "Today's reminders", value: `${r.logical} reminders across both channels: ${r.delivered} delivered, ${r.failed} failed.` },
         provider === "Email" ? { label: "Provider", value: "Production provider and transport to confirm. No Gmail API or Microsoft Graph connection is claimed." } : { label: "Sending", value: "No messages are sent. Delivery and retries are simulated." },
       ]} />
       <div style={{ marginTop: 12 }}>

@@ -146,7 +146,7 @@ export default function Clients() {
           );
         })}
         <p className="oh-small" style={{ margin: 0 }}>
-          Client names are business references used as demo labels. Contacts, fees, invoices and registration numbers are fictional. <DemoTag>Demo data</DemoTag>
+          <DemoTag>Demo data</DemoTag>
           {manage ? null : <> You can view this board; Stephen, Fiona, Martina or Brenda tick the steps.</>}
         </p>
       </div>

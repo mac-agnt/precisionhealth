@@ -34,7 +34,7 @@ export default function Tenders() {
   });
   return (
     <div className="ph-page">
-      <PageHeader title="Tender Watchdog" sub="Public tenders worth a look, soonest closing first. Turn one into a lead to start the bid, or mark it as not for us. Every notice here is fictional." actions={<DemoTag>Sample notices</DemoTag>} />
+      <PageHeader title="Tender Watchdog" sub="Public tenders worth a look, soonest closing first. Turn one into a lead to start the bid, or mark it as not for us." actions={<DemoTag>Sample notices</DemoTag>} />
       <div className="ph-stack">
         {!rights.manage ? <ViewOnly /> : null}
         <KpiStrip>

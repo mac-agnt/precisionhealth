@@ -9,7 +9,7 @@ import type { CSSProperties, DragEvent as ReactDragEvent, MouseEvent as ReactMou
 import { createPortal } from "react-dom";
 import type { CalDim, CalEvent, CalFilter, CalView, LocalDate } from "../../model";
 import {
-  CAL_DEFAULT_OFF, CAL_GROUPS, CAL_KIND_BY_ID, CAL_MAX_SIDE_BY_SIDE, CAL_MIN_BLOCK_PX, addDays, addMonths, calClients, calCountRange, calGroupFromParam, calGroupOf, calKindColor, calLayoutDay, calMatches, calRange, calStep,
+  CAL_DEFAULT_OFF, CAL_GROUPS, CAL_KIND_BY_ID, CAL_MAX_SIDE_BY_SIDE, CAL_PRESET_VIEWS, CAL_VIEW_KEYS, calDefaultViewFor, CAL_MIN_BLOCK_PX, addDays, addMonths, calClients, calCountRange, calGroupFromParam, calGroupOf, calKindColor, calLayoutDay, calMatches, calRange, calStep,
   calendarEvents, dublinOffsetMinutes, dublinToUtc, fmtDateLong, fmtWeekdayDate, hhmmToMinutes, localTimeOf, minutesToHhmm, staffName, startOfWeek, today, weekdayOf,
 } from "../../model";
 import { dispatch, usePersona, usePhState } from "../../store";
@@ -17,12 +17,14 @@ import { useNav } from "../../nav-context";
 import { Button, Icon, Pill, SearchBox, Segmented, Switch } from "../../ui";
 import { schedAct } from "./schedActions";
 import ScheduleDialog from "./ScheduleDialog";
+import { ViewsBlock } from "./ViewsBlock";
+import { PeopleGrid } from "./PeopleGrid";
 import EventCard from "./EventCard";
 import { ampm, overlayRoot, timeLabel } from "./util";
 import "./calendar.css";
 
 const VIEWS: Array<{ id: CalView; label: string }> = [
-  { id: "day", label: "Day" }, { id: "week", label: "Week" }, { id: "month", label: "Month" }, { id: "agenda", label: "Agenda" },
+  { id: "day", label: "Day" }, { id: "week", label: "Week" }, { id: "month", label: "Month" }, { id: "agenda", label: "Agenda" }, { id: "people", label: "People" },
 ];
 const MONTHS_LONG = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -32,7 +34,7 @@ const list = (v: string | undefined) => (v ? v.split(",").map((x) => x.trim()).f
 const dayNum = (d: LocalDate) => Number(d.slice(8, 10));
 const monthTitle = (d: LocalDate) => `${MONTHS_LONG[Number(d.slice(5, 7)) - 1]} ${d.slice(0, 4)}`;
 function rangeTitle(view: CalView, date: LocalDate): string {
-  if (view === "day") return fmtDateLong(date);
+  if (view === "day" || view === "people") return fmtDateLong(date);
   if (view === "week") {
     const s = startOfWeek(date), e = addDays(s, 6);
     if (s.slice(0, 7) === e.slice(0, 7)) return monthTitle(s);
@@ -100,7 +102,13 @@ export default function CalendarBoard({ scope, defaultView = "week", onEventClic
   const [anchor, setAnchor] = useState<DOMRect | null>(null);
   const [creating, setCreating] = useState<{ date: LocalDate; time: string | null } | null>(null);
   const t = today(state);
-  const P = nav.params;
+  /* Saved views: the active view's filters sit under whatever the URL says, so a view can be tweaked
+     and "Clear filters" goes back to it. No ?v= means the persona's own view (Stephen: sales). */
+  const savedViews = state.scheduled.views || [];
+  const viewId = scope ? null : (nav.params.v || calDefaultViewFor(p.id));
+  const viewDef: Record<string, string> = (viewId ? CAL_PRESET_VIEWS.find((v) => v.id === viewId)?.params || savedViews.find((v) => v.id === viewId)?.params : undefined) || {};
+  const P: Record<string, string> = { ...viewDef, ...nav.params };
+  const viewChanged = !!viewId && CAL_VIEW_KEYS.some((k) => k !== "view" && (P[k] || "") !== (viewDef[k] || ""));
 
   const view: CalView = (VIEWS.find((v) => v.id === P.view)?.id) || (P.view === "list" ? "agenda" : narrow ? "agenda" : defaultView);
   const date: LocalDate = isDate(P.date) ? P.date : t;
@@ -110,7 +118,7 @@ export default function CalendarBoard({ scope, defaultView = "week", onEventClic
   const f: CalFilter = { groups, clients: list(P.clients), people: list(P.people), q: P.q || "", mine: P.mine === "1" && !p.isParticipant ? p.id : null, byMe: P.byme === "1" && !p.isParticipant ? p.id : null, status };
 
   const set = (patch: Record<string, string | null>) => {
-    const next: Record<string, string> = { ...P };
+    const next: Record<string, string> = { ...nav.params };
     for (const [k, v] of Object.entries(patch)) { if (v === null || v === "") delete next[k]; else next[k] = v; }
     nav.setParams(next);
   };
@@ -141,14 +149,17 @@ export default function CalendarBoard({ scope, defaultView = "week", onEventClic
   const goDay = (d: LocalDate) => set({ view: "day", date: d, ev: null });
   const createAt = canSchedule ? (d: LocalDate, time: string | null) => { setAnchor(null); if (P.ev) set({ ev: null }); setCreating({ date: d, time }); } : undefined;
   const onMove = canSchedule ? dropOn : undefined;
-  const activeFilters = (P.types !== undefined ? 1 : 0) + f.clients.length + f.people.length + (f.q ? 1 : 0) + (f.mine ? 1 : 0) + (f.byMe ? 1 : 0) + (status ? 1 : 0);
+  const activeFilters = (nav.params.types !== undefined ? 1 : 0) + f.clients.length + f.people.length + (f.q ? 1 : 0) + (f.mine ? 1 : 0) + (f.byMe ? 1 : 0) + (status ? 1 : 0);
   const resetFilters = () => set({ types: null, clients: null, people: null, q: null, mine: null, byme: null, status: null, ev: null });
+  const pickView = (id: string) => set({ ...Object.fromEntries(CAL_VIEW_KEYS.map((k) => [k, null])), v: id, ev: null });
+  const viewParams = Object.fromEntries(CAL_VIEW_KEYS.filter((k) => P[k]).map((k) => [k, P[k]]));
 
   const side = (
     <FilterPanel
       date={date} today={t} scoped={scoped} f={f} groupsAll={groupsAll} inRange={inCount} count={count} set={set} scopeOnly={!!scope}
       persona={p.isParticipant ? null : { id: p.id, first: p.name.split(" ")[0] }} footer={sideFooter} onDate={(d) => set({ date: d, ev: null })}
       onReset={resetFilters} activeFilters={activeFilters} narrow={narrow}
+      views={scope ? null : <ViewsBlock viewId={viewId} changed={viewChanged} saved={savedViews} onPick={pickView} params={viewParams} canSave={!p.isParticipant} />}
       create={canSchedule && !narrow ? <button type="button" className="cal-create" onClick={() => setCreating({ date: date < t ? t : date, time: null })}><Icon name="plus" size={20} stroke={2.2} /><span>Schedule</span></button> : null}
     />
   );
@@ -162,7 +173,7 @@ export default function CalendarBoard({ scope, defaultView = "week", onEventClic
             <button type="button" className="cal-today" onClick={() => set({ date: t, ev: null })}>Today</button>
             <button type="button" className="cal-iconbtn lg" aria-label="Previous" onClick={() => set({ date: calStep(view, date, -1), ev: null })}><Icon name="chevronLeft" size={18} /></button>
             <button type="button" className="cal-iconbtn lg" aria-label="Next" onClick={() => set({ date: calStep(view, date, 1), ev: null })}><Icon name="chevronRight" size={18} /></button>
-            <h2 className="cal-title">{narrow && view !== "day" ? rangeTitle(view, date).replace(/^(\w{3})\w* /, "$1 ") : rangeTitle(view, date)}</h2>
+            <h2 className="cal-title">{narrow ? (view === "day" || view === "people" ? fmtWeekdayDate(date) : rangeTitle(view, date).replace(/^(\w{3})\w* /, "$1 ")) : rangeTitle(view, date)}</h2>
             {narrow ? <button type="button" className="cal-iconbtn lg cal-filterbtn" onClick={() => setSheet(true)} aria-expanded={sheet} aria-label="Filters"><Icon name="filter" size={17} />{activeFilters ? <span className="cal-badge">{activeFilters}</span> : null}</button> : null}
           </div>
           <div className="cal-tools">
@@ -173,8 +184,9 @@ export default function CalendarBoard({ scope, defaultView = "week", onEventClic
         {view === "month" ? <MonthView date={date} today={t} events={shown} onPick={pick} onDay={goDay} selectedId={selectedId || selected?.id} compact={narrow} onCreate={createAt} onMove={onMove} /> : null}
         {view === "week" ? <TimeGrid days={Array.from({ length: 7 }, (_, i) => addDays(startOfWeek(date), i))} today={t} now={state.clock.nowUtc} events={shown} onPick={pick} onDay={goDay} selectedId={selectedId || selected?.id} onCreate={createAt} onMove={onMove} narrow={narrow} /> : null}
         {view === "day" ? <TimeGrid days={[date]} today={t} now={state.clock.nowUtc} events={shown} onPick={pick} onDay={goDay} selectedId={selectedId || selected?.id} wide onCreate={createAt} onMove={onMove} narrow={narrow} /> : null}
+        {view === "people" ? <PeopleGrid date={date} today={t} now={state.clock.nowUtc} events={shown} onPick={pick} selectedId={selectedId || selected?.id} onCreate={createAt} /> : null}
         {view === "agenda" ? <AgendaView events={shown} today={t} onPick={pick} selectedId={selectedId || selected?.id} onNext={() => set({ date: calStep("agenda", date, 1) })} /> : null}
-        {!shown.length && view !== "agenda" ? <div className="cal-none">Nothing {view === "day" ? "on this day" : view === "week" ? "this week" : "this month"} with these filters.{activeFilters ? <> <button type="button" className="cal-linkbtn" onClick={resetFilters}>Clear filters</button></> : null}</div> : null}
+        {!shown.length && view !== "agenda" ? <div className="cal-none">Nothing {view === "day" || view === "people" ? "on this day" : view === "week" ? "this week" : "this month"} with these filters.{activeFilters ? <> <button type="button" className="cal-linkbtn" onClick={resetFilters}>Clear filters</button></> : null}</div> : null}
       </section>
       {narrow && sheet ? <Sheet title="Filters" onClose={() => setSheet(false)}>{side}</Sheet> : null}
       {narrow && canSchedule ? <button type="button" className="cal-fab" aria-label="Schedule" onClick={() => setCreating({ date: date < t ? t : date, time: null })}><Icon name="plus" size={24} stroke={2.2} /></button> : null}
@@ -191,10 +203,10 @@ export default function CalendarBoard({ scope, defaultView = "week", onEventClic
    Filter panel
    ================================================================================================ */
 
-function FilterPanel({ date, today: t, scoped, f, groupsAll, inRange, count, set, persona, footer, onDate, onReset, activeFilters, scopeOnly, create, narrow }: {
+function FilterPanel({ date, today: t, scoped, f, groupsAll, inRange, count, set, persona, footer, onDate, onReset, activeFilters, scopeOnly, create, narrow, views }: {
   date: LocalDate; today: LocalDate; scoped: CalEvent[]; f: CalFilter; groupsAll: typeof CAL_GROUPS; inRange: CalEvent[];
   count: (dim: CalDim, pred: (e: CalEvent) => boolean) => number; set: (p: Record<string, string | null>) => void;
-  persona: { id: string; first: string } | null; footer?: ReactNode; onDate: (d: LocalDate) => void; onReset: () => void; activeFilters: number; scopeOnly: boolean; create: ReactNode; narrow: boolean;
+  persona: { id: string; first: string } | null; footer?: ReactNode; onDate: (d: LocalDate) => void; onReset: () => void; activeFilters: number; scopeOnly: boolean; create: ReactNode; narrow: boolean; views?: ReactNode;
 }) {
   const state = usePhState();
   const [q, setQ] = useState(f.q);
@@ -208,11 +220,9 @@ function FilterPanel({ date, today: t, scoped, f, groupsAll, inRange, count, set
 
   const toggle = (key: "types" | "clients" | "people", cur: string[], id: string, allIds?: string[]) => {
     const next = cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id];
-    if (key === "types" && allIds) {
-      const def = allIds.filter((g) => !CAL_DEFAULT_OFF.includes(g));
-      const same = next.length === def.length && def.every((g) => next.includes(g));
-      set({ types: same ? null : next.join(",") || "none", ev: null });
-    } else set({ [key]: next.join(",") || null, ev: null });
+    /* Always written out, so ticking works the same on top of any saved view. */
+    if (key === "types" && allIds) set({ types: next.join(",") || "none", ev: null });
+    else set({ [key]: next.join(",") || null, ev: null });
   };
   const clients = calClients(inRange.length ? inRange : scoped);
   for (const c of f.clients) if (!clients.some((x) => x.name === c)) clients.push({ name: c, n: 0 });
@@ -223,6 +233,7 @@ function FilterPanel({ date, today: t, scoped, f, groupsAll, inRange, count, set
   return (
     <div className="cal-side-in">
       {create}
+      {views}
       <MiniMonth date={date} today={t} events={scoped.filter((e) => calMatches(e, f))} onDate={onDate} />
       {narrow ? <SearchBox value={q} onChange={setQ} placeholder="Search the calendar" width="100%" /> : null}
 

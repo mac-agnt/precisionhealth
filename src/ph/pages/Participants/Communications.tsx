@@ -1,5 +1,5 @@
 /* Participants, Communications: one timeline of confirmations, reminders, report-availability
-   notices and invitations, with delivery exceptions and an explicit retry. Logical reminders
+   notices and invitations, with delivery exceptions and an explicit retry. Reminders
    and provider attempts are counted separately. A delivery receipt is not report access.
    All delivery is simulated (Esendex SMS and Email). Nothing is ever sent. */
 import { useMemo, useState } from "react";
@@ -83,10 +83,10 @@ export default function CommunicationsTab() {
       />
       <div className="ph-stack">
         <KpiStrip>
-          <Kpi label="Today's reminders" value={r.logical} icon="clock" sub={`Logical reminders for confirmed appointments on ${fmtWeekdayDate(r.cohort)}`} hint="One logical reminder per confirmed appointment, however many provider attempts it took." onClick={() => setFilter("reminders")} />
-          <Kpi label="Delivered" value={r.delivered} tone="ok" sub={`of ${r.logical} logical reminders`} onClick={() => setFilter("reminders")} />
+          <Kpi label="Today's reminders" value={r.logical} icon="clock" sub={`Reminders for confirmed appointments on ${fmtWeekdayDate(r.cohort)}`} hint="One reminder per confirmed appointment, however many provider attempts it took." onClick={() => setFilter("reminders")} />
+          <Kpi label="Delivered" value={r.delivered} tone="ok" sub={`of ${r.logical} reminders`} onClick={() => setFilter("reminders")} />
           <Kpi label="Failed" value={r.failed} tone={r.failed ? "bad" : "ok"} sub={r.failed ? `${story.ownerName} reviews by ${due}` : "None outstanding"} onClick={() => setFilter("failed")} />
-          <Kpi label="Provider attempts" value={r.attempts} icon="refresh" sub={`${r.autoRetries} automatic and ${r.manualRetries} manual retries. Not logical reminders.`} hint="Provider attempts are counted separately from the logical reminder cohort." />
+          <Kpi label="Provider attempts" value={r.attempts} icon="refresh" sub={`${r.autoRetries} automatic and ${r.manualRetries} manual retries. Retries are not extra reminders.`} hint="Provider attempts are counted separately from the reminder cohort." />
           <Kpi label="Booked inside 24 hours" value={shortNotice.length} icon="calendar" sub="Today: one confirmation each, no back-dated reminder" hint="Bookings made after the reminder run get one confirmation. No reminder is fabricated." />
         </KpiStrip>
 
@@ -95,7 +95,7 @@ export default function CommunicationsTab() {
             <Card>
               <CardHeader
                 title="Delivery exceptions"
-                sub={failed.length ? `${failed.length} of ${r.logical} logical reminders failed. Each keeps its own reason and verified destination. Owner ${story.ownerName}${due ? `, review by ${due}` : ""}.` : `All ${r.logical} logical reminders delivered.`}
+                sub={failed.length ? `${failed.length} of ${r.logical} reminders failed. Each keeps its own reason and verified destination. Owner ${story.ownerName}${due ? `, review by ${due}` : ""}.` : `All ${r.logical} reminders delivered.`}
                 right={<DemoTag>Simulated</DemoTag>}
               />
               {failed.length || retried.length ? (
@@ -139,14 +139,14 @@ export default function CommunicationsTab() {
               <CardHeader title="Rules this screen follows" />
               <ul className="ph-dim" style={{ margin: 0, paddingLeft: 18, fontSize: 12, lineHeight: 1.6, display: "flex", flexDirection: "column", gap: 4 }}>
                 <li>Clinical details never appear in a subject or preview.</li>
-                <li>A retry adds a provider attempt. It never creates a second logical reminder.</li>
+                <li>A retry adds a provider attempt. It never creates a second reminder.</li>
                 <li>A delivery receipt is not report access. Report access is recorded when the participant opens the report.</li>
                 <li>Bookings made inside 24 hours get one confirmation. No reminder is back-dated.</li>
                 <li>Messages go only to the verified destination on record. Booking counts never change on retry.</li>
               </ul>
             </Card>
             <Card>
-              <CardHeader title="Channels" sub="Statuses are explicitly simulated or unconfirmed." />
+              <CardHeader title="Channels" sub="How each channel is doing today." />
               {INTEGRATIONS.filter((x) => x.id === "esendex" || x.id === "email").map((x) => (
                 <div key={x.id} style={{ padding: "8px 0", borderTop: "1px solid var(--border)" }}>
                   <span className="ph-h2" style={{ fontSize: 13 }}>{x.name}</span>
@@ -239,7 +239,7 @@ function CohortCard() {
   const rows = cohortByProgramme(state);
   return (
     <Card>
-      <CardHeader title="Today's reminder cohort" sub={`${r.logical} logical reminders, sent 24 hours before each clinic`} />
+      <CardHeader title="Today's reminder cohort" sub={`${r.logical} reminders, sent 24 hours before each clinic`} />
       <Stacked total={r.logical} segments={[
         { label: "Delivered", value: r.delivered, color: "var(--accent)" },
         { label: "Failed", value: r.failed, color: "var(--bad)" },
@@ -255,7 +255,7 @@ function CohortCard() {
         </tbody>
       </table>
       <div className="ph-faint" style={{ fontSize: 11.5, marginTop: 10, lineHeight: 1.45 }}>
-        {r.attempts} provider attempts in total, counted separately. Retrying a reminder changes delivered and failed once and leaves the {r.logical} logical reminders and every booking count unchanged.
+        {r.attempts} delivery attempts in total. Retrying a reminder changes delivered and failed once and leaves the {r.logical} reminders and every booking count unchanged.
       </div>
     </Card>
   );
@@ -312,7 +312,7 @@ function MessageDrawer({ id, onClose }: { id: Id; onClose: () => void }) {
         <Facts rows={[
           ["Person", <EntityLink kind="person" id={m.personId}>{personName(person)} ({m.personId})</EntityLink>],
           ["Logical message", <><span className="ph-mono">{m.logicalId}</span><span className="ph-faint" style={{ display: "block", fontSize: 11.5 }}>{sameLogical === 1 ? "One logical message, however many provider attempts." : `${sameLogical} records share this logical ID.`}</span></>],
-          ["Channel and provider", `${channelText(m)}, simulated`],
+          ["Channel and provider", channelText(m)],
           ["Verified destination", <span className="ph-num">{m.destination}</span>],
           ["Sent", fmtDateTime(m.at)],
           m.cohort ? ["Cohort", `Reminders for ${fmtWeekdayDate(m.cohort)}`] : null,

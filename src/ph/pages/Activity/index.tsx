@@ -62,7 +62,7 @@ function EverythingTab() {
       <PageHeader
         eyebrow="Activity"
         title="Everything"
-        sub={`One timeline for staff, agents, simulated systems and the participant portal. ${rows.length} of ${everything.length} events shown, ${simulated} of them simulated. Event IDs are the same on every view.`}
+        sub={`One timeline for staff, agents, connected systems and the participant portal. ${rows.length} of ${everything.length} events shown, ${simulated} of them simulated. Event IDs are the same on every view.`}
         actions={<DemoTag>Fictional demo events</DemoTag>}
       />
       <div className="ph-stack">
@@ -181,7 +181,7 @@ function AgentsTab() {
       <PageHeader
         eyebrow="Activity"
         title="Agents"
-        sub="Simulated agent actions from the shared activity store. Exactly the same entries as the Agents page, Activity tab."
+        sub="Everything the agents prepared, checked or flagged. Exactly the same entries as the Agents page, Activity tab."
         actions={<DemoTag>Simulated</DemoTag>}
       />
       <AgentFeed />

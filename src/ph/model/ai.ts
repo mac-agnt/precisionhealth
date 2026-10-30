@@ -253,7 +253,7 @@ export function answerQuery(state: PhState, q: string): Answer {
       const failed = failedReminders(state);
       return {
         scenario: sc, supported: true, tool: "pulse_communications", effect: "read",
-        text: `${r.logical} logical reminders were due for today's clinics: ${r.delivered} delivered and ${r.failed} failed. The ${r.attempts} provider attempts are counted separately and never change the booking counts. Brenda owns the review by 08:45. Retrying one failed reminder moves one logical reminder from failed to delivered and adds an attempt to its history.`,
+        text: `${r.logical} reminders were due for today's clinics: ${r.delivered} delivered and ${r.failed} failed. Brenda owns the review by 08:45. Retrying one failed reminder moves one reminder from failed to delivered and adds an attempt to its history.`,
         cols: ["Reminder", "Participant", "Channel", "Reason"],
         rows: failed.map((m) => [m.logicalId, personName(I.personById.get(m.personId)), m.channel.toUpperCase(), m.attempts[m.attempts.length - 1].reason || ""]),
         actions: [{ label: "Open failed reminders", target: { page: "Participants", tab: "communications", params: { filter: "failed" } }, primary: true }],
@@ -375,7 +375,7 @@ export function agentThread(state: PhState, id: AgentId): ThreadItem[] {
       return [
         stamp("Today 06:15"),
         agent("checked today's three clinics: no nurse or room overlaps. Ian is a support resource, not a second booked nurse.", undefined, [open("Open team and resources", { page: "Clinics", tab: "team-resources" })]),
-        agent(`${plural(rem.failed, "reminder")} failed delivery of ${rem.logical} logical reminders. Task opened for Brenda, due 08:45. The ${rem.attempts} provider attempts are counted separately.`, undefined, [open("Open failed reminders", { page: "Participants", tab: "communications", params: { filter: "failed" } }), open("Open Work tasks", { page: "Work", tab: "tasks" })]),
+        agent(`${plural(rem.failed, "reminder")} failed delivery of ${rem.logical} reminders. Task opened for Brenda, due 08:45.`, undefined, [open("Open failed reminders", { page: "Participants", tab: "communications", params: { filter: "failed" } }), open("Open Work tasks", { page: "Work", tab: "tasks" })]),
         agent(`IBM has ${ibm ? sessionStats(state, ibm.id).available : 0} unused slots today. I raised it as available capacity. I do not cancel or move appointments.`, undefined, [open("Open clinics today", { page: "Clinics", tab: "overview" })]),
       ];
     }

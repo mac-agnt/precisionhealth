@@ -211,7 +211,7 @@ export default function Workflows() {
           <Pill tone={REPORT_TONE[j.report.step]} icon={j.report.step === "released" ? "check" : j.report.step === "review" ? "eye" : j.report.step === "awaiting" ? "clock" : "alert"}>{REPORT_LABEL[j.report.step]}</Pill>
           <div className="phf-small" style={{ marginTop: 4 }}>{j.report.label}</div>
         </div>
-      ) : <span className="phf-small">No episode yet. Starts at screening.</span>,
+      ) : <span className="phf-small">No screening yet. Starts at screening.</span>,
     },
     {
       key: "open", header: <span className="ph-faint">Record</span>, align: "right",

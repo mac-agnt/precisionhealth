@@ -68,7 +68,7 @@ function Pipeline() {
           <Kpi label="Next actions due" value={open.filter((v) => v.overdue || v.dueToday).length} sub={`${open.filter((v) => v.overdue).length} overdue as of ${fmtDate(t)}`} tone="warn" />
         </KpiStrip>
         <Card>
-          <CardHeader title="Help Scout inbox" sub="Sales enquiries waiting in the shared inbox. Simulated sample: Help Scout is not connected." right={<DemoTag>Simulated</DemoTag>} />
+          <CardHeader title="Help Scout inbox" sub="Sales enquiries waiting in the shared inbox. Help Scout is not connected yet." right={<DemoTag>Simulated</DemoTag>} />
           {inbox.length ? inbox.map((x) => (
             <div key={x.id} className="ph-row-flex" style={{ padding: "8px 0", borderTop: "1px solid var(--border)" }}>
               <div className="ph-grow"><div style={{ color: "var(--ink)", fontWeight: 500 }}>{x.company}: {x.subject}</div><div className="ph-dim" style={{ fontSize: 12 }}>{x.id}, {x.contactName}. {x.body}</div></div>

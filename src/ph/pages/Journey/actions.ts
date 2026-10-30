@@ -61,7 +61,7 @@ registerHandlers({
     o.clientLink.completedAt = c.stamp();
     if (o.kind === "oh") { const steps = onbMedibaseSteps(d); o.medibase.ticks = steps.map((_, i) => o.medibase.ticks[i] || false); }
     c.emit({ verb: "onboarding.client_form_completed", summary: `${d.companyName} filled in the onboarding form: CRO number, contacts${o.kind === "oh" ? ", referral manager" : ""} and where invoices go. Simulated client.`, entity: { kind: "onboarding", id: o.id, label: d.companyName }, simulated: true });
-    return c.ok(`${d.companyName} filled in the form. Details saved (simulated client).`);
+    return c.ok(`${d.companyName} filled in the form. Details saved.`);
   },
 });
 

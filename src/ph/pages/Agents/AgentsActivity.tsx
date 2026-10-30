@@ -36,7 +36,7 @@ export default function AgentsActivity() {
         <PageHeader
           eyebrow="Agents"
           title="Agent activity"
-          sub="Every simulated preparation, check and flag by the seven agents, from the shared activity log. Exactly the same entries as Activity, Agents."
+          sub="Every preparation, check and flag by the seven agents, from the shared activity log. Exactly the same entries as Activity, Agents."
           actions={<DemoTag>Simulated</DemoTag>}
         />
         <AgentAutomations />

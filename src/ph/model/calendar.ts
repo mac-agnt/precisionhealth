@@ -430,7 +430,22 @@ export function calSort(a: CalEvent, b: CalEvent): number {
   return a.title < b.title ? -1 : a.title > b.title ? 1 : 0;
 }
 
-export type CalView = "month" | "week" | "day" | "agenda";
+export type CalView = "month" | "week" | "day" | "agenda" | "people";
+
+/* Ready-made calendar views. Each is a set of calendar URL filters (types, view, people, mine, ...).
+   "Save this view" stores the same shape under a name (state.scheduled.views). */
+export interface CalPresetView { id: string; name: string; hint: string; params: Record<string, string> }
+export const CAL_PRESET_VIEWS: CalPresetView[] = [
+  { id: "everything", name: "Everything", hint: "Every calendar", params: {} },
+  { id: "neil-ops", name: "Neil: operations", hint: "Clinics and screening days, report deadlines, OH, team and leave", params: { types: "clinics,reporting,oh,team" } },
+  { id: "stephen-sales", name: "Stephen: sales", hint: "Sales, onboarding, retention, Irish Life Health and tasks", params: { types: "sales,onboarding,retention,ilh,tasks" } },
+  { id: "nurse-rota", name: "Nurse rota", hint: "Who is where: clinics, flu, OH, team and leave, by person", params: { types: "clinics,flu,oh,team", view: "people" } },
+  { id: "clinics-only", name: "Clinics only", hint: "Clinic sessions and screening days", params: { types: "clinics" } },
+];
+/** The calendar URL params a saved view controls. Anything else (date, the open event) is left alone. */
+export const CAL_VIEW_KEYS = ["types", "view", "clients", "people", "mine", "byme", "status", "q"];
+/** The view a persona starts on: Stephen sees sales, everyone else operations. */
+export const calDefaultViewFor = (personaId: string): string => (personaId === "stephen" ? "stephen-sales" : "neil-ops");
 export interface CalFilter {
   /** Groups shown. */
   groups: string[];
@@ -466,7 +481,7 @@ export function calMatches(e: CalEvent, f: CalFilter, except?: CalDim): boolean 
 
 /** First and last date a view shows around a date. Month view shows whole weeks (Monday first). */
 export function calRange(view: CalView, date: LocalDate): { from: LocalDate; to: LocalDate } {
-  if (view === "day") return { from: date, to: date };
+  if (view === "day" || view === "people") return { from: date, to: date };
   if (view === "week") { const s = startOfWeek(date); return { from: s, to: addDays(s, 6) }; }
   const first = date.slice(0, 8) + "01";
   const last = addDays(addMonths(first, 1), -1);
@@ -490,7 +505,7 @@ export function addMonths(d: LocalDate, n: number): LocalDate {
 }
 /** Where previous and next go from a date in a view. */
 export function calStep(view: CalView, date: LocalDate, dir: 1 | -1): LocalDate {
-  if (view === "day") return addDays(date, dir);
+  if (view === "day" || view === "people") return addDays(date, dir);
   if (view === "week") return addDays(date, 7 * dir);
   return addMonths(date, dir);
 }
