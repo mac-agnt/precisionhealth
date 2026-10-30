@@ -28,7 +28,7 @@ export const PAGES: PageDef[] = [
   { id: "Programmes", section: "Deliver screening", label: "Programmes", icon: "navProgrammes", hint: "Screening programmes", tabs: [
     { id: "overview", label: "Overview" }, { id: "programmes", label: "All programmes" }, { id: "invitations", label: "Invitations" }, { id: "forms-templates", label: "Forms and templates" }] },
   { id: "Clinics", section: "Deliver screening", label: "Clinics", icon: "navClinics", hint: "Capacity and sessions", tabs: [
-    { id: "overview", label: "Today" }, { id: "days", label: "Screening days" }, { id: "schedule", label: "Schedule" }, { id: "appointments", label: "Appointments" }, { id: "board", label: "Bookings board" }, { id: "end-of-day", label: "End of day" }, { id: "team-resources", label: "Team and resources" }] },
+    { id: "overview", label: "Today" }, { id: "days", label: "Screening days" }, { id: "schedule", label: "Schedule" }, { id: "appointments", label: "Appointments" }, { id: "board", label: "Bookings board" }, { id: "end-of-day", label: "End of day" }, { id: "team-resources", label: "Nurse rota" }] },
   { id: "Participants", section: "Deliver screening", label: "Participants", icon: "navParticipants", hint: "People and messages", tabs: [
     { id: "directory", label: "Directory" }, { id: "screening-history", label: "Screening history" }, { id: "communications", label: "Communications" }, { id: "portal-admin", label: "Portal admin" }] },
   { id: "Portals", section: "Deliver screening", label: "Portals", icon: "navPortals", hint: "Client, participant and nurse portals", tabs: [{ id: "all", label: "All portals" }] },
@@ -39,8 +39,8 @@ export const PAGES: PageDef[] = [
     { id: "cohorts", label: "More" }, { id: "calculations", label: "Calculations", hidden: true, under: "cohorts" }, { id: "questions", label: "To confirm", hidden: true, under: "cohorts" }] },
   { id: "Flu", section: "Services", label: "Flu", icon: "navFlu", hint: "Flu clinics and vaccine stock", tabs: [
     { id: "overview", label: "Overview" }, { id: "bookings", label: "Bookings" }, { id: "stock", label: "Vaccine stock" }, { id: "cold-chain", label: "Cold chain" }, { id: "contacts", label: "Contacts and notes" }] },
-  { id: "OccHealth", section: "Services", label: "Occupational Health", icon: "navOcc", hint: "OH clients, onboarding, Meddbase", tabs: [
-    { id: "clients", label: "Clients and onboarding" }, { id: "questionnaires", label: "Questionnaires" }, { id: "sessions", label: "Meddbase sessions" }, { id: "agreements", label: "Agreements" }] },
+  { id: "OccHealth", section: "Services", label: "Occupational Health", icon: "navOcc", hint: "OH clients, onboarding, MediBase", tabs: [
+    { id: "clients", label: "Clients and onboarding" }, { id: "questionnaires", label: "Questionnaires" }, { id: "sessions", label: "MediBase sessions" }, { id: "agreements", label: "Agreements" }] },
   { id: "Reporting", section: "Run the business", label: "Reporting", icon: "navReporting", hint: "Employer reports", tabs: [
     { id: "overview", label: "Overview" }, { id: "report-builder", label: "Report builder" }, { id: "exports", label: "Exports" }] },
   { id: "Work", section: "Run the business", label: "Work", icon: "navWork", hint: "Tasks and approvals", tabs: [
@@ -75,6 +75,8 @@ export interface NavTarget {
 /* Old tab ids that now open a different tab, so earlier deep links keep working. */
 const TAB_ALIASES: Partial<Record<PageId, Record<string, string>>> = {
   Dashboard: { "clinic-operations": "operations", "clinical-delivery": "operations" },
+  /* #/Sales/retention opens the Retention tab (its id stays "recall"). */
+  Sales: { retention: "recall" },
 };
 /* A page can choose its own default tab, for example by who is signed in. Registered by the page module. */
 const TAB_DEFAULTS: Partial<Record<PageId, () => string | undefined>> = {};

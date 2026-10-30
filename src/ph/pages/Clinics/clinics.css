@@ -158,3 +158,16 @@ button.clx-seg:hover { filter: brightness(1.25); }
 @media (prefers-reduced-motion: reduce) {
   .clx-sess, button.clx-seg { transition: none; }
 }
+
+/* Clinics, Today: the to-do list */
+.clx-todo { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.clx-todo > li { display: flex; gap: 10px; align-items: flex-start; padding: 11px 0; border-top: 1px solid var(--border); font-size: 13px; line-height: 1.45; min-width: 0; }
+.clx-todo > li:first-child { border-top: 0; padding-top: 2px; }
+.clx-todo-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.clx-todo-title { display: flex; gap: 7px; align-items: center; flex-wrap: wrap; color: var(--ink); font-weight: 500; }
+.clx-todo-act { flex: none; }
+.clx-todo-done { display: flex; gap: 8px; align-items: center; color: var(--ok); font-size: 13px; }
+@media (max-width: 560px) {
+  .clx-todo > li { flex-wrap: wrap; }
+  .clx-todo-act { width: 100%; padding-left: 28px; }
+}

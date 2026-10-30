@@ -210,7 +210,7 @@ handlers["import/deliverSampleResults"] = (c, a: { episodeId: string }) => {
   const allIn = expectedTests(c.s, ep).every((t) => t.status === "received");
   c.s.specimens.filter((x) => x.episodeId === ep.id).forEach((x) => { x.status = allIn ? "resulted" : "received"; });
   c.emit({
-    verb: "import.processed", actor: { kind: "system", id: "system", label: "Eurofins import (simulated)" },
+    verb: "import.processed", actor: { kind: "system", id: "system", label: "Eurofins import" },
     summary: `Simulated Eurofins batch ${batchId} processed for ${ep.id}: ${pending.length} observation rows imported, loaded by ${c.first()}. ${ready ? "The episode is ready for clinician review. Nothing was released." : "Some expected results are still outstanding."}`,
     entity: { kind: "batch", id: batchId }, programmeId: ep.programmeId, personId: ep.personId, integrationId: "eurofins", simulated: true,
   });
@@ -277,7 +277,7 @@ function doRelease(c: Ctx, ep: Episode, draft: ReportVersion, mode: "routine" | 
   });
   c.inv();
   c.emit({ verb: "report.released", summary: `${c.first()} released report ${ep.id} v${draft.version}${prev ? " (correction). v" + prev.version + " superseded" : ""}.`, entity: { kind: "report", id: draft.id }, programmeId: ep.programmeId, personId: ep.personId, storyId: prev ? null : "ST-02" });
-  c.emit({ verb: "notice.queued", summary: `Report availability notice for ${ep.id} v${draft.version} sent by ${channel === "sms" ? "SMS" : "email"} (simulated). The message contains no results.`, entity: { kind: "message", id: `MSG-${pad(n, 5)}` }, programmeId: ep.programmeId, personId: ep.personId, integrationId: channel === "sms" ? "esendex" : "email", simulated: true });
+  c.emit({ verb: "notice.queued", summary: `Report availability notice for ${ep.id} v${draft.version} sent by ${channel === "sms" ? "SMS" : "email"}. The message contains no results.`, entity: { kind: "message", id: `MSG-${pad(n, 5)}` }, programmeId: ep.programmeId, personId: ep.personId, integrationId: channel === "sms" ? "esendex" : "email", simulated: true });
 }
 
 handlers["review/setAdvice"] = (c, a: { episodeId: string; text: string }) => {
@@ -482,8 +482,8 @@ handlers["reminder/retry"] = (c, a: { messageId: string }) => {
   if (m.status !== "failed") return c.fail("This reminder is not failed. A retry was already made.");
   m.attempts.push({ at: c.stamp(), outcome: "delivered", reason: null, auto: false });
   m.status = "delivered";
-  c.emit({ verb: "reminder.retried", summary: `${c.first()} retried reminder ${m.logicalId} to the verified ${m.channel === "sms" ? "mobile" : "email"} destination. Delivered (simulated). Logical reminders stay at ${c.s.messages.filter((x) => x.kind === "reminder" && x.cohort === m.cohort && x.status !== "cancelled").length}.`, entity: { kind: "message", id: m.id }, personId: m.personId, storyId: "ST-05", integrationId: m.provider === "Esendex" ? "esendex" : "email", simulated: true });
-  return c.ok("Retry delivered (simulated). One logical reminder moved from failed to delivered and the attempt was added to its history.", "ok");
+  c.emit({ verb: "reminder.retried", summary: `${c.first()} retried reminder ${m.logicalId} to the verified ${m.channel === "sms" ? "mobile" : "email"} destination. Delivered. Reminders stay at ${c.s.messages.filter((x) => x.kind === "reminder" && x.cohort === m.cohort && x.status !== "cancelled").length}.`, entity: { kind: "message", id: m.id }, personId: m.personId, storyId: "ST-05", integrationId: m.provider === "Esendex" ? "esendex" : "email", simulated: true });
+  return c.ok("Retry delivered. One reminder moved from failed to delivered and the attempt was added to its history.", "ok");
 };
 
 /* ---- data quality ---- */

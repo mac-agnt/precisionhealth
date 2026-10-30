@@ -1,13 +1,12 @@
-/* Records, Companies: Precision Health, the three employer clients and the supplier and service
-   records, linked to programmes, systems, contacts and activity from the shared store. Client
-   names are real references; contacts, programme activity and dates are fictional. No contract
-   amounts are held anywhere in this demo. */
+/* Records, Companies: Precision Health, its employer clients, suppliers and services, plus every
+   other company named anywhere in the demo (leads, past clients, Irish Life Health bookings,
+   occupational health), each linked to its records. No contract amounts are held. */
 import { useRef, useState } from "react";
-import { INTEGRATIONS, activityFeed, batchStats, fmtDate, fmtShortDateTime, programmeCounts, reminderStats, sessionCounts } from "../../model";
-import type { ActivityView, Company, CompanyKind, PhState } from "../../model";
+import { DIRECTORY_ROLE_LABEL, INTEGRATIONS, activityFeed, batchStats, companyDirectory, fmtDate, fmtShortDateTime, programmeCounts, reminderStats, sessionCounts } from "../../model";
+import type { ActivityView, CompanyKind, DirectoryCompany, DirectoryRole, PhState } from "../../model";
 import { usePersona, usePhState } from "../../store";
 import { useNav } from "../../nav-context";
-import { Card, CardHeader, Chip, DataTable, DemoTag, EntityLink, Pill, RestrictedNotice, Split } from "../../ui";
+import { Card, CardHeader, Chip, DataTable, EntityLink, Pill, RestrictedNotice, Split } from "../../ui";
 import type { Column, GlyphName, Tone } from "../../ui";
 import { ActivityList, DefList, SettingsHeader, rolesLabelFor } from "../Settings/common";
 import { CompanyJourney } from "../Journey/CompanyLinks";
@@ -18,12 +17,26 @@ const KIND: Record<CompanyKind, { label: string; tone: Tone; icon: GlyphName }> 
   supplier: { label: "Laboratory supplier", tone: "neutral", icon: "flask" },
   service: { label: "Service provider", tone: "neutral", icon: "sms" },
 };
-type KindFilter = "all" | "client" | "partner" | "self";
-const inFilter = (c: Company, f: KindFilter) => f === "all" || (f === "partner" ? c.kind === "supplier" || c.kind === "service" : c.kind === f);
+const ROLE_LOOK: Record<DirectoryRole, { tone: Tone; icon: GlyphName }> = {
+  past_client: { tone: "neutral", icon: "refresh" }, lead: { tone: "warn", icon: "flag" }, won_lead: { tone: "ok", icon: "check" },
+  irish_life: { tone: "info", icon: "shield" }, oh_client: { tone: "info", icon: "heart" }, onboarding: { tone: "ok", icon: "layers" },
+};
+/** The pill for a company: its stored kind, or for a company known from other records, its main role. */
+export function CompanyKindPill({ c }: { c: DirectoryCompany }) {
+  if (c.derived && c.roles[0]) { const l = ROLE_LOOK[c.roles[0]]; return <Pill tone={l.tone} icon={l.icon}>{DIRECTORY_ROLE_LABEL[c.roles[0]]}</Pill>; }
+  return <Pill tone={KIND[c.kind].tone} icon={KIND[c.kind].icon}>{KIND[c.kind].label}</Pill>;
+}
+type KindFilter = "all" | "client" | "sales" | "partner" | "self";
+const inFilter = (c: DirectoryCompany, f: KindFilter) => f === "all"
+  || (f === "partner" ? c.kind === "supplier" || c.kind === "service"
+    : f === "client" ? c.kind === "client" && (!c.derived || c.roles.some((r) => r === "past_client" || r === "oh_client" || r === "won_lead" || r === "onboarding" || r === "irish_life"))
+    : f === "sales" ? c.leadIds.length > 0
+    : c.kind === f);
 
 /** Activity that belongs to a company: its programmes, its systems, or for Precision Health its staff. */
-function companyEvents(s: PhState, c: Company): ActivityView[] {
+function companyEvents(s: PhState, c: DirectoryCompany): ActivityView[] {
   if (c.kind === "self") return activityFeed(s, { filter: "people" });
+  if (c.derived) return activityFeed(s).filter((v) => v.event.summary.includes(c.name));
   if (c.kind === "client") return activityFeed(s).filter((v) => !!v.event.programmeId && c.programmeIds.includes(v.event.programmeId));
   return activityFeed(s).filter((v) => !!v.event.integrationId && c.integrationIds.includes(v.event.integrationId));
 }
@@ -42,24 +55,25 @@ export default function Companies() {
       </div>
     );
   }
-  const rows = s.companies.filter((c) => inFilter(c, filter));
-  const paramId = s.companies.some((c) => c.id === nav.params.company) ? nav.params.company : null;
-  const selected = s.companies.find((c) => c.id === paramId) || rows[0] || s.companies[0];
-  const count = (f: KindFilter) => s.companies.filter((c) => inFilter(c, f)).length;
+  const all = companyDirectory(s);
+  const rows = all.filter((c) => inFilter(c, filter));
+  const paramId = all.some((c) => c.id === nav.params.company) ? nav.params.company : null;
+  const selected = all.find((c) => c.id === paramId) || rows[0] || all[0];
+  const count = (f: KindFilter) => all.filter((c) => inFilter(c, f)).length;
   const select = (id: string) => {
     nav.setParams({ company: id });
     if (typeof window !== "undefined" && window.matchMedia("(max-width: 1180px)").matches) {
       requestAnimationFrame(() => detailRef.current?.scrollIntoView({ block: "start" }));
     }
   };
-  const cols: Column<Company>[] = [
+  const cols: Column<DirectoryCompany>[] = [
     {
       key: "name", header: "Company",
       sort: (a, b) => a.name.localeCompare(b.name),
       cell: (c) => (
         <div>
           <div className="phs-strong">{c.name}</div>
-          <div style={{ marginTop: 4 }}><Pill tone={KIND[c.kind].tone} icon={KIND[c.kind].icon}>{KIND[c.kind].label}</Pill></div>
+          <div style={{ marginTop: 4 }}><CompanyKindPill c={c} /></div>
         </div>
       ),
     },
@@ -67,12 +81,13 @@ export default function Companies() {
     {
       key: "links", header: "Linked to", nowrap: false,
       cell: (c) => {
-        const n = s.contacts.filter((x) => x.companyId === c.id).length;
+        const n = c.derived ? companyPeople(s, c).length : s.contacts.filter((x) => x.companyId === c.id).length;
         return (
           <div>
             <div className="ph-wrap" style={{ gap: "3px 8px" }}>
               {c.programmeIds.map((id) => <EntityLink key={id} kind="programme" id={id}>{s.programmes.find((x) => x.id === id)?.code || id}</EntityLink>)}
               {c.integrationIds.map((id) => <EntityLink key={id} kind="system" id={id}>{INTEGRATIONS.find((x) => x.id === id)?.name || id}</EntityLink>)}
+              {c.leadIds.slice(-1).map((id) => <button key={id} type="button" className="ph-link" onClick={(e) => { e.stopPropagation(); nav.go({ page: "Sales", tab: "pipeline", params: { lead: id } }); }}>Sales lead</button>)}
             </div>
             <div className="phs-note">{n} contact{n === 1 ? "" : "s"}</div>
           </div>
@@ -90,13 +105,14 @@ export default function Companies() {
         eyebrow="Records"
         gated={false}
         title="Companies"
-        sub="Precision Health, its employer clients and its supplier and service records. Client names are real references. Contacts, programme activity and dates are fictional. No contract amounts are held."
+        sub="Every company Precision Health works with or talks to: clients, past clients, leads, partners and suppliers. Pick one to see everything held for it."
       />
       <div className="ph-stack">
         <div className="ph-wrap" style={{ gap: 6 }} role="group" aria-label="Filter by company type">
           {([
             { id: "all", label: "All" },
-            { id: "client", label: "Employer clients" },
+            { id: "client", label: "Clients" },
+            { id: "sales", label: "Leads" },
             { id: "partner", label: "Suppliers and services" },
             { id: "self", label: "Precision Health" },
           ] as Array<{ id: KindFilter; label: string }>).map((o) => (
@@ -133,7 +149,16 @@ function Stat({ label, value }: { label: string; value: number | string }) {
   );
 }
 
-function CompanyDetail({ c, state }: { c: Company; state: PhState }) {
+/** People named for a company known from other records: lead contacts and past programme contacts. */
+function companyPeople(s: PhState, c: DirectoryCompany): Array<{ name: string; role: string; email: string; phone: string }> {
+  const out: Array<{ name: string; role: string; email: string; phone: string }> = [];
+  for (const l of s.sales.leads.filter((x) => c.leadIds.includes(x.id))) if (l.contact.name) out.push({ name: l.contact.name, role: l.contact.role, email: l.contact.email, phone: l.contact.phone || "" });
+  for (const e of s.sales.engagements.filter((x) => c.engagementIds.includes(x.id))) if (e.contactName) out.push({ name: e.contactName, role: "Contact for the last screening", email: e.contactEmail, phone: "" });
+  const seen = new Set<string>();
+  return out.filter((p) => (seen.has(p.name) ? false : (seen.add(p.name), true)));
+}
+
+function CompanyDetail({ c, state }: { c: DirectoryCompany; state: PhState }) {
   const p = usePersona();
   const nav = useNav();
   const contacts = state.contacts.filter((x) => x.companyId === c.id);
@@ -144,19 +169,14 @@ function CompanyDetail({ c, state }: { c: Company; state: PhState }) {
       <CardHeader
         title={c.name}
         sub={c.relationship}
-        right={<Pill tone={KIND[c.kind].tone} icon={KIND[c.kind].icon}>{KIND[c.kind].label}</Pill>}
+        right={<CompanyKindPill c={c} />}
       />
       <div className="phs-body">{c.note}</div>
       <CompanyJourney c={c} state={state} />
-      <div className="ph-wrap" style={{ marginTop: 8, gap: 6 }}>
-        {c.kind === "client" ? <DemoTag title="Client name is a real reference. Everything operational is fictional.">Fictional activity</DemoTag> : null}
-        {c.kind === "self" ? <DemoTag title="From the public website">Public details</DemoTag> : null}
-        {c.kind === "supplier" || c.kind === "service" ? <DemoTag>Simulated integration</DemoTag> : null}
-      </div>
       <div style={{ marginTop: 14 }}>
         <DefList items={[
           c.website ? { label: "Website", value: <span className="ph-mono">{c.website}</span> } : null,
-          { label: "Commercial terms", value: "Not held in this demo. No contract amounts, prices or margins." },
+          c.derived ? null : { label: "Commercial terms", value: "Contract amounts, prices and margins are not held here." },
         ]} />
       </div>
 
@@ -218,13 +238,23 @@ function CompanyDetail({ c, state }: { c: Company; state: PhState }) {
           <span className="ph-eyebrow ph-grow">Contacts</span>
           {contacts.length ? <button type="button" className="ph-link" style={{ fontSize: 12 }} onClick={() => nav.go({ page: "Records", tab: "contacts" })}>Open Contacts</button> : null}
         </div>
-        {contacts.length ? (
+        {c.derived ? (companyPeople(state, c).length ? (
+          <ul className="phs-list">
+            {companyPeople(state, c).map((ct) => (
+              <li key={ct.name}>
+                <span className="phs-strong phs-small">{ct.name}</span>
+                <div className="phs-note">{ct.role}</div>
+                <div className="phs-small ph-mono" style={{ color: "var(--body)" }}>{ct.email}{ct.phone ? `, ${ct.phone}` : ""}</div>
+              </li>
+            ))}
+          </ul>
+        ) : <div className="phs-note">No contacts are held for this company.</div>) : contacts.length ? (
           <ul className="phs-list">
             {contacts.map((ct) => (
               <li key={ct.id}>
                 <div className="ph-row-flex" style={{ gap: 8 }}>
                   <span className="ph-grow phs-strong phs-small">{ct.name}</span>
-                  {ct.provenance === "public" ? <Pill tone="info" icon="check" title="From the public website">Public</Pill> : <Pill tone="neutral" icon="user" title="A demo character">Fictional</Pill>}
+                  {ct.provenance === "public" ? <Pill tone="info" icon="check" title="From the public website">Public</Pill> : null}
                 </div>
                 <div className="phs-note">{ct.role}</div>
                 <div className="phs-small ph-mono" style={{ color: "var(--body)" }}>{ct.email}{ct.phone ? `, ${ct.phone}` : ""}</div>
@@ -260,7 +290,7 @@ function EsendexLine({ state }: { state: PhState }) {
   const r = reminderStats(state);
   return (
     <div className="phs-small" style={{ marginTop: 4, color: "var(--body)" }}>
-      {sms.length} simulated SMS messages, {sms.filter((m) => m.status === "failed").length} failed. Today's reminders: {r.delivered} of {r.logical} delivered.
+      {sms.length} SMS messages, {sms.filter((m) => m.status === "failed").length} failed. Today's reminders: {r.delivered} of {r.logical} delivered.
     </div>
   );
 }

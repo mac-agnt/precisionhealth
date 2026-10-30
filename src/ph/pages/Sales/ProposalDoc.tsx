@@ -3,7 +3,7 @@
    your programme, what's included, investment with flu scenarios, commercial approach, upgrade
    options, next steps). Send, accept, decline and new version act on the same records. */
 import { useEffect, useState } from "react";
-import { BRAND, SALES_PROPOSAL_STATUS_LABEL, act, fmtDate, salesEur, salesEurRange, salesLatestVersion, salesNetTotals } from "../../model";
+import { BRAND, SALES_PROPOSAL_STATUS_LABEL, act, fmtDate, salesEur, salesEurRange, salesLatestVersion, salesNetTotals, salesPackageBlurb, salesPackageTitle } from "../../model";
 import type { SalesProposal, SalesProposalVersion } from "../../model";
 import { useNav } from "../../nav-context";
 import { dispatch, usePhState } from "../../store";
@@ -74,7 +74,7 @@ function Doc({ p, manage }: { p: SalesProposal; manage: boolean }) {
         {lead ? <Button size="sm" variant="ghost" onClick={() => nav.go({ page: "Sales", tab: "pipeline", params: { lead: lead.id } })}>Open in pipeline</Button> : null}
         {!manage ? <Button size="sm" variant="primary" onClick={() => dispatch(act.setPersona("stephen"))}>Work as Stephen</Button> : null}
         {manage && v.status === "draft" && lead ? <Button size="sm" icon="edit" onClick={() => setBuilding(true)}>Edit in builder</Button> : null}
-        {manage && v.status === "draft" ? <Button size="sm" variant="primary" icon="send" onClick={() => dispatch(salesAct.sendProposal(p.id))}>Send to client (simulated)</Button> : null}
+        {manage && v.status === "draft" ? <Button size="sm" variant="primary" icon="send" onClick={() => dispatch(salesAct.sendProposal(p.id))}>Send to client</Button> : null}
         {manage && v.status === "sent" ? <>
           <Button size="sm" onClick={() => dispatch(salesAct.newProposalVersion(p.id))}>New version</Button>
           <Button size="sm" icon="x" onClick={() => dispatch(salesAct.decideProposal(p.id, "declined"))}>Declined</Button>
@@ -117,7 +117,7 @@ function Doc({ p, manage }: { p: SalesProposal; manage: boolean }) {
         <section className="pd-sec">
           <h2><span>03</span>What is included</h2>
           {t.lines.map((l) => { const it = item(l.itemId); return (
-            <div key={l.itemId} className="pd-inc"><Icon name="check" size={15} /><div><b>{it?.name || l.name}</b><p>{(it?.includes || "").replace(/\.\s*$/, "")}{it?.minutes ? `. ${it.minutes}-minute appointments` : ""}{l.capacity ? `, up to ${l.capacity / Math.max(1, l.days)} per day.` : "."}</p></div></div>); })}
+            <div key={l.itemId} className="pd-inc"><Icon name="check" size={15} /><div><b>{it ? salesPackageTitle(it) : l.name}</b><p>{(it ? salesPackageBlurb(it) : "").replace(/\.\s*$/, "")}{it?.minutes ? `. ${it.minutes}-minute appointments` : ""}{l.capacity ? `, up to ${l.capacity / Math.max(1, l.days)} per day.` : "."}</p></div></div>); })}
           {t.flu ? <div className="pd-inc"><Icon name="check" size={15} /><div><b>Flu vaccination add-on</b><p>Seasonal flu vaccine administered on site at the same visit, conditional on vaccine supply.</p></div></div> : null}
           {t.exec ? <div className="pd-inc"><Icon name="check" size={15} /><div><b>Executive Health Assessment</b><p>One hour per person: practitioner and doctor time, tailored biomarker panel, examination and discussion.</p></div></div> : null}
           <div className="pd-inc"><Icon name="check" size={15} /><div><b>Every report reviewed by a doctor</b><p>Personal results through the participant portal; an aggregate report for your organisation.</p></div></div>
@@ -128,7 +128,7 @@ function Doc({ p, manage }: { p: SalesProposal; manage: boolean }) {
           <table className="pd-table">
             <thead><tr><th>Item</th><th>Quantity</th><th>Rate</th><th>Total</th></tr></thead>
             <tbody>
-              {t.lines.map((l) => <tr key={l.itemId}><td>{l.name}</td><td>{l.days} clinical day{l.days === 1 ? "" : "s"}</td><td>{salesEur(l.rate)} per day</td><td>{salesEur(l.total)}</td></tr>)}
+              {t.lines.map((l) => { const it = item(l.itemId); return <tr key={l.itemId}><td>{it ? salesPackageTitle(it) : l.name}</td><td>{l.days} clinical day{l.days === 1 ? "" : "s"}</td><td>{salesEur(l.rate)} per day</td><td>{salesEur(l.total)}</td></tr>; })}
               {t.flu ? <tr><td>Flu vaccination</td><td>{t.flu.lowQty === t.flu.highQty ? t.flu.lowQty : `${t.flu.lowQty} to ${t.flu.highQty}`} vaccines</td><td>{salesEur(t.flu.rate)} each</td><td>{salesEurRange(t.flu.low, t.flu.high)}</td></tr> : null}
               {t.exec ? <tr><td>Executive Health Assessment</td><td>{t.exec.count} people</td><td>{salesEur(t.exec.rate)} each</td><td>{salesEur(t.exec.total)}</td></tr> : null}
               {n.discountPct ? <tr className="pd-disc"><td>Discount, as agreed</td><td colSpan={2}>{n.discountPct}% of {salesEurRange(t.totalLow, t.totalHigh)}</td><td>-{salesEurRange(n.discountLow, n.discountHigh)}</td></tr> : null}
@@ -158,7 +158,7 @@ function Doc({ p, manage }: { p: SalesProposal; manage: boolean }) {
           <section className="pd-sec">
             <h2><span>06</span>Upgrade options</h2>
             <div className="pd-ups">{upsell.map((u) => (
-              <div key={u.id} className="pd-up"><b>{u.name}</b><span className="pd-up-price">{u.price != null ? `${salesEur(u.price)}${u.priceMax ? ` to ${salesEur(u.priceMax)}` : ""} per ${u.unit === "day" ? "day" : u.unit}` : "Price on request"}</span><p>{u.includes}</p>{u.minutes || u.perDay ? <span className="pd-up-meta">{u.minutes ? `${u.minutes} min` : ""}{u.minutes && u.perDay ? ", " : ""}{u.perDay ? `up to ${u.perDay} a day` : ""}</span> : null}</div>))}</div>
+              <div key={u.id} className="pd-up"><b>{salesPackageTitle(u)}</b><span className="pd-up-price">{u.price != null ? `${salesEur(u.price)}${u.priceMax ? ` to ${salesEur(u.priceMax)}` : ""} per ${u.unit === "day" ? "day" : u.unit}` : "Price on request"}</span><p>{salesPackageBlurb(u)}</p>{u.minutes || u.perDay ? <span className="pd-up-meta">{u.minutes ? `${u.minutes} min` : ""}{u.minutes && u.perDay ? ", " : ""}{u.perDay ? `up to ${u.perDay} a day` : ""}</span> : null}</div>))}</div>
           </section>) : null}
 
         <section className="pd-sec pd-next">

@@ -5,13 +5,12 @@
    knows who scheduled them and keeps one history.
 
    Emails are simulated. A scheduled email counts as sent once the demo clock passes its send time,
-   or straight away with "Send now (simulated)".
+   or straight away with "Send now".
 
    Pure module: no React, no dispatch. Handlers live in src/ph/pages/Calendar/schedActions.ts. */
 import type { Hhmm, Iso, LocalDate } from "./time";
 import { addDays, dublinToUtc, fmtDate } from "./time";
 import type { PhState, StaffId } from "./types";
-import { PROGRAMMES } from "./constants";
 
 export type SchedKind = "meeting" | "call" | "follow_up" | "results_out" | "rebooking" | "task" | "flu" | "oh" | "training" | "leave";
 export type SchedStatus = "scheduled" | "done" | "cancelled";
@@ -44,7 +43,7 @@ export interface SchedItem {
   notes: string;
   /** Email template id (follow up emails) */
   template: string | null;
-  /** The record in another slice this created: a task, a flu clinic or a Meddbase session. */
+  /** The record in another slice this created: a task, a flu clinic or a MediBase session. */
   ref: { kind: "task" | "flu" | "oh"; id: string } | null;
   status: SchedStatus;
   doneAt: Iso | null;
@@ -52,7 +51,9 @@ export interface SchedItem {
   createdBy: StaffId;
   history: SchedHistory[];
 }
-export interface ScheduledState { seq: number; items: SchedItem[] }
+/** A calendar view someone saved with "Save this view": a name and the calendar's URL filters. */
+export interface CalSavedView { id: string; name: string; params: Record<string, string>; createdBy: StaffId; createdAt: Iso }
+export interface ScheduledState { seq: number; items: SchedItem[]; /** Saved calendar views. Optional so older states still load. */ views?: CalSavedView[] }
 
 /** Follow up email templates, in Stephen's soft check-in style. */
 export const SCHED_FOLLOW_TEMPLATES: Array<{ id: string; label: string; subject: string; body: string }> = [
@@ -146,7 +147,7 @@ export function schedClientOptions(s: PhState): Array<{ name: string; leadId: st
     out.push({ name, leadId, contact, email, group });
   };
   for (const l of s.sales.leads.filter((x) => x.stage !== "lost").slice().sort((a, b) => (a.company < b.company ? -1 : 1))) add(l.company, l.id, l.contact.name, l.contact.email, "Leads");
-  for (const p of PROGRAMMES) {
+  for (const p of s.programmes) {
     const ct = s.contacts.find((c) => c.companyId === p.clientId);
     add(p.clientName, null, ct?.name || "", ct?.email || "", "Screening clients");
   }

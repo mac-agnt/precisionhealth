@@ -712,7 +712,7 @@ try {
     const id = sub.id;
     check("oh step done on Aidan's behalf", oh({ type: "oh/completeStep", clientId: id, step: "xero" }).ok && O().clients[13].steps.xero.doneBy.includes("on Aidan's behalf"));
     check("oh step idempotent", !oh({ type: "oh/completeStep", clientId: id, step: "xero" }).ok);
-    check("oh Meddbase needs signed DSA", !oh({ type: "oh/completeStep", clientId: id, step: "meddbase" }).ok);
+    check("oh MediBase needs signed DSA", !oh({ type: "oh/completeStep", clientId: id, step: "meddbase" }).ok);
     check("oh agreements step not tickable before signing", !oh({ type: "oh/completeStep", clientId: id, step: "agreements" }).ok);
     check("oh generate both", oh({ type: "oh/generateAgreement", clientId: id, kind: "both" }).ok && M.ohAgreementsStage(o, id) === "generated");
     const doc = M.ohDocText(M.ohRenderAgreement(M.ohAgreementFor(o, id, "sla")));
@@ -723,8 +723,8 @@ try {
     check("oh signed kept", !oh({ type: "oh/generateAgreement", clientId: id, kind: "both" }).ok);
     oh(act.setPersona("stephen"));
     check("oh recurring invoice raises a simulated invoice", oh({ type: "oh/completeStep", clientId: id, step: "recurring_invoice" }).ok && O().clients[13].lastAnnualInvoice.simulated);
-    check("oh not fully completed until Meddbase", M.ohGroupOf(O().clients[13]) === "onboarding" && !O().clients[13].fullyCompletedAt);
-    check("oh Meddbase step completes client", oh({ type: "oh/completeStep", clientId: id, step: "meddbase" }).ok && M.ohGroupOf(O().clients[13]) === "fully_completed" && !!O().clients[13].fullyCompletedAt);
+    check("oh not fully completed until MediBase", M.ohGroupOf(O().clients[13]) === "onboarding" && !O().clients[13].fullyCompletedAt);
+    check("oh MediBase step completes client", oh({ type: "oh/completeStep", clientId: id, step: "meddbase" }).ok && M.ohGroupOf(O().clients[13]) === "fully_completed" && !!O().clients[13].fullyCompletedAt);
     check("oh invite link once", oh({ type: "oh/issueInviteLink", clientId: id }).ok && !oh({ type: "oh/issueInviteLink", clientId: id }).ok);
     const d1 = O().diaries[0];
     const miss = M.ohDiarySlots(o, d1).find((v) => v.slot.kind === "booked" && !v.received);
@@ -732,7 +732,7 @@ try {
     check("oh chase once", oh({ type: "oh/chaseQuestionnaire", slotId: miss.slot.id }).ok && !oh({ type: "oh/chaseQuestionnaire", slotId: miss.slot.id }).ok);
     check("oh simulated receipt", oh({ type: "oh/simulateQuestionnaire", slotId: miss.slot.id }).ok && M.ohDiaryStats(o, O().diaries[0]).received === before + 1);
     const unsent = O().submissions.filter((x) => x.meddbase.status !== "sent").map((x) => x.id);
-    check("oh send to Meddbase simulated", oh({ type: "oh/sendToMeddbase", submissionIds: unsent.slice(0, 3) }).ok && O().submissions.filter((x) => x.meddbase.status === "sent").length === 3 && !oh({ type: "oh/sendToMeddbase", submissionIds: unsent.slice(0, 3) }).ok);
+    check("oh send to MediBase simulated", oh({ type: "oh/sendToMeddbase", submissionIds: unsent.slice(0, 3) }).ok && O().submissions.filter((x) => x.meddbase.status === "sent").length === 3 && !oh({ type: "oh/sendToMeddbase", submissionIds: unsent.slice(0, 3) }).ok);
     check("oh events say Simulated", o.activity.filter((e) => e.verb.startsWith("oh.") && e.simulated).length >= 8 && o.activity.filter((e) => e.verb.startsWith("oh.")).every((e) => !/[!—]/.test(e.summary)));
     check("oh deterministic", JSON.stringify(createInitialState().occHealth) === JSON.stringify(createInitialState().occHealth));
   }

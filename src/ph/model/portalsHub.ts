@@ -9,7 +9,7 @@ import { fmtDate } from "./time";
 import type { AccountRow } from "./portalAdmin";
 import { accountRows } from "./portalAdmin";
 import type { PhState, ProgrammeId, StaffId } from "./types";
-import { CONTACTS, NURSE_ROLE_KEYS, PROGRAMMES } from "./constants";
+import { CONTACTS, NURSE_ROLE_KEYS } from "./constants";
 import { programmeCounts, today } from "./selectors";
 
 export interface ClientPortalRec {
@@ -24,6 +24,8 @@ export interface ClientPortalRec {
   createdAt: Iso;
   createdBy: string;
   history: Array<{ at: Iso; by: string; text: string }>;
+  /** Set when the portal was created with a programme (Programmes, + New programme). */
+  programmeId?: ProgrammeId | null;
 }
 export interface PortalsHubState {
   seq: number;
@@ -63,7 +65,8 @@ export interface ClientPortalRow {
 }
 
 export function clientPortalRows(s: PhState): ClientPortalRow[] {
-  const rows: ClientPortalRow[] = PROGRAMMES.map((p) => {
+  const linked = new Set((s.portalsHub?.clients || []).map((r) => r.programmeId).filter(Boolean));
+  const rows: ClientPortalRow[] = s.programmes.filter((p) => !linked.has(p.id)).map((p) => {
     const ct = s.contacts.find((c) => c.companyId === p.clientId) || CONTACTS.find((c) => c.companyId === p.clientId);
     const code = s.invitationCodes.find((c) => c.programmeId === p.id && c.status === "active" && /MAIN$/.test(c.id)) || s.invitationCodes.find((c) => c.programmeId === p.id && c.status === "active");
     const k = programmeCounts(s, p.id);
@@ -74,7 +77,9 @@ export function clientPortalRows(s: PhState): ClientPortalRow[] {
     };
   });
   for (const r of s.portalsHub?.clients || []) {
-    rows.push({ id: r.id, company: r.company, programme: r.programmeName, programmeId: null, hrName: r.hrName, hrEmail: r.hrEmail, code: r.code, link: r.link, status: r.status, counts: { invited: 0, booked: 0, attended: 0, released: 0 }, rec: r });
+    const k = r.programmeId && s.programmes.some((p) => p.id === r.programmeId) ? programmeCounts(s, r.programmeId) : null;
+    rows.push({ id: r.id, company: r.company, programme: r.programmeName, programmeId: k ? r.programmeId! : null, hrName: r.hrName, hrEmail: r.hrEmail, code: r.code, link: r.link, status: r.status,
+      counts: k ? { invited: k.invited, booked: k.booked, attended: k.attended, released: k.released } : { invited: 0, booked: 0, attended: 0, released: 0 }, rec: r });
   }
   return rows;
 }
@@ -103,14 +108,14 @@ export function participantPortalRows(s: PhState): ParticipantPortalRow[] {
 
 export interface NurseDay { date: LocalDate; label: string; kind: "screening" | "flu" | "oh" }
 export interface NursePortalRow { id: StaffId; name: string; title: string; initials: string; tint: string; phone: string | null; added: boolean; days: NurseDay[] }
-/** Nurses and their upcoming clinic days (screening clinics, flu clinics, Meddbase sessions). */
+/** Nurses and their upcoming clinic days (screening clinics, flu clinics, MediBase sessions). */
 export function nursePortalRows(s: PhState): NursePortalRow[] {
   const t = today(s);
   return s.staff.filter((x) => NURSE_ROLE_KEYS.includes(x.role)).map((x) => {
     const days: NurseDay[] = [];
     for (const ses of s.sessions) {
       if (ses.status === "cancelled" || ses.date < t || (ses.nurseId !== x.id && !ses.supportIds.includes(x.id))) continue;
-      const prog = PROGRAMMES.find((p) => p.id === ses.programmeId);
+      const prog = s.programmes.find((p) => p.id === ses.programmeId);
       days.push({ date: ses.date, label: `${fmtDate(ses.date)}, ${prog?.clientName || "Clinic"}`, kind: "screening" });
     }
     for (const f of s.flu.clinics) if (f.date && f.date >= t && f.status === "scheduled" && f.staffIds.includes(x.id)) days.push({ date: f.date, label: `${fmtDate(f.date)}, ${f.company} flu`, kind: "flu" });

@@ -71,11 +71,8 @@ export function EventRow({ v, onOpen, compact, narrow }: { v: ActivityView; onOp
         <div className="phf-ev-meta">
           {compact ? <span className="ph-num">{fmtWhen(e.at, state.clock.nowUtc)}</span> : null}
           <span style={{ color: "var(--dim)" }}>{e.actor.label}</span>
-          <span className="phf-id">{e.id}</span>
-          {showStory ? <Tag mono>{e.storyId}</Tag> : null}
           {v.minimal ? null : <ProgTag id={e.programmeId} />}
           {!v.minimal && e.entity ? <EntityLink kind={e.entity.kind} id={e.entity.id}>{refLabel(state, e.entity)}</EntityLink> : null}
-          {e.simulated ? <DemoTag>Simulated</DemoTag> : null}
           {!e.seeded ? <Tag accent>This session</Tag> : null}
           {v.attention && showStory ? <Pill tone="warn" icon="dot">Needs attention</Pill> : null}
         </div>
@@ -174,20 +171,17 @@ export function EventDrawer({ id, onClose }: { id: string; onClose: () => void }
           </RestrictedNotice>
         ) : null}
         <div className="ph-wrap" style={{ gap: 6 }}>
-          {e.simulated ? <DemoTag>Simulated</DemoTag> : null}
-          <DemoTag title="All people, events and records in this demo are fictional.">{e.seeded ? "Fictional demo event" : "Recorded in this session"}</DemoTag>
+          {e.seeded ? null : <Tag accent>Recorded in this session</Tag>}
           {v.attention && story && storyVisible(story) ? <Pill tone="warn" icon="dot">Needs attention</Pill> : null}
         </div>
         <dl className="phf-kv">
           <dt>Event type</dt><dd className="ph-mono" style={{ fontSize: 12 }}>{v.minimal ? "Hidden for this role" : e.verb}</dd>
           <dt>Record</dt><dd>{e.entity && !v.minimal ? <><EntityLink kind={e.entity.kind} id={e.entity.id}>{refLabel(state, e.entity)}</EntityLink> <span className="phf-note">({KIND_LABEL[e.entity.kind]})</span></> : v.minimal ? "Hidden for this role" : "None"}</dd>
           <dt>Programme</dt><dd>{v.minimal ? "Hidden for this role" : e.programmeId ? <EntityLink kind="programme" id={e.programmeId}>{PROGRAMME_BY_ID[e.programmeId].name}</EntityLink> : "Not programme specific"}</dd>
-          <dt>Story</dt><dd>{story && storyVisible(story) ? <><span className="phf-id">{story.def.id}</span> {storyLabel(story)}, {story.open ? "open" : "resolved"}</> : "None shown for this role"}</dd>
           <dt>System</dt><dd>{integ ? <EntityLink kind="system" id={integ.id}>{integ.name}</EntityLink> : "None"}{integ ? <div className="phf-note">{integ.statusLabel}</div> : null}</dd>
-          <dt>Provenance</dt><dd>{e.seeded ? "Seeded demo history. Fictional." : "Created by an action in this session. Local demo state only, cleared by Reset demo."}{e.simulated ? " No provider, laboratory or model was contacted." : ""}</dd>
         </dl>
         {story && storyVisible(story) ? (
-          <div><Button icon="arrow" onClick={() => nav.go(story.target)}>{story.open ? "Open the story item" : "Open the related item"}</Button></div>
+          <div><Button icon="arrow" onClick={() => nav.go(story.target)}>Open the related item</Button></div>
         ) : e.entity && !v.minimal ? (
           <div><Button icon="arrow" onClick={() => nav.go(linkFor(e.entity!.kind, e.entity!.id))}>Open the record</Button></div>
         ) : null}

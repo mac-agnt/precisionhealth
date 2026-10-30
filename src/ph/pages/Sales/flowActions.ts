@@ -51,11 +51,11 @@ registerHandlers({
     for (const name of attachments) {
       if (!lead.files.some((x) => x.name === name)) lead.files.push({ id: `${lead.id}-F${lead.files.length + 1}`, name, kind: "brochure", proposalId: null, version: null, addedAt: at });
     }
-    lead.history.push({ at, by: c.persona().id, text: `Email: first reply sent to ${lead.contact.email}${attachments.length ? ` with ${attachments.join(", ")}` : ""} and a booking link (simulated, nothing left Pulse).${extra}` });
+    lead.history.push({ at, by: c.persona().id, text: `Email: first reply sent to ${lead.contact.email}${attachments.length ? ` with ${attachments.join(", ")}` : ""} and a booking link.${extra}` });
     if (lead.stage === "new") { lead.nextAction = "Hold the intro call and add meeting notes"; lead.nextActionOn = addDays(localDateOf(c.now), 2); }
     c.emit({ verb: "sales.first_reply", simulated: true, integrationId: "email",
       summary: `${c.first()} sent the agent-drafted first reply to ${lead.company} (${mask(lead.contact.email)}) with the brochure and booking link. Simulated: no email was sent.${extra}` });
-    return c.ok(`First reply sent to ${lead.contact.name} (simulated).${extra}`, "ok", id);
+    return c.ok(`First reply sent to ${lead.contact.name}.${extra}`, "ok", id);
   },
 
   "salesFlow/logFirstTouch": (c, a: { leadId: string; via: "call" | "email"; at?: string }) => {
@@ -83,6 +83,9 @@ registerHandlers({
     if (!text) { delete c.s.salesFlow.notes[lead.id]; lead.history.push({ at: c.stamp(), by: c.persona().id, text: "Meeting notes cleared." }); return c.ok("Meeting notes cleared."); }
     c.s.salesFlow.notes[lead.id] = { text, savedAt: c.stamp(), savedBy: c.persona().id };
     lead.history.push({ at: c.stamp(), by: c.persona().id, text: `Meeting: notes ${prev ? "updated" : "saved"}.` });
+    /* The next action moves with the step: once the notes are in, the proposal is next. */
+    const hasProposal = c.s.sales.proposals.some((p) => p.leadId === lead.id);
+    if (!hasProposal && lead.stage !== "won" && lead.stage !== "lost") { lead.nextAction = "Build the proposal from the meeting notes"; lead.nextActionOn = localDateOf(c.now); }
     c.emit({ verb: "sales.meeting_notes", summary: `${c.first()} ${prev ? "updated" : "saved"} meeting notes on ${lead.company}.` });
     return c.ok("Meeting notes saved. They will fill in the proposal.");
   },
@@ -175,12 +178,12 @@ registerHandlers({
       const f = c.s.salesFlow;
       f.emails.push({ id: `EM-${salesPad(++f.seq.email, 3)}`, leadId: lead.id, at, by: c.persona().id, to: lead.contact.email, subject: step.subject, body: step.body, attachments: [], kind: "follow_up" });
     }
-    lead.history.push({ at, by: c.persona().id, text: action === "sent" ? `Email: follow up week ${step.n} sent, "${step.subject}" (simulated).` : `Follow up week ${step.n} skipped.` });
+    lead.history.push({ at, by: c.persona().id, text: action === "sent" ? `Email: follow up week ${step.n} sent, "${step.subject}".` : `Follow up week ${step.n} skipped.` });
     const after = salesFollowSequence(c.s, lead.id);
     if (after?.next && lead.stage === "proposal_sent") { lead.nextAction = `Follow up week ${after.next.n}`; lead.nextActionOn = after.next.due; }
     c.emit({ verb: `sales.follow_up_${action}`, simulated: action === "sent", integrationId: action === "sent" ? "email" : null,
       summary: `${c.first()} ${action} follow up week ${step.n} for ${lead.company}${action === "sent" ? ` to ${mask(lead.contact.email)}. Simulated: no email was sent` : ""}.` });
-    return c.ok(action === "sent" ? `Week ${step.n} follow up sent (simulated).` : `Week ${step.n} skipped.`, action === "sent" ? "ok" : "info");
+    return c.ok(action === "sent" ? `Week ${step.n} follow up sent.` : `Week ${step.n} skipped.`, action === "sent" ? "ok" : "info");
   },
 
   "salesFlow/pauseFollowUps": (c, a: { leadId: string; paused: boolean }) => {
@@ -217,9 +220,9 @@ registerHandlers({
     lead.lostReason = null;
     lead.nextAction = "Onboarding: confirm dates, venue and the booking page";
     lead.nextActionOn = addDays(localDateOf(c.now), 1);
-    lead.history.push({ at, by: c.persona().id, text: `Marked as won from ${SALES_STAGE_LABEL[from]}.${accepted} Follow ups stopped. Onboarding started.` });
-    c.emit({ verb: "sales.lead_won", summary: `${c.first()} marked ${lead.company} (${lead.id}) as won.${accepted} Onboarding started.` });
-    return c.ok(`Onboarding started for ${lead.company}.`, "ok", lead.id);
+    lead.history.push({ at, by: c.persona().id, text: `Marked as won from ${SALES_STAGE_LABEL[from]}.${accepted} Follow ups stopped. Next: onboarding.` });
+    c.emit({ verb: "sales.lead_won", summary: `${c.first()} marked ${lead.company} (${lead.id}) as won.${accepted}` });
+    return c.ok(`${lead.company} is won. Choose Occupational Health or Wellness to start onboarding.`, "ok", lead.id);
   },
 });
 

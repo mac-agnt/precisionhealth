@@ -52,7 +52,7 @@ export default function ScreeningDays() {
     setWorking(true);
     if (timer.current) window.clearTimeout(timer.current);
     timer.current = window.setTimeout(() => {
-      const d = draftFromRequest(q, { today: t, staff: state.staff, sessions: state.sessions, days });
+      const d = draftFromRequest(q, { today: t, staff: state.staff, sessions: state.sessions, days, programmes: state.programmes });
       setDraft({ form: d.form, sources: d.source, why: d.why, notes: d.notes, via: "agent", request: q });
       setWorking(false);
     }, 650);

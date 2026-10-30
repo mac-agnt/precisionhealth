@@ -226,7 +226,7 @@ export function ExpenseApprovals({ title, compact }: { title: string; compact?: 
         <Modal open onClose={() => setBooking(null)} title={`Book a hotel for ${staffName(state, booking.staffId)}`} footer={<><Button variant="ghost" onClick={() => setBooking(null)}>Cancel</Button><Button variant="primary" icon="check" onClick={() => { if (dispatch(opsAct.bookHotel(booking.id, text)).ok) setBooking(null); }}>Mark as booked</Button></>}>
           <div className="ph-stack" style={{ gap: 10 }}>
             <div className="ph-dim" style={{ fontSize: 12.5 }}>{expenseSummary(booking)}. {booking.target ? "The hotel is added to the booking on the board, so the nurse day brief shows it." : ""} Simulated: no booking is made.</div>
-            <TextInput autoFocus value={text} onChange={(ev) => setText(ev.target.value)} placeholder="Hotel name, for example Clayton Hotel Cork (fictional)" aria-label="Hotel" />
+            <TextInput autoFocus value={text} onChange={(ev) => setText(ev.target.value)} placeholder="Hotel name, for example Clayton Hotel Cork" aria-label="Hotel" />
           </div>
         </Modal>
       ) : null}

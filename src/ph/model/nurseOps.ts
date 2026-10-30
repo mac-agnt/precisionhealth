@@ -215,7 +215,7 @@ export interface BoardItem {
   createdBy: StaffId | "system";
 }
 
-/** A nurse day brief sent (simulated) by email and WhatsApp. Sent once its scheduled time has passed on the demo clock. */
+/** A nurse day brief sent by email and WhatsApp. Sent once its scheduled time has passed on the demo clock. */
 export interface DayBriefRecord {
   id: string; // BRF-0001
   target: { kind: "session" | "board"; id: string; date: LocalDate };

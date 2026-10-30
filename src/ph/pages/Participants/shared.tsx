@@ -133,10 +133,10 @@ export const KIND_ICON: Record<MessageKind, GlyphName> = {
 };
 
 export function MessageStatusPill({ status }: { status: "delivered" | "failed" | "queued" | "cancelled" }) {
-  if (status === "delivered") return <Pill tone="ok" title="Delivery receipt received (simulated).">Delivered</Pill>;
-  if (status === "failed") return <Pill tone="bad" title="The provider reported a failure (simulated).">Failed</Pill>;
-  if (status === "queued") return <Pill tone="info" icon="clock" title="Scheduled, not sent yet (simulated).">Queued</Pill>;
-  return <Pill tone="neutral" icon="x" title="Cancelled before sending (simulated).">Cancelled</Pill>;
+  if (status === "delivered") return <Pill tone="ok" title="Delivery receipt received.">Delivered</Pill>;
+  if (status === "failed") return <Pill tone="bad" title="The provider reported a failure.">Failed</Pill>;
+  if (status === "queued") return <Pill tone="info" icon="clock" title="Scheduled, not sent yet.">Queued</Pill>;
+  return <Pill tone="neutral" icon="x" title="Cancelled before sending.">Cancelled</Pill>;
 }
 
 /* ---- layout pieces ---- */

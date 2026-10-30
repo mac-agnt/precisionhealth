@@ -219,7 +219,7 @@ export function sessionReadiness(state: PhState, sessionId: string): ReadyItem[]
       const job = reminderJob(state, s.id);
       out.push({
         key: "reminders", label: "Reminders scheduled", state: job ? "info" : "open",
-        detail: job?.nextRunAt ? `Simulated job runs ${fmtWhen(job.nextRunAt, state.clock.nowUtc)}, 24 hours before the clinic` : "No reminder job scheduled",
+        detail: job?.nextRunAt ? `Reminders go ${fmtWhen(job.nextRunAt, state.clock.nowUtc)}, 24 hours before the clinic` : "No reminder job scheduled",
       });
     } else if (s.date === t) {
       const rm = reminderByBooking(state);

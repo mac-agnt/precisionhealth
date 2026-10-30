@@ -300,7 +300,8 @@ function scaleLabel(name: string, r: ReportRow, range: string): string {
 /** One test: name, value with unit, the flag word, and its range scale. */
 function TestRow({ row, spec, rangeText, rangeLine, hint, children }: { row: ReportRow; spec: ScaleSpec | null; rangeText?: string; rangeLine?: string; hint?: ReactNode; children?: ReactNode }) {
   const v = numericValue(row);
-  const range = rangeText || row.rangeText;
+  /* "0.6-1.7" reads as "0.6 to 1.7" for the participant. */
+  const range = (rangeText || row.rangeText || "").replace(/(\d+(?:\.\d+)?)\s*[-\u2013]\s*(\d+(?:\.\d+)?)/g, "$1 to $2");
   const resulted = row.status === "resulted";
   return (
     <div className={"dr-test" + (resulted ? "" : " missing")}>
@@ -384,7 +385,7 @@ function Cholesterol({ id, doc, ctx }: { id: string; doc: ReportDocument; ctx: B
       </div>
       {ratio ? (
         <div className="dr-tests dr-split">
-          <TestRow row={named(ratio)} spec={ratioSpec} rangeText="less than 4 to 1" />
+          <TestRow row={named(ratio)} spec={ratioSpec} rangeText="below 4.0" />
         </div>
       ) : null}
       <ScaleLegend />

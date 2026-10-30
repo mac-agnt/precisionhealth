@@ -42,3 +42,6 @@
 .cp-awaiting > svg { margin-top: 2px; flex: none; color: var(--dim); }
 .cp-awaiting strong { color: var(--ink); }
 .cp-print-paper { background: #ffffff; }
+.cp-day-room { display: flex; flex-direction: column; gap: 3px; }
+.cp-day-room + .cp-day-room { margin-top: 6px; padding-top: 6px; border-top: 1px dashed var(--border); }
+.cp-day-new { background: var(--accent-soft); margin: 0 -10px; padding-left: 10px; padding-right: 10px; border-radius: 10px; }

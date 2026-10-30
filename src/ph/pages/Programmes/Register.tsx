@@ -5,9 +5,10 @@ import type { ProgrammeId } from "../../model";
 import { fmtDayMonth, programmeCounts, rate } from "../../model";
 import { useNav } from "../../nav-context";
 import { usePhState } from "../../store";
-import { Avatar, Card, DemoTag, EmptyState, EntityLink, PageHeader, SearchBox } from "../../ui";
+import { Avatar, Button, Card, DemoTag, EmptyState, EntityLink, PageHeader, SearchBox } from "../../ui";
 import { matchesProgramme, programmeRows } from "./model";
 import { ProgrammeDetail } from "./ProgrammeDetail";
+import { NewProgrammeDialog } from "./NewProgramme";
 
 export default function Register() {
   const s = usePhState();
@@ -18,6 +19,11 @@ export default function Register() {
   const param = nav.params.programme;
   const selected: ProgrammeId | null = all.find((r) => r.p.id === param)?.p.id ?? rows[0]?.p.id ?? null;
   const select = (id: string) => nav.setParams({ ...nav.params, programme: id });
+  /* #/Programmes/programmes?new=1 opens + New programme; ?new=co-ibm or ?new=onb:ONB-003 prefills it. */
+  const [newFrom, setNewFrom] = useState<string | null>(null);
+  const asked = nav.params.new;
+  const dialogFrom = asked !== undefined && asked !== "" ? asked : newFrom;
+  const closeNew = () => { setNewFrom(null); if (asked) nav.setParams(Object.fromEntries(Object.entries(nav.params).filter(([k]) => k !== "new"))); };
 
   // Totals: unique invited for the full snapshot, sums for a filtered subset.
   const filtered = rows.length !== all.length;
@@ -34,8 +40,12 @@ export default function Register() {
       <PageHeader
         title="Programmes"
         sub="Searchable register of screening programmes. Select one to open its clinics, approved template, invitations, delivery milestones and report snapshots. The client company opens in Records."
-        actions={<DemoTag>Fictional programme data</DemoTag>}
+        actions={<><DemoTag>Fictional programme data</DemoTag><Button variant="primary" icon="plus" onClick={() => setNewFrom("1")}>New programme</Button></>}
       />
+      {dialogFrom ? (
+        <NewProgrammeDialog from={dialogFrom === "1" ? undefined : dialogFrom} onClose={closeNew}
+          onDone={(id) => { setNewFrom(null); nav.setParams({ programme: id }); }} />
+      ) : null}
       <div className="prg-cq">
         <Card pad={false}>
           <div className="ph-row-flex" style={{ padding: "14px 16px", flexWrap: "wrap", gap: 10 }}>

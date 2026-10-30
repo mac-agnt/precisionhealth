@@ -3,7 +3,7 @@
    service, blood code, address, Eircode, parking, room, contact on the day and phone, attendance
    and screening links). Pulse clinic sessions and board-only bookings sit side by side, grouped by
    status as on Monday. Status changes in place; Edit opens every column; Day brief shows the
-   nurse day brief for one day and one nurse, field for field, to print or send (simulated).
+   nurse day brief for one day and one nurse, field for field, to print or send.
    Deep links: #/Clinics/board, #/Clinics/board?brief=board:BRD-0004, #/Clinics/board?edit=board:BRD-0003 */
 import { useMemo, useState } from "react";
 import { BOARD_SCREENING_TYPES, act, BOARD_STATUSES, boardBrief, boardNeedsBloodCode, boardRows, boardStaffEmails, fmtDate, fmtWeekdayDate, isPocScreening, staffName, today } from "../../model";

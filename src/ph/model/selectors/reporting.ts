@@ -15,7 +15,7 @@ export const SEX_LABEL: Record<SexRecorded, string> = { female: "Female", male: 
 export function bandOfAge(age: number): (typeof AGE_BANDS)[number] {
   return age <= 34 ? "18-34" : age <= 44 ? "35-44" : age <= 54 ? "45-54" : "55+";
 }
-export const bandLabel = (b: string) => (b === "55+" ? "55+" : b.replace("-", "–"));
+export const bandLabel = (b: string) => (b === "55+" ? "55+" : b.replace("-", " to "));
 
 export const cohortKey = (c: CohortDef) => `${c.site}|${c.ageBand}|${c.gender}|${c.from || ""}|${c.to || ""}`;
 /** The cohort a cohortKey was made from, for example the last blocked selection on a report. */

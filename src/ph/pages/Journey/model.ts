@@ -94,7 +94,7 @@ export function journeyClients(s: PhState): JClient[] {
   }
   const leads = s.sales.leads.filter((l) => !companyByName(s, l.company) && (l.stage === "won" || !!onbForLead(s, l.id) || !!salesInboundFor(s, l.id)));
   for (const l of leads.filter((x) => x.stage === "won" || onbForLead(s, x.id))) out.push({ key: l.id, name: l.company, kind: "lead", sub: `Won lead ${l.id}` });
-  for (const o of s.onboarding.onboardings.filter((x) => !x.leadId || !s.sales.leads.some((l) => l.id === x.leadId))) {
+  for (const o of s.onboarding.onboardings.filter((x) => (!x.leadId || !s.sales.leads.some((l) => l.id === x.leadId)) && !companyByName(s, x.details.companyName))) {
     out.push({ key: o.id, name: o.details.companyName || "New client", kind: "onboarding", sub: `${ONB_KIND_LABEL[o.kind]} onboarding ${o.id}` });
   }
   for (const l of leads.filter((x) => x.stage !== "won" && !onbForLead(s, x.id)).reverse()) out.push({ key: l.id, name: l.company, kind: "lead", sub: `New lead ${l.id}` });
@@ -282,11 +282,16 @@ function stProgramme(x: Ctx): Part {
   }
   const l = x.lead;
   const ready = !!x.onb?.completedAt || l?.stage === "won";
+  /* One click to + New programme, prefilled from the onboarding or the client's name. */
+  const create = go("Create programme", { page: "Programmes", tab: "programmes", params: { new: x.onb ? `onb:${x.onb.id}` : x.name } });
   if (l && l.handoverTaskId) {
-    return { status: "progress", date: null, facts: [`Set-up task ${l.handoverTaskId} is with the operations team`], next: "The team creates the programme: package, sites, form and invite code.", open: go("Open the task", { page: "Work", tab: "tasks", params: { task: l.handoverTaskId } }), actions: [go("Open the task", { page: "Work", tab: "tasks", params: { task: l.handoverTaskId } })] };
+    return { status: "progress", date: null, facts: [`Set-up task ${l.handoverTaskId} is with the operations team`], next: "The team creates the programme: package, sites, form and invite code.", open: go("Open the task", { page: "Work", tab: "tasks", params: { task: l.handoverTaskId } }), actions: [go("Open the task", { page: "Work", tab: "tasks", params: { task: l.handoverTaskId } }), create] };
   }
   if (ready && l) {
-    return { status: "todo", date: null, facts: ["Package, sites, form and invite code are set up by the operations team."], next: "Ask the team to set up the programme.", open: go("Open Programmes", { page: "Programmes", tab: "programmes" }), actions: [{ kind: "programmeTask", label: "Create the programme set-up task", leadId: l.id }] };
+    return { status: "todo", date: null, facts: ["Package, sites, form and invite code are set up by the operations team."], next: "Ask the team to set up the programme.", open: go("Open Programmes", { page: "Programmes", tab: "programmes" }), actions: [{ kind: "programmeTask", label: "Create the programme set-up task", leadId: l.id }, create] };
+  }
+  if (ready || x.onb) {
+    return { status: "todo", date: null, facts: ["Package, sites, window and invite code."], next: ready ? "Create the programme." : "Create the programme now, or once onboarding is finished.", open: go("Open Programmes", { page: "Programmes", tab: "programmes" }), actions: [create] };
   }
   return { status: "todo", date: null, facts: ["Starts after onboarding."], next: null, open: go("Open Programmes", { page: "Programmes", tab: "programmes" }), actions: [] };
 }
@@ -443,18 +448,18 @@ function stRetention(x: Ctx): Part {
   const facts: string[] = [];
   if (last) facts.push(`Results-out email sent ${fmtDate(last.sentAt)} to ${last.toName}, with the feedback form and invoice note`);
   if (item) facts.push(`${plural(item.newReports, "new report")} released since HR was last told`);
-  facts.push(x.onb?.xero.contactRef ? `Invoice raised in Xero (simulated), contact ${x.onb.xero.contactRef}` : "Invoice follows the results-out email (Xero, not connected in the demo)");
+  facts.push(x.onb?.xero.contactRef ? `Invoice raised in Xero, contact ${x.onb.xero.contactRef}` : "Invoice follows the results-out email (Xero, not connected in the demo)");
   const rem = x.recall ? retReminders(x.s).find((m) => m.recall.id === x.recall!.id) : undefined;
   if (x.recall) facts.push(rem ? (rem.emailId ? `Rebooking reminder sent` : `Rebooking reminder ${fmtDate(rem.dueOn)}, 3 months before ${fmtDate(x.recall.recallOn)}`) : `Anniversary ${fmtDate(x.recall.recallOn)}`);
   const open = go("Open Retention", { page: "Sales", tab: "recall" });
   const acts: JAction[] = [];
-  if (item) acts.push({ kind: "act", label: "Send results-out email (simulated)", action: { type: "ret/sendResultsOut", programmeId: p.id } });
+  if (item) acts.push({ kind: "act", label: "Send results-out email", action: { type: "ret/sendResultsOut", programmeId: p.id } });
   if (x.nextLead) {
     facts.push(`Next year: lead ${x.nextLead.id} is in the pipeline, back to stage 1`);
     return { status: "done", date: x.nextLead.receivedOn, facts, next: null, open: go("Open next year's lead", leadLink(x.nextLead)), actions: [go("Open next year's lead", leadLink(x.nextLead))] };
   }
   if (!c.released) return { status: "todo", date: null, facts, next: null, open, actions: acts };
-  if (rem && rem.state === "due") acts.push({ kind: "act", label: "Send rebooking reminder (simulated)", action: { type: "ret/sendRebooking", recallId: x.recall!.id } });
+  if (rem && rem.state === "due") acts.push({ kind: "act", label: "Send rebooking reminder", action: { type: "ret/sendRebooking", recallId: x.recall!.id } });
   if (x.recall && !item) acts.push({ kind: "act", label: "Start next year's screening", action: nextYearLeadAction(x.s, x.recall), who: "Stephen Kelly", openResult: "lead" });
   return { status: "progress", date: null, facts, next: item ? "Tell HR the results are out." : rem && !rem.emailId ? `Rebooking reminder goes ${fmtDate(rem.dueOn)}. Or start next year's screening now.` : "Plan next year's screening.", open, actions: acts };
 }

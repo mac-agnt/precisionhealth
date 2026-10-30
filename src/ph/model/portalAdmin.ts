@@ -12,7 +12,7 @@ import type {
   AssistedMethod, Booking, Id, Iso, LocalDate, Membership, MessageKind, MessageTemplate, Person, PhState, PortalAccountRecord, PortalAccountStatus,
   PortalAdminState, PortalContent, PortalDocVersion, Programme, ProgrammeId, ReportDeliveryMode,
 } from "./types";
-import { BRAND, HEALTH_INFO_PATTERN, PROGRAMMES, PROGRAMME_ORDER, QUESTIONNAIRE_SECTIONS } from "./constants";
+import { BRAND, HEALTH_INFO_PATTERN, PROGRAMMES, PROGRAMME_BY_ID, PROGRAMME_ORDER, QUESTIONNAIRE_SECTIONS } from "./constants";
 import { ix, memo, membershipOf, persona, plural, today } from "./selectors/core";
 import { addDays, dublinToUtc, fmtDate, hoursBetween, localDateOf } from "./time";
 
@@ -169,7 +169,7 @@ export const accountRecord = (state: PhState, personId: Id): PortalAccountRecord
 /* ---- programme content ---- */
 export function portalContent(state: PhState, programmeId: ProgrammeId): PortalContent {
   const list = portalState(state).content[programmeId];
-  const p = PROGRAMMES.find((x) => x.id === programmeId) || PROGRAMMES[0];
+  const p = PROGRAMMES.find((x) => x.id === programmeId) || PROGRAMME_BY_ID[programmeId] || PROGRAMMES[0];
   return list && list.length ? list[list.length - 1] : baseContent(p);
 }
 export const contentHistory = (state: PhState, programmeId: ProgrammeId): PortalContent[] => (portalState(state).content[programmeId] || []).slice().reverse();
@@ -523,7 +523,7 @@ export interface TemplateCheck {
 }
 /** Sample merge values from a synthetic participant and the programme's current portal content. */
 export function sampleMergeValues(state: PhState, programmeId: ProgrammeId = "PRG-IBM-26"): Record<string, string> {
-  const p = PROGRAMMES.find((x) => x.id === programmeId) || PROGRAMMES[0];
+  const p = PROGRAMMES.find((x) => x.id === programmeId) || PROGRAMME_BY_ID[programmeId] || PROGRAMMES[0];
   const c = portalContent(state, p.id);
   const code = state.invitationCodes.find((x) => x.programmeId === p.id && x.status === "active");
   return {

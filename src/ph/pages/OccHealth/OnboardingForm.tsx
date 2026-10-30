@@ -38,11 +38,11 @@ export default function OnboardingForm({ open, onClose, onCreated }: { open: boo
         <>
           <Button variant="ghost" onClick={() => { setF(ohSampleForm()); setTried(false); }}>Fill sample answers</Button>
           <Button variant="ghost" onClick={() => { setF(ohBlankForm()); setTried(false); }}>Clear</Button>
-          <Button variant="primary" icon="send" disabled={!manage} title={manage ? undefined : VIEW_ONLY_TITLE} onClick={submit}>Submit (Simulated)</Button>
+          <Button variant="primary" icon="send" disabled={!manage} title={manage ? undefined : VIEW_ONLY_TITLE} onClick={submit}>Submit</Button>
         </>
       }>
       <div className="ph-stack">
-        <OhNote>Submitting adds the client to the Onboarding group with a step for Aidan (Xero), Fiona (SLA and DSA), Stephen (recurring invoice) and Sinead (Meddbase set-up). Nothing is sent to Jotform. <DemoTag>Simulated</DemoTag></OhNote>
+        <OhNote>Submitting adds the client to the Onboarding group with a step for Aidan (Xero), Fiona (SLA and DSA), Stephen (recurring invoice) and Sinead (MediBase set-up). Nothing is sent to Jotform. <DemoTag>Simulated</DemoTag></OhNote>
         {tried && errorCount ? <div className="ph-err" role="alert">{errorCount} {errorCount === 1 ? "answer needs" : "answers need"} attention before this can be submitted.</div> : null}
 
         <fieldset className="oh-fieldset">
@@ -66,10 +66,10 @@ export default function OnboardingForm({ open, onClose, onCreated }: { open: boo
         </fieldset>
 
         <fieldset className="oh-fieldset">
-          <legend>Meddbase set-up requirements</legend>
+          <legend>MediBase set-up requirements</legend>
           <div className="oh-form-grid">
-            <Field label={<>Number of Meddbase users<span aria-hidden="true" className="oh-req"> *</span></>} htmlFor="ohf-users" error={errors.meddbaseUsers}
-              help={`Sets the yearly Meddbase fee: ${ohFmtEur(ohMeddbaseFee(f.meddbaseUsers || 1))} (demo figure).`}>
+            <Field label={<>Number of MediBase users<span aria-hidden="true" className="oh-req"> *</span></>} htmlFor="ohf-users" error={errors.meddbaseUsers}
+              help={`Sets the yearly MediBase fee: ${ohFmtEur(ohMeddbaseFee(f.meddbaseUsers || 1))} (demo figure).`}>
               <TextInput id="ohf-users" type="number" min={1} max={50} value={Number.isFinite(f.meddbaseUsers) ? f.meddbaseUsers : ""} invalid={!!errors.meddbaseUsers}
                 onChange={(e) => set("meddbaseUsers", e.target.value === "" ? Number.NaN : Number(e.target.value))} />
             </Field>
@@ -85,8 +85,8 @@ export default function OnboardingForm({ open, onClose, onCreated }: { open: boo
             {errors.services ? <div className="ph-err" role="alert">{errors.services}</div> : null}
           </div>
           <div className="oh-form-grid" style={{ marginTop: 12 }}>
-            {text("referralManagers", "Referral managers", { help: "People who may raise referrals in Meddbase." })}
-            <Field label="Anything else for the Meddbase set-up" htmlFor="ohf-notes">
+            {text("referralManagers", "Referral managers", { help: "People who may raise referrals in MediBase." })}
+            <Field label="Anything else for the MediBase set-up" htmlFor="ohf-notes">
               <Textarea id="ohf-notes" rows={2} value={f.meddbaseNotes} onChange={(e) => set("meddbaseNotes", e.target.value)} />
             </Field>
           </div>

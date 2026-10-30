@@ -22,8 +22,10 @@ import { initialLabCsvState } from "../labCsv";
 import { seedScreeningDays } from "../screeningDays";
 import { initialScheduledState } from "../scheduledActions";
 import { initialPortalsHubState } from "../portalsHub";
+import { resetProgrammeRegistry, syncProgrammeRegistry } from "../programmeRegistry";
 
 export function createInitialState(): PhState {
+  resetProgrammeRegistry();
   /* Band every seeded result against the seeded reference ranges (Health Screening). */
   const ranges = initialReferenceRangesState();
   setActiveRangeVersions(ranges.versions);
@@ -114,5 +116,6 @@ export function createInitialState(): PhState {
   };
   state.portal = buildPortalBaseline(state);
   seedSalesFlow(state);
+  syncProgrammeRegistry(state.programmes);
   return state;
 }

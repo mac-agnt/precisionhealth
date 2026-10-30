@@ -49,6 +49,8 @@ function goLive(c: Ctx, a: { id: string }): ActionResult {
   if (r.status === "live") return c.fail(`${r.company}'s portal is already live.`);
   r.status = "live";
   r.history.push({ at: c.stamp(), by: c.persona().name, text: "Put live" });
+  const prog = r.programmeId ? c.s.programmes.find((p) => p.id === r.programmeId) : undefined;
+  if (prog?.setup && prog.setup.status !== "live") { prog.setup.status = "live"; prog.setup.history.push({ at: c.stamp(), by: c.persona().name, text: "Put live with the client portal" }); }
   c.emit({ verb: "portals.client_live", summary: `${c.first()} put the ${r.company} client portal live. Code ${r.code}.` });
   return c.ok(`${r.company}'s portal is live. HR can now share ${r.code} with employees.`);
 }
@@ -107,7 +109,7 @@ function addNurse(c: Ctx, a: { name: string; phone: string }): ActionResult {
   c.s.portalsHub.nurses.push({ id: st.id, phone: a.phone.trim(), addedAt: c.stamp(), addedBy: c.persona().name });
   c.inv();
   c.emit({ verb: "portals.nurse_added", entity: { kind: "staff", id: st.id }, simulated: true, summary: `${c.first()} added ${name} to the nursing team and sent a nurse portal invitation by text to ${a.phone.trim()} (simulated). Added on ${fmtDate(today(c.s))}.` });
-  return c.ok(`${name} added to the nursing team. They can now be put on screening days, flu clinics and Meddbase sessions.`, "ok", st.id);
+  return c.ok(`${name} added to the nursing team. They can now be put on screening days, flu clinics and MediBase sessions.`, "ok", st.id);
 }
 
 registerHandlers({

@@ -70,9 +70,9 @@ const resendInvitation: Handler<{ personId: Id }> = (c, a) => {
   r.personalInvite = { code, sentAt: at, expiresOn: inviteExpiry(at), messageId: id, by: me(c) };
   c.emit({
     verb: "portaladmin.invitation_resent", entity: person(a.personId), programmeId: row.programme.id, personId: a.personId, simulated: true,
-    summary: `${c.first()} resent the portal invitation to ${name} by ${channel === "sms" ? "SMS" : "email"} (simulated). Personal link ${code}, valid to ${fmtDate(r.personalInvite.expiresOn)}. Nothing was sent.`,
+    summary: `${c.first()} resent the portal invitation to ${name} by ${channel === "sms" ? "SMS" : "email"}. Personal link ${code}, valid to ${fmtDate(r.personalInvite.expiresOn)}. Nothing was sent.`,
   });
-  return c.ok(`Invitation resent to ${name} by ${channel === "sms" ? "SMS" : "email"} (simulated). Personal link ${code} works until ${fmtDate(r.personalInvite.expiresOn)}.`, "ok", id);
+  return c.ok(`Invitation resent to ${name} by ${channel === "sms" ? "SMS" : "email"}. Personal link ${code} works until ${fmtDate(r.personalInvite.expiresOn)}.`, "ok", id);
 };
 
 const resetMfa: Handler<{ personId: Id; reason: string }> = (c, a) => {
@@ -176,7 +176,7 @@ const updateContact: Handler<{ personId: Id; email?: string; mobile?: string; re
   const m = membershipOf(c.s, a.personId);
   c.emit({
     verb: "portaladmin.contact_updated", entity: person(a.personId), programmeId: m?.programmeId || p.programmeId, personId: a.personId,
-    summary: `${c.first()} updated ${name}'s verified ${changes.join(" and ")} after a verification code was confirmed (simulated). Reason: ${a.reason.trim()}. Future messages use the new details; messages already sent are unchanged.`,
+    summary: `${c.first()} updated ${name}'s verified ${changes.join(" and ")} after a verification code was confirmed. Reason: ${a.reason.trim()}. Future messages use the new details; messages already sent are unchanged.`,
   });
   return c.ok(`${name}'s ${changes.join(" and ")} updated and verified. Future messages use the new details.`, "ok");
 };
@@ -345,7 +345,7 @@ const testSendTemplate: Handler<{ templateId: Id }> = (c, a) => {
   if (check.errors.length) return c.fail(check.errors[0]);
   c.emit({
     verb: "portaladmin.template_test", entity: null, simulated: true,
-    summary: `${c.first()} sent a test of the ${TEMPLATE_KIND_LABEL[t.kind].toLowerCase()} ${t.channel === "sms" ? "SMS" : "email"} template v${t.version} to their own demo ${t.channel === "sms" ? "mobile" : "inbox"}, with sample values (simulated). Nothing was sent.`,
+    summary: `${c.first()} sent a test of the ${TEMPLATE_KIND_LABEL[t.kind].toLowerCase()} ${t.channel === "sms" ? "SMS" : "email"} template v${t.version} to their own demo ${t.channel === "sms" ? "mobile" : "inbox"}, with sample values. Nothing was sent.`,
   });
   return c.ok(`Test ${t.channel === "sms" ? "SMS" : "email"} simulated with sample values. Nothing was sent.`, "info");
 };

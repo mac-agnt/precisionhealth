@@ -18,6 +18,7 @@ import { onbById, onbForLead, onbInvoiceDestination, onbRenderDoc, onbSuggestedK
 import { AgreementDoc, BrandedEmail, StepTracker, agreementHtml, downloadHtml, usePrint } from "./onbShared";
 import { JourneyStrip } from "../Journey/JourneyStrip";
 import { OnbLinkCard, OnbNextUp } from "../Journey/OnbLink";
+import { onbClientAnswers } from "../Journey/actions";
 
 const KIND_ICON: Record<OnbKind, GlyphName> = { oh: "shield", wellness: "heart" };
 const KIND_BLURB: Record<OnbKind, string> = {
@@ -244,7 +245,7 @@ function DetailsStep({ o, onSaved }: { o: Onboarding; onSaved: () => void }) {
   const errCount = Object.keys(errs).length;
   return (
     <Card>
-      <StepHead title="Client details" done={!!o.detailsSavedAt} sub={o.kind === "oh" ? "The occupational health onboarding form. Everything here is merged into the agreements and the Xero contact." : "The wellness onboarding form. Everything here is merged into the agreements and the Xero contact."} />
+      <StepHead title="Client details" done={!!o.detailsSavedAt} right={!locked ? <Button size="sm" icon="spark" onClick={() => { setD((x) => ({ ...onbClientAnswers({ ...o, details: x }), notes: x.notes })); setTried(true); }} title="Fills only the empty fields, so you can carry on with the demo">Use example details</Button> : undefined} sub={o.kind === "oh" ? "The occupational health onboarding form. Everything here is merged into the agreements and the Xero contact." : "The wellness onboarding form. Everything here is merged into the agreements and the Xero contact."} />
       <div className="ob-form">
         <h3 className="ob-form-h">Company</h3>
         <div className="ob-grid2">
@@ -349,8 +350,8 @@ function AgreementsStep({ o }: { o: Onboarding }) {
             footer={<>
               <Button icon="print" onClick={() => print(<AgreementDoc doc={rendered} o={o} signedAt={d.signedAt} />)}>Print</Button>
               <Button icon="down" onClick={() => downloadHtml(`${o.details.companyName.replace(/[^a-z0-9]+/gi, "-")}-${view.toUpperCase()}-v${rendered.version}.html`, agreementHtml(rendered, o, d.signedAt))}>Download</Button>
-              {d.status === "draft" ? <Button variant="primary" icon="send" onClick={() => { dispatch(onbAct.sendDoc(o.id, view)); setView(null); }}>Send for signature (simulated)</Button> : null}
-              {d.status === "sent" ? <Button variant="primary" icon="check" onClick={() => { dispatch(onbAct.signDoc(o.id, view)); setView(null); }}>Mark as signed (simulated)</Button> : null}
+              {d.status === "draft" ? <Button variant="primary" icon="send" onClick={() => { dispatch(onbAct.sendDoc(o.id, view)); setView(null); }}>Send for signature</Button> : null}
+              {d.status === "sent" ? <Button variant="primary" icon="check" onClick={() => { dispatch(onbAct.signDoc(o.id, view)); setView(null); }}>Mark as signed</Button> : null}
             </>}>
             <AgreementDoc doc={rendered} o={o} signedAt={d.signedAt} />
           </Modal>
@@ -474,12 +475,12 @@ function XeroStep({ o }: { o: Onboarding }) {
       {made ? (
         <div className="ob-done-box">
           <Icon name="check" size={16} />
-          <div className="ph-grow"><b>Created in Xero (simulated): {o.xero.contactRef}</b><div>{o.kind === "oh" ? `${ONB_BILLING_LABEL[o.xero.billing]}, repeating invoice set up.` : "Billing codes added. Each programme is invoiced when its results are out."} {o.xero.createdAt ? fmtDateTime(o.xero.createdAt) : ""}</div></div>
+          <div className="ph-grow"><b>Created in Xero: {o.xero.contactRef}</b><div>{o.kind === "oh" ? `${ONB_BILLING_LABEL[o.xero.billing]}, repeating invoice set up.` : "Billing codes added. Each programme is invoiced when its results are out."} {o.xero.createdAt ? fmtDateTime(o.xero.createdAt) : ""}</div></div>
         </div>
       ) : (
         <div className="ob-actions">
           {!o.detailsSavedAt ? <span className="ob-errsum"><Icon name="alert" size={13} /> Save the client's details first.</span> : null}
-          <Button variant="primary" icon="plus" disabled={!o.detailsSavedAt} onClick={() => dispatch(onbAct.createXero(o.id))}>Create in Xero (simulated)</Button>
+          <Button variant="primary" icon="plus" disabled={!o.detailsSavedAt} onClick={() => dispatch(onbAct.createXero(o.id))}>Create in Xero</Button>
         </div>
       )}
     </Card>
@@ -521,7 +522,7 @@ function DoneStep({ o, onGo }: { o: Onboarding; onGo: (s: OnbStepId) => void }) 
       {!o.completedAt ? (
         <div className="ob-actions">
           {missing.length ? <span className="ob-errsum"><Icon name="alert" size={13} /> Still to do: {missing.map((s) => ONB_STEP_LABEL[s]).join(", ")}.</span> : null}
-          <Button variant="primary" icon="send" disabled={!!missing.length} onClick={() => dispatch(onbAct.finish(o.id))}>Send welcome email and finish (simulated)</Button>
+          <Button variant="primary" icon="send" disabled={!!missing.length} onClick={() => dispatch(onbAct.finish(o.id))}>Send welcome email and finish</Button>
         </div>
       ) : (
         <div className="ob-actions">

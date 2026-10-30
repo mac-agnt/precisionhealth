@@ -235,8 +235,8 @@ export const AUTOMATIONS: AutomationDef[] = [
     ],
     steps: [
       { actor: { kind: "system", label: "Pulse" }, action: "Writes the confirmation from the approved template", channel: "Pulse messages", output: "One logical confirmation per booking" },
-      { actor: { kind: "system", label: "Pulse" }, action: "Sends it by email with the preparation instructions", channel: "Email (provider to confirm)", output: "Email confirmation (simulated)" },
-      { actor: { kind: "system", label: "Pulse" }, action: "Sends a short SMS confirmation", channel: "SMS through Esendex", output: "SMS confirmation (simulated)", source: "client_spec" },
+      { actor: { kind: "system", label: "Pulse" }, action: "Sends it by email with the preparation instructions", channel: "Email (provider to confirm)", output: "Email confirmation" },
+      { actor: { kind: "system", label: "Pulse" }, action: "Sends a short SMS confirmation", channel: "SMS through Esendex", output: "SMS confirmation", source: "client_spec" },
       { actor: { kind: "system", label: "Pulse" }, action: "Adds a calendar entry with no clinical detail in the title", channel: "Calendar (ICS) entry", output: "Calendar entry", source: "client_spec" },
     ],
     outputs: ["Email confirmation", "SMS confirmation", "Calendar entry", "Activity record"],
@@ -259,7 +259,7 @@ export const AUTOMATIONS: AutomationDef[] = [
     metrics: (s) => {
       const conf = s.messages.filter((m) => m.kind === "confirmation" && m.status !== "cancelled");
       return {
-        runs: metric("sent", "confirmations sent (simulated)", conf.filter((m) => m.status === "delivered").length),
+        runs: metric("sent", "confirmations sent", conf.filter((m) => m.status === "delivered").length),
         exceptions: exception("failed", "confirmations failed", conf.filter((m) => m.status === "failed").length, "bad"),
         more: [
           metric("sms", "by SMS", conf.filter((m) => m.channel === "sms").length),
@@ -283,12 +283,12 @@ export const AUTOMATIONS: AutomationDef[] = [
     ],
     steps: [
       { actor: { kind: "system", label: "Pulse" }, action: "Queues one reminder per booking when the booking is made", channel: "Pulse scheduler", output: "Queued reminder job" },
-      { actor: { kind: "system", label: "Pulse" }, action: "Sends it 24 hours before the clinic", channel: "SMS through Esendex, or email", output: "Delivered or failed status per logical reminder" },
-      { actor: { kind: "system", label: "Pulse" }, action: "Retries a failed delivery once", channel: "Provider retry", output: "Attempt history, counted separately from logical reminders" },
+      { actor: { kind: "system", label: "Pulse" }, action: "Sends it 24 hours before the clinic", channel: "SMS through Esendex, or email", output: "Delivered or failed status per reminder" },
+      { actor: { kind: "system", label: "Pulse" }, action: "Retries a failed delivery once", channel: "Provider retry", output: "Attempt history, counted separately from reminders" },
       { actor: { kind: "agent", label: "Ops Watchdog", agentId: "watchdog" }, action: "Opens a review task for Programme Operations when reminders fail", channel: "Work, Tasks", output: "Task with a due time" },
       { actor: { kind: "staff", label: "Programme Operations", role: "operations" }, action: "Retries each remaining failure or uses the service contact route", channel: "Participants, Communications", output: "Delivered on retry, or contact recorded" },
     ],
-    outputs: ["One logical reminder per booking", "Failed-delivery queue with reasons", "Review task when reminders fail"],
+    outputs: ["One reminder per booking", "Failed-delivery queue with reasons", "Review task when reminders fail"],
     guardrails: [
       "Never sends a reminder for a cancelled booking",
       "Never creates or back-dates a reminder for a short-notice booking",
@@ -311,7 +311,7 @@ export const AUTOMATIONS: AutomationDef[] = [
       const r = reminderStats(s);
       const rem = s.messages.filter((m) => m.kind === "reminder");
       return {
-        runs: metric("logical", "logical reminders for today's clinics", r.logical),
+        runs: metric("logical", "reminders for today's clinics", r.logical),
         exceptions: exception("failed", "failed, in the staff queue", r.failed, "bad"),
         more: [
           metric("delivered", "delivered", r.delivered, "ok"),
@@ -416,11 +416,11 @@ export const AUTOMATIONS: AutomationDef[] = [
     conditions: ["Both together: an irregular ECG with a regular pulse raises nothing", "Raised once per appointment"],
     steps: [
       { actor: { kind: "staff", label: "Nurse", role: "clinical_capture" }, action: "Records the ECG machine advice and manual pulse, and photographs the ECG", channel: "Pulse nurse form, ECG", output: "ECG fields saved" },
-      { actor: { kind: "system", label: "Pulse" }, action: "Shares the ECG photo to the clinical channel", channel: "Pulse clinical alert, in place of Slack", output: "Photo kept with the clinical record (simulated)", source: "to_confirm_with_client" },
+      { actor: { kind: "system", label: "Pulse" }, action: "Shares the ECG photo to the clinical channel", channel: "Pulse clinical alert, in place of Slack", output: "Photo kept with the clinical record", source: "to_confirm_with_client" },
       { actor: { kind: "system", label: "Pulse" }, action: "Creates an ECG review task for the clinical lead, due within 4 hours", channel: "Work, Tasks", output: "Clinical task linked to the booking, then the episode" },
       { actor: { kind: "staff", label: "Clinician", role: "clinical_review" }, action: "Reviews the ECG photo and decides next steps", channel: "Results", output: "Task closed by the clinician" },
     ],
-    outputs: ["ECG review task", "Clinical channel alert (simulated)", "Restricted activity record"],
+    outputs: ["ECG review task", "Clinical channel alert", "Restricted activity record"],
     guardrails: [
       "Never posts the ECG photo or any identifiable detail to a general chat channel",
       "Never raises a second task for the same appointment",
@@ -647,8 +647,8 @@ export const AUTOMATIONS: AutomationDef[] = [
     steps: [
       { actor: { kind: "staff", label: "Clinician", role: "clinical_review" }, action: "Releases the report version", channel: "Results, Review", output: "Released report version" },
       { actor: { kind: "system", label: "Pulse" }, action: "Generates the participant report from the released version", channel: "Pulse report (browser print in this demo)", output: "Report with version, clinician and release time" },
-      { actor: { kind: "system", label: "Pulse" }, action: "Sends an availability notice with no results", channel: "Portal notice by email or SMS", output: "Notice delivered (simulated)", source: "client_spec" },
-      { actor: { kind: "system", label: "Pulse" }, action: "Optionally emails the encrypted PDF and texts the access code, as today", channel: "Email, and SMS through Esendex", output: "Encrypted PDF and access code (simulated)", source: "to_confirm_with_client" },
+      { actor: { kind: "system", label: "Pulse" }, action: "Sends an availability notice with no results", channel: "Portal notice by email or SMS", output: "Notice delivered", source: "client_spec" },
+      { actor: { kind: "system", label: "Pulse" }, action: "Optionally emails the encrypted PDF and texts the access code, as today", channel: "Email, and SMS through Esendex", output: "Encrypted PDF and access code", source: "to_confirm_with_client" },
       { actor: { kind: "participant", label: "Participant" }, action: "Opens the report in the portal", channel: "Participant portal", output: "Access recorded separately from delivery" },
     ],
     outputs: ["Released report version", "Availability notice without results", "Access record, separate from delivery"],
@@ -695,7 +695,7 @@ export const AUTOMATIONS: AutomationDef[] = [
       { actor: { kind: "staff", label: "Clinician", role: "clinical_review" }, action: "Records the reason and the corrected values", channel: "Results, Corrections", output: "New result version; the previous value is kept" },
       { actor: { kind: "system", label: "Pulse" }, action: "Creates a new draft report version; the released version stays unchanged", channel: "Pulse report versions", output: "Draft linked to the released version" },
       { actor: { kind: "staff", label: "Clinician", role: "clinical_review" }, action: "Re-reviews and releases the new version", channel: "Results, Corrections", output: "New version released; old version superseded and kept" },
-      { actor: { kind: "system", label: "Pulse" }, action: "Sends an updated-report notice with no results", channel: "Portal notice by email or SMS", output: "Notice (simulated)" },
+      { actor: { kind: "system", label: "Pulse" }, action: "Sends an updated-report notice with no results", channel: "Portal notice by email or SMS", output: "Notice" },
     ],
     outputs: ["New report version", "Superseded version kept with its history", "Participant notice"],
     guardrails: ["Never edits a released report in place", "Never deletes the previous version or value", "Never releases a correction without re-review"],
@@ -809,7 +809,7 @@ export const AUTOMATIONS: AutomationDef[] = [
     conditions: ["A nurse and any support staff are assigned", "No nurse, support or room overlap", "Edits that affect bookings show the impact first"],
     steps: [
       { actor: { kind: "staff", label: "Programme Operations", role: "operations" }, action: "Schedules the clinic: date, site, room, times and breaks", channel: "Clinics, Schedule", output: "Clinic session with bookable slots", source: "client_spec" },
-      { actor: { kind: "staff", label: "Director of Nursing", role: "nursing_lead" }, action: "Assigns the nurse and support staff", channel: "Clinics, Team and resources", output: "Assignment on the session" },
+      { actor: { kind: "staff", label: "Director of Nursing", role: "nursing_lead" }, action: "Assigns the nurse and support staff", channel: "Clinics, Nurse rota", output: "Assignment on the session" },
       { actor: { kind: "system", label: "Pulse" }, action: "Checks nurse, support and room overlaps across sessions before saving", channel: "Pulse schedule rules", output: "Overlap list, empty when clear" },
       { actor: { kind: "agent", label: "Ops Watchdog", agentId: "watchdog" }, action: "Re-checks each morning and flags clashes and capacity gaps", channel: "Ops Watchdog agent", output: "Flag for a person" },
       { actor: { kind: "system", label: "Pulse" }, action: "Generates the clinic preparation checklist the day before", channel: "Work, Schedules", output: "Preparation tasks" },

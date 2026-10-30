@@ -282,7 +282,7 @@ function ActionBody({ id, row, onClose, onPreview }: { id: ActionId; row: Accoun
     case "resend": {
       const contact = row.membership.contactPreference === "sms" ? `SMS to ${row.person.phone}` : `email to ${row.person.email.replace(/^(.)[^@]*/, "$1***")}`;
       return (
-        <ActionPanel title="Resend invitation" confirmLabel="Send personal link (simulated)" onClose={onClose} onConfirm={() => runAction(portalAct.resendInvitation(pid))}>
+        <ActionPanel title="Resend invitation" confirmLabel="Send personal link" onClose={onClose} onConfirm={() => runAction(portalAct.resendInvitation(pid))}>
           <p>Sends {name} a personal invitation link by {contact}, valid for 14 days, using the invitation template. It works even if the programme code was revoked. Simulated: nothing is sent.</p>
         </ActionPanel>
       );
@@ -323,7 +323,7 @@ function ActionBody({ id, row, onClose, onPreview }: { id: ActionId; row: Accoun
     case "contact":
       return (
         <ActionPanel title="Update contact details" confirmLabel="Save verified details" onClose={onClose} onConfirm={() => runAction(portalAct.updateContact(pid, { email, mobile }, reason, verified))}>
-          <p>Messages only go to verified details. Send a code to the new email or mobile (simulated) and have {name} read it back before saving. Messages already sent keep their old destination.</p>
+          <p>Messages only go to verified details. Send a code to the new email or mobile and have {name} read it back before saving. Messages already sent keep their old destination.</p>
           <div className="pa-form-grid">
             <Field label="Email" htmlFor="pa-contact-email" help="Synthetic demo: an address at example.com.">
               <TextInput id="pa-contact-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="off" />
@@ -332,7 +332,7 @@ function ActionBody({ id, row, onClose, onPreview }: { id: ActionId; row: Accoun
               <TextInput id="pa-contact-mobile" type="tel" inputMode="tel" value={mobile} onChange={(e) => setMobile(e.target.value)} placeholder="08x1234567" autoComplete="off" />
             </Field>
           </div>
-          <div style={{ margin: "8px 0 10px" }}><Checkbox checked={verified} onChange={setVerified} label="The participant read back the verification code sent to the new details (simulated)" /></div>
+          <div style={{ margin: "8px 0 10px" }}><Checkbox checked={verified} onChange={setVerified} label="The participant read back the verification code sent to the new details" /></div>
           <ReasonField value={reason} onChange={setReason} placeholder="For example: new personal email, no longer uses the work address" />
         </ActionPanel>
       );
