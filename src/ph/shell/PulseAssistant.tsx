@@ -97,6 +97,9 @@ export function pulseHits(state: PhState, nav: PhNav, raw: string, close: () => 
   return out.filter((h) => (seen.has(h.id) ? false : (seen.add(h.id), true))).slice(0, 7);
 }
 
+/** Opens the Pulse panel from anywhere, for example the phone app bar. */
+export function openPulse() { window.dispatchEvent(new CustomEvent("pulse:open")); }
+
 export default function PulseAssistant() {
   const state = usePhState();
   const nav = useNav();
@@ -112,8 +115,10 @@ export default function PulseAssistant() {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "j") { e.preventDefault(); setOpen((o) => !o); }
       else if (e.key === "Escape") setOpen(false);
     };
+    const onOpen = () => setOpen(true);
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    window.addEventListener("pulse:open", onOpen);
+    return () => { window.removeEventListener("keydown", onKey); window.removeEventListener("pulse:open", onOpen); };
   }, []);
   useEffect(() => { if (open) window.setTimeout(() => input.current?.focus(), 30); }, [open]);
   useEffect(() => setSel(0), [q]);
@@ -196,4 +201,11 @@ const CSS = `
 .pa-enter { font-size: 10.5px; color: var(--faint); border: 1px solid var(--border); border-radius: 6px; padding: 2px 6px; flex: none; }
 .pa-foot { font-size: 11px; color: var(--faint); padding: 9px 14px; border-top: 1px solid var(--border); }
 @media (max-width: 600px) { .pa-panel { right: 16px; bottom: 86px; } }
+/* Phone: Pulse lives in the app bar, so the floating button goes and the panel drops down from the top. */
+@media (max-width: 899.98px) {
+  .pa-fab { display: none !important; }
+  .pa-panel { top: 62px; left: 10px; right: 10px; bottom: auto; width: auto; max-height: calc(100dvh - 76px); }
+  .pa-x { width: 40px; height: 40px; }
+  .pa-chip { padding: 9px 13px; font-size: 13.5px; }
+}
 `;

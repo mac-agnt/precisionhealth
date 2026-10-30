@@ -51,12 +51,13 @@ export default function CommandPalette({ v }: Props) {
   return (
     <>
       <div className="ph-scrim" style={{ zIndex: 60 }} onClick={v.closePalette} />
-      <div role="dialog" aria-modal="true" aria-label="Search and jump" style={{ position: "fixed", zIndex: 61, left: "50%", top: "11vh", transform: "translateX(-50%)", width: "min(680px, calc(100vw - 24px))", maxHeight: "74vh", display: "flex", flexDirection: "column", background: "var(--overlay)", border: "1px solid var(--border-strong)", borderRadius: "var(--card-r,18px)", backdropFilter: "blur(30px)", boxShadow: "0 40px 100px rgba(0,0,0,.55)", animation: "paletteIn .3s var(--ease) both", overflow: "hidden" }}>
+      <div role="dialog" aria-modal="true" aria-label="Search and jump" className="ph-palette" style={{ position: "fixed", zIndex: 61, left: "50%", top: "11vh", transform: "translateX(-50%)", width: "min(680px, calc(100vw - 24px))", maxHeight: "74vh", display: "flex", flexDirection: "column", background: "var(--overlay)", border: "1px solid var(--border-strong)", borderRadius: "var(--card-r,18px)", backdropFilter: "blur(30px)", boxShadow: "0 40px 100px rgba(0,0,0,.55)", animation: "paletteIn .3s var(--ease) both", overflow: "hidden" }}>
         <div className="ph-row-flex" style={{ padding: "14px 18px", borderBottom: "1px solid var(--border)" }}>
           <Icon name="search" size={16} style={{ color: "var(--faint)" }} />
           <input ref={input} value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={onKey} placeholder="Search people, clinics, programmes, batches, files, or ask Pulse" aria-label="Search" role="combobox" aria-expanded="true" aria-controls="ph-palette-list"
             style={{ flex: 1, minWidth: 0, border: 0, outline: 0, background: "none", fontSize: 15, color: "var(--ink)" }} />
-          <span className="ph-demo-tag">{persona.roleLabel}</span>
+          <span className="ph-demo-tag ph-palette-role">{persona.roleLabel}</span>
+          <button type="button" className="ph-palette-cancel" onClick={v.closePalette}>Cancel</button>
         </div>
         <div id="ph-palette-list" role="listbox" style={{ overflowY: "auto", padding: "6px 8px 10px" }}>
           {items.length === 0 ? <div className="ph-dim" style={{ padding: "26px 12px", textAlign: "center", fontSize: 13 }}>Nothing matched. Your role only sees what it is allowed to see.</div> : null}

@@ -18,6 +18,7 @@ import { BrandLogo, Monogram } from "../ph/shell/Brand";
 import { PersonaMenu } from "../ph/shell/PersonaMenu";
 import { SidebarAccount } from "../ph/shell/SidebarAccount";
 import { DemoBadge } from "../ph/shell/DemoBadge";
+import { MobileDrawer, MobileTopBar } from "../ph/shell/MobileShell";
 import AgentStudio from "./overlays/AgentStudio";
 import CommandPalette from "./overlays/CommandPalette";
 import BackgroundGallery from "./overlays/BackgroundGallery";
@@ -27,10 +28,11 @@ type Props = { v: any };
 export default function AppShell({ v }: Props) {
   return (
     <NavContext.Provider value={v.phNav}>
-    <div data-theme={v.theme} data-density={v.density} data-reduce-motion={v.reduceMotion ? "1" : undefined} style={{"fontFamily":"var(--ui)","position":"relative","display":"flex","height":"100vh","overflow":"hidden","background":"var(--bg)","color":"var(--ink)",...v.rootVars}}>
+    <div className="ph-app-root" data-theme={v.theme} data-density={v.density} data-reduce-motion={v.reduceMotion ? "1" : undefined} style={{"fontFamily":"var(--ui)","position":"relative","display":"flex","height":"100vh","overflow":"hidden","background":"var(--bg)","color":"var(--ink)",...v.rootVars}}>
       <div style={{"position":"absolute","width":"1px","height":"1px","overflow":"hidden","opacity":"0","pointerEvents":"none"}}>
         <AgentFace shape={"crown-pebble"} state={"idle"} tint={"#191c1f"} size={"1"} />
       </div>
+      {!v.isMobile && (
       <nav data-rail-nav="1" style={css(v.railOuter)}>
         <span style={css(v.railThumbStyle)} />
         <div style={css(cat(v.railRowStyle, "margin-bottom:22px"))}>
@@ -136,6 +138,7 @@ export default function AppShell({ v }: Props) {
           </>
         )}
       </nav>
+      )}
       <span style={css(v.hoverLabel?.style)}>
         <span style={{"position":"absolute","left":"-4px","top":"50%","width":"8px","height":"8px","background":"var(--tooltip)","borderLeft":"1px solid var(--border)","borderBottom":"1px solid var(--border)","transform":"translateY(-50%) rotate(45deg)"}} />
         <span style={{"width":"5px","height":"5px","borderRadius":"50%","background":"var(--accent)"}} />
@@ -144,7 +147,7 @@ export default function AppShell({ v }: Props) {
           {txt(v.hoverLabel?.hint)}
         </span>
       </span>
-      <main style={css(cat("--page-dy:", v.pageDy, ";position:relative;z-index:1;flex:1;min-width:0;display:flex;flex-direction:column;margin:16px 16px 16px 0;background:var(--panel,#0f1316);border:1px solid var(--border);border-radius:28px;overflow:hidden;box-shadow:0 1px 0 rgba(255,255,255,.03) inset"))}>
+      <main className="ph-main" style={css(cat("--page-dy:", v.pageDy, ";position:relative;z-index:1;flex:1;min-width:0;display:flex;flex-direction:column;margin:16px 16px 16px 0;background:var(--panel,#0f1316);border:1px solid var(--border);border-radius:28px;overflow:hidden;box-shadow:0 1px 0 rgba(255,255,255,.03) inset"))}>
         {"\n"}
         {txt(v.pageSweepEl)}
         {"\n"}
@@ -153,8 +156,9 @@ export default function AppShell({ v }: Props) {
             <div style={{"position":"absolute","left":"0","top":"0","right":"0","height":"660px","zIndex":"0","pointerEvents":"none","background":"var(--hero-grad)","WebkitMaskImage":"linear-gradient(180deg,rgba(0,0,0,.82) 0%,#000 18%,#000 72%,rgba(0,0,0,0) 100%)","maskImage":"linear-gradient(180deg,rgba(0,0,0,.82) 0%,#000 18%,#000 72%,rgba(0,0,0,0) 100%)"}} />
           </>
         )}
-        <div style={{"position":"absolute","left":"0","right":"0","bottom":"48px","height":"40px","zIndex":"3","pointerEvents":"none","maskImage":"linear-gradient(0deg,#000 0%,transparent 100%)","WebkitMaskImage":"linear-gradient(0deg,#000 0%,transparent 100%)","background":"linear-gradient(0deg,var(--bg) 0%,rgba(0,0,0,0) 100%)","opacity":".85"}} />
+        <div className="ph-main-fade" style={{"position":"absolute","left":"0","right":"0","bottom":"48px","height":"40px","zIndex":"3","pointerEvents":"none","maskImage":"linear-gradient(0deg,#000 0%,transparent 100%)","WebkitMaskImage":"linear-gradient(0deg,#000 0%,transparent 100%)","background":"linear-gradient(0deg,var(--bg) 0%,rgba(0,0,0,0) 100%)","opacity":".85"}} />
         <div style={css(v.headerFieldStyle)} />
+        {v.isMobile ? <MobileTopBar v={v} /> : (
         <header className="ph-topbar" style={{"position":"relative","zIndex":"4","flex":"none","width":"100%","padding":"18px 28px","boxSizing":"border-box","borderBottom":"1px solid var(--border)"}}>
           <div style={css(v.headerPillStyle)}>
             {v.isAgents && (
@@ -288,6 +292,7 @@ export default function AppShell({ v }: Props) {
             </button>
           </div>
         </header>
+        )}
         {v.showNotifs && (
           <>
             <div onClick={v.closeNotifs} style={{"position":"fixed","inset":"0","zIndex":"58","background":"rgba(0,0,0,.28)","backdropFilter":"blur(3px)","animation":"notifScrim .4s var(--ease) both"}} />
@@ -429,9 +434,10 @@ export default function AppShell({ v }: Props) {
           {v.rec?.isOntology && <RecordsOntology v={v} />}
           {v.isAgents && <Agents v={v} />}
         </div>
-        <DemoBadge />
+        {!v.isMobile && <DemoBadge />}
       </main>
       <PulseAssistant />
+      {v.isMobile && <MobileDrawer v={v} />}
       {v.builderOpen && <AgentStudio v={v} />}
       {v.paletteOpen && <CommandPalette v={v} />}
       {v.bgGallery?.open && <BackgroundGallery v={v} />}
