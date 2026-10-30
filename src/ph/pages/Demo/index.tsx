@@ -7,35 +7,56 @@ import { Button, Card, CardHeader, Icon, PageHeader, Pill } from "../../ui";
 import type { GlyphName } from "../../ui";
 
 const CODE = "DEMO-IBM-26";
-interface Item { title: string; what: string; icon: GlyphName; to?: NavTarget; portal?: "participant-results" | "booking" | "nurse" | "client"; isNew?: boolean }
+interface Item { title: string; what: string; icon: GlyphName; to?: NavTarget; portal?: "ronan" | "booking" | "nurse" | "client"; isNew?: boolean }
 
+const SIGN_OFF: Array<{ title: string; items: Item[] }> = [
+  { title: "Priority 1: Neil's sign-off items", items: [
+    { title: "1. Screening day setup", what: "Type a sentence, the agent builds the day. Edit in plain English, read the HR reply, publish to the client portal.", icon: "calendar", to: { page: "Clinics", tab: "days" }, isNew: true },
+    { title: "2. Lab CSV import", what: "Drop the lab file. Name, date of birth and Precision ID must all match. Mismatches go to a side-by-side queue.", icon: "layers", to: { page: "Results", tab: "imports" }, isNew: true },
+    { title: "2. Mismatch queue", what: "Each flagged lab row next to the closest patient, with Match or Reject. Also flagged on the admin home.", icon: "alert", to: { page: "Results", tab: "imports", params: { view: "queue" } }, isNew: true },
+    { title: "3. Point of care, same day", what: "Nurse enters cholesterol and HbA1c on the day. Choose Anita's point of care clinic, complete, then release today.", icon: "heart", portal: "nurse", isNew: true },
+    { title: "3. Awaiting lab", what: "Lab screens stay Awaiting lab until the CSV is matched.", icon: "clock", to: { page: "Results", tab: "inbox", params: { queue: "awaiting" } }, isNew: true },
+    { title: "4. Approve and release", what: "Staff approve and release, logged with name and time. Agents can draft wording but never change results.", icon: "shield", to: { page: "Results", tab: "review" }, isNew: true },
+  ] },
+  { title: "Priority 2: Filling the gaps", items: [
+    { title: "5. Nurse entry screen", what: "What the participant told us, reviewed with them, then measurements banded live from Neil's ranges.", icon: "edit", portal: "nurse", isNew: true },
+    { title: "6. Client (HR) portal", what: "Published screening dates with the room, invite link and codes, and live invited, booked, attended and released counts.", icon: "users", portal: "client", isNew: true },
+    { title: "7. Participant portal", what: "Ronan Walsh: room on the appointment card, his results, and how the green and yellow ranges are set.", icon: "user", portal: "ronan", isNew: true },
+    { title: "Neil's reference ranges", what: "The ranges behind every colour, versioned, with a test run that builds a report.", icon: "flask", to: { page: "Screening", tab: "ranges" } },
+  ] },
+  { title: "Priority 3: Sales, onboarding, retention", items: [
+    { title: "8. Inbound lead, 10 minute timer", what: "Work as Stephen: the new lead counts down on Home. Agent drafts the first email, notes feed the proposal.", icon: "flag", to: { page: "Sales", tab: "pipeline", params: { lead: "LD-0020" } }, isNew: true },
+    { title: "8. Proposal generator", what: "Package, headcount, auto price, upsells and deal instructions. Then the weekly soft follow ups and Mark as won.", icon: "file", to: { page: "Sales", tab: "proposals" }, isNew: true },
+    { title: "9. Onboarding", what: "Occupational Health or Wellness: details, DSA and SLA, team routing, MediBase task and Xero.", icon: "check", to: { page: "Sales", tab: "onboarding" }, isNew: true },
+    { title: "10. Retention", what: "Results out emails to HR, rebooking reminders 3 months ahead, contact left company, rebooking rate, branded templates.", icon: "refresh", to: { page: "Sales", tab: "recall" }, isNew: true },
+    { title: "11. Staff management", what: "Onboarding, contracts and training. Marked Phase 2.", icon: "users", to: { page: "Records", tab: "staff" } },
+  ] },
+];
 const PLATFORM: Item[] = [
   { title: "Home", what: "Ask Pulse anything. Answers link to the records behind them.", icon: "home", to: { page: "Home" } },
-  { title: "Health Screening", what: "Neil's reference ranges, versioned, with a live test run of the results process.", icon: "flask", to: { page: "Screening", tab: "check" }, isNew: true },
-  { title: "Sales Pipeline", what: "Every enquiry and client on one board: drag deals through the stages, log calls, start proposals. Plus price list, recall and Irish Life Health.", icon: "chart", to: { page: "Sales", tab: "pipeline" }, isNew: true },
   { title: "Doctor Review: Advice Codes", what: "The clinician viewer and NEW ADVICE box. Type a code like CHOL-HI to insert approved wording.", icon: "edit", to: { page: "Results", tab: "review", params: { episode: "PH-E-0201" } } },
-  { title: "Lab Import", what: "The Eurofins batch: 114 imported, 3 duplicates skipped, 3 identity exceptions for a person to resolve.", icon: "layers", to: { page: "Results", tab: "imports", params: { batch: "BATCH-20261002-01" } } },
+  { title: "Price list", what: "Every package with a quick quote calculator.", icon: "chart", to: { page: "Sales", tab: "price-list" } },
   { title: "Flu", what: "Weekly bookings, vaccine stock against allocations, and the cold chain.", icon: "shield", to: { page: "Flu", tab: "overview" } },
-  { title: "Occupational Health", what: "Client onboarding, agreements, questionnaires and Meddbase sessions.", icon: "users", to: { page: "OccHealth", tab: "clients" } },
+  { title: "Occupational Health", what: "Client onboarding, agreements, questionnaires and MediBase sessions.", icon: "users", to: { page: "OccHealth", tab: "clients" } },
   { title: "Portal Administration", what: "Participant accounts, content, message templates and the portal log.", icon: "user", to: { page: "Participants", tab: "portal-admin" } },
-  { title: "Automations", what: "16 flows: how each runs today (Jotform, Esendex, Monday.com) and how Pulse runs it.", icon: "refresh", to: { page: "Work", tab: "automations" } },
-  { title: "Form Builder", what: "Booking, consent and nurse forms built in Pulse instead of Jotform.", icon: "file", to: { page: "Programmes", tab: "forms-templates" } },
+  { title: "Automations", what: "How each flow runs today (Jotform, Esendex, Monday.com) and how Pulse runs it.", icon: "refresh", to: { page: "Work", tab: "automations" } },
+  { title: "Form Builder", what: "Booking, consent and nurse forms built in Pulse instead of Jotform. Preview as a form.", icon: "file", to: { page: "Programmes", tab: "forms-templates" } },
   { title: "Systems & Integrations", what: "Every system Precision uses today and how each connects.", icon: "link", to: { page: "Settings", tab: "systems-integrations" } },
 ];
 const PORTALS: Item[] = [
-  { title: "Participant Portal: My Results", what: "Eamon Gordon's released report as clear charts. Choose My Results.", icon: "chart", portal: "participant-results" },
+  { title: "Participant Portal: My Results", what: "Ronan Walsh's released report as clear charts. Choose My Results.", icon: "chart", portal: "ronan" },
   { title: "Participant Portal: Booking Journey", what: "Orla books her screening: code, details, consent, questionnaire, then a time slot.", icon: "calendar", portal: "booking" },
-  { title: "Nurse Portal", what: "Clinic day: check in, the nurse form section by section, sign-off and courier manifest.", icon: "heart", portal: "nurse" },
-  { title: "Client / Employer Portal", what: "HR sees programme figures and approved reports only. No names, no individual results.", icon: "users", portal: "client" },
+  { title: "Nurse Portal", what: "Clinic day: check in, what they told us, measurements, point of care results and sign-off.", icon: "heart", portal: "nurse" },
+  { title: "Client / Employer Portal", what: "HR sees screening dates, rooms and programme figures only. No names, no individual results.", icon: "users", portal: "client" },
 ];
-const ORDER = ["Home", "Health Screening (Test run)", "Doctor Review", "Participant Portal: My Results", "Booking Journey", "Nurse Portal", "Employer Portal", "Sales Pipeline"];
+const ORDER = ["Screening day setup", "Lab CSV import", "Nurse portal (point of care)", "Approve and release", "Client portal", "Participant portal", "Sales and onboarding"];
 
 export default function Demo() {
   const nav = useNav();
   const [copied, setCopied] = useState(false);
   const open = (i: Item) => {
     if (i.to) return nav.go(i.to);
-    if (i.portal === "participant-results") return nav.openPortal("PH-P-0095");
+    if (i.portal === "ronan") return nav.openPortal("PH-P-0501");
     if (i.portal === "booking") return nav.openPortal("PH-P-0801");
     if (i.portal === "nurse") return nav.openNursePortal?.();
     if (i.portal === "client") return nav.openClientPortal?.();
@@ -75,7 +96,12 @@ export default function Demo() {
           </Card>
         </div>
         <div>
-          <h2 className="ph-h1" style={{ fontSize: 15, margin: "4px 0 10px" }}>Staff platform</h2>
+          {SIGN_OFF.map((g) => (
+            <div key={g.title} style={{ marginBottom: 16 }}>
+              <h2 className="ph-h1" style={{ fontSize: 15, margin: "4px 0 10px" }}>{g.title}</h2>
+              <div className="dg-grid">{g.items.map(card)}</div>
+            </div>))}
+          <h2 className="ph-h1" style={{ fontSize: 15, margin: "4px 0 10px" }}>Everything else</h2>
           <div className="dg-grid">{PLATFORM.map(card)}</div>
         </div>
         <div>
