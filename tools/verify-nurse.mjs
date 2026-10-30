@@ -1,6 +1,6 @@
 // Checks for the nurse entry slice: the point-of-care clinic today, live bands from Neil's ranges,
 // "What they told us", the same-day release path through the existing review and release, lab
-// episodes reading as awaiting lab, and Ronan's report reaching the participant portal once released.
+// episodes reading as awaiting lab, and Ronan's report, seeded as released, opening in admin Review and the participant portal.
 // Usage: node tools/verify-nurse.mjs
 import { createServer } from "vite";
 
@@ -23,7 +23,7 @@ try {
 
   /* ---------- baseline unchanged ---------- */
   const T = M.totalCounts(s);
-  eq("baseline counts unchanged", [T.booked, T.attended, T.released, T.ready, T.awaiting, s.sessions.length], [365, 225, 184, 21, 15, 22]);
+  eq("baseline counts unchanged", [T.booked, T.attended, T.released, T.ready, T.awaiting, s.sessions.length], [365, 225, 185, 20, 15, 22]); // released +1, ready -1: Ronan (PH-E-0201) is seeded as released
 
   /* ---------- a point-of-care clinic today ---------- */
   const today = M.todaySessions(s);
@@ -115,19 +115,18 @@ try {
   const lep = s.episodes.find((e) => e.bookingId === lb.id);
   check("lab episode awaits the laboratory", lep.reportState === "awaiting_results" && lep.specimenIds.length === 1 && M.pendingTests(s, lep).length > 0);
 
-  /* ---------- Ronan: admin review, then the portal once released ---------- */
+  /* ---------- Ronan: seeded as released, opens in admin Review and in the participant portal ---------- */
   s = createInitialState();
   const ronan = s.episodes.find((e) => e.personId === "PH-P-0501");
-  eq("Ronan's episode is in the review queue", [ronan.id, ronan.reportState], ["PH-E-0201", "ready_for_review"]);
-  check("Ronan has a complete panel for review", M.pendingTests(s, ronan).length === 0 && s.observations.filter((o) => o.episodeId === "PH-E-0201").length > 20);
-  check("Ronan's portal shows no report before release", P.participantVersions(s, "PH-E-0201").length === 0);
+  eq("Ronan's episode is released", [ronan.id, ronan.reportState], ["PH-E-0201", "released"]);
+  check("Ronan has a complete panel", M.pendingTests(s, ronan).length === 0 && s.observations.filter((o) => o.episodeId === "PH-E-0201").length > 20);
   run(act.setPersona("neil"));
-  run(act.ackFlags("PH-E-0201")); run(act.setAdvice("PH-E-0201", "Sample advice. Please discuss with your GP.")); run(act.toggleReviewCheck("PH-E-0201", "advice")); run(act.toggleReviewCheck("PH-E-0201", "preview"));
-  check("Ronan released from Review", run(act.releaseReport("PH-E-0201")).ok);
+  const rb = M.episodeBundle(s, "PH-E-0201");
+  check("Ronan's report opens read only in Review, released by Neil", !!rb && rb.episode.reportState === "released" && M.currentReleased(s, "PH-E-0201").releasedBy === "neil" && !run(act.setAdvice("PH-E-0201", "Changed after release.")).ok);
   run(act.setPortalPerson("PH-P-0501")); run(act.setPersona("participant"));
   const pd = P.portalData(s, "PH-P-0501");
   check("Ronan's released report appears in My results", pd.episodes.some((e) => e.id === "PH-E-0201") && P.participantVersions(s, "PH-E-0201").length === 1);
-  check("Ronan opens it in the portal", run(act.viewReportInPortal("PH-E-0201")).ok);
+  check("Ronan opens it in the portal", run(act.viewReportInPortal("PH-E-0201")).ok && !!M.currentReleased(s, "PH-E-0201").accessedAt);
   const relV = M.currentReleased(s, "PH-E-0201");
   const robs = M.versionObservations(s, relV).filter((o) => o.rangeVersion);
   check("each released result carries the range version it was judged against", robs.length > 20 && robs.every((o) => s.referenceRanges.versions.some((v) => v.id === o.rangeVersion)));

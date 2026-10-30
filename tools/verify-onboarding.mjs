@@ -44,10 +44,11 @@ try {
 
   /* ---------- results out on release ---------- */
   let q = S.retReleaseQueue(s);
-  eq("only IBM waiting for a results email at start", q.map((x) => [x.programmeId, x.newReports]), [["PRG-IBM-26", 18]]);
+  /* Salesforce was told about 40 reports on 3 Oct; Ronan's report (PH-E-0201) was released on 5 Oct, so one new SF report is waiting too. */
+  eq("IBM and Ronan's Salesforce report waiting for a results email at start", q.map((x) => [x.programmeId, x.newReports]), [["PRG-SF-26", 1], ["PRG-IBM-26", 18]]);
   run(act.setPersona("stephen"));
   const sent1 = run(A.sendResultsOut("PRG-IBM-26"));
-  check("send results out", sent1.ok && S.retReleaseQueue(s).length === 0);
+  check("send results out", sent1.ok && JSON.stringify(S.retReleaseQueue(s).map((x) => x.programmeId)) === JSON.stringify(["PRG-SF-26"])); // only Ronan's SF report left
   const em = s.onboarding.emails.find((e) => e.id === sent1.id);
   check("results out goes to the IBM HR contact with feedback link and invoice note", em.toEmail === "mairead.costello@example.com" && /feedback/.test(em.body) && /invoice/i.test(em.body) && !/\{\w+\}/.test(em.body + em.subject));
   check("results out email is simulated in the audit", s.activity.some((e) => e.verb === "retention.results_out_sent" && e.simulated));
@@ -57,7 +58,8 @@ try {
   const rel = run(act.releaseRoutine ? act.releaseRoutine(routine) : { type: "review/releaseRoutine", episodeId: routine });
   check("a routine release is possible", rel.ok, rel.message);
   q = S.retReleaseQueue(s);
-  check("a new release queues a results email for that programme", q.length === 1 && q[0].newReports === 1, JSON.stringify(q.map((x) => [x.programmeId, x.newReports])));
+  const relProg = s.episodes.find((e) => e.id === routine).programmeId;
+  check("a new release queues a results email for that programme", q.length === 2 && q.find((x) => x.programmeId === relProg)?.newReports === 1 && q.some((x) => x.programmeId === "PRG-SF-26"), JSON.stringify(q.map((x) => [x.programmeId, x.newReports]))); // SF still waits for Ronan's report
   void ready;
 
   /* ---------- onboarding end to end: OH from a won lead ---------- */

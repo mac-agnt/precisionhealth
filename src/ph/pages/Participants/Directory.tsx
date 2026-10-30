@@ -24,7 +24,7 @@ import { AwaitingLabPill, LabAware, LabDropZone, MatchQueue, MatchRule } from ".
 const STAGE_IDS = STAGES.map((s) => s.id);
 const DEMO_CASES: Array<{ id: Id; why: string }> = [
   { id: "PH-P-0001", why: "Routine report review and portal release" },
-  { id: "PH-P-0501", why: "Report needing individual clinician review" },
+  { id: "PH-P-0501", why: "Flagged report released after individual review, open in the portal" },
   { id: "PH-P-0002", why: "Laboratory identity exception" },
   { id: "PH-P-0801", why: "Portal onboarding to booking" },
 ];

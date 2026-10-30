@@ -17,6 +17,7 @@ import type { Iso } from "../time";
 import { makeRng } from "../rng";
 import type { Rng } from "../rng";
 import { ADVICE_FLAGGED, ADVICE_ROUTINE } from "../advice";
+import { approvedVersion, findSnippet, initialAdviceLibraryState } from "../adviceLibrary";
 import type { Answers } from "../questionnaire";
 import { healthyArchetype, pad } from "./people";
 import type { EpRole, RosterPlan } from "./people";
@@ -24,6 +25,9 @@ import type { EpRole, RosterPlan } from "./people";
 export const BASELINE_BATCH_ID = "BATCH-20261002-01";
 export const EARLY_BATCH_ID = "BATCH-20261002-00";
 export const BASELINE_PROCESSED_AT: Iso = "2026-10-05T05:30:00.000Z";
+/** When Dr Neil Reddy released Ronan Walsh's report (PH-E-0201 v1), and the approved snippet codes in its advice. */
+export const RONAN_RELEASED_AT: Iso = "2026-10-05T06:32:00.000Z";
+const RONAN_ADVICE_CODES = ["BP-MILD", "LDL-BORD", "BMI-OVER", "ECG-NORM", "GP-REVIEW"];
 
 const NAMED_EP: Record<string, string> = {
   "PH-P-0001": "PH-E-0101", "PH-P-0002": "PH-E-0102", "PH-P-0003": "PH-E-0103", "PH-P-0004": "PH-E-0104",
@@ -664,6 +668,28 @@ export function buildClinical(plan: RosterPlan): ClinicalBuild {
     });
     corrEp.reportVersionIds.push(v2id);
   }
+  /* Ronan Walsh (PH-E-0201), the demo participant: his LDL 3.2 against the displayed limit <3.0 was caught by
+     Data Quality at 05:40, so the routine shortcut was never available. Neil reviewed it individually on Monday
+     morning, acknowledged the flags, wrote the advice from approved snippet codes and released v1 at 07:32 Irish
+     time, before the demo clock (08:15). The availability message is added with the other released reports in
+     ops.ts. He keeps his role, values and baseline batch rows, so the import numbers do not move; only the
+     released and ready counts shift by one (released +1, ready -1, flagged -1). His report is not yet opened. */
+  {
+    const ronan = episodes.find((e) => e.id === "PH-E-0201")!;
+    const lib = initialAdviceLibraryState();
+    const advice = RONAN_ADVICE_CODES.map((code) => approvedVersion(findSnippet(lib, code)!)!.text).join("\n\n");
+    const id = `${ronan.id}-v1`;
+    reportVersions.push({
+      id, episodeId: ronan.id, version: 1, status: "released", createdAt: "2026-10-05T06:08:00.000Z", createdBy: "neil",
+      advice, adviceSource: "manual", releasedAt: RONAN_RELEASED_AT, releasedBy: "neil", releaseMode: "individual",
+      checklist: { identity: true, results: true, flags: true, advice: true, preview: true }, flagAcknowledged: true, correctionReason: null,
+      supersedes: null, supersededBy: null, observationRefs: (obsByEp.get(ronan.id) || []).map((o) => ({ id: o.id, version: o.version })),
+      participantNoticeAt: null, accessedAt: null,
+    });
+    ronan.reportState = "released";
+    ronan.flagAckBy = "neil";
+    ronan.reportVersionIds.push(id);
+  }
 
   /* ---- follow-ups ---- */
   const maeve = holdFor("PH-P-0003");
@@ -718,8 +744,9 @@ export function buildClinical(plan: RosterPlan): ClinicalBuild {
 
   /* ---- data quality issues ---- */
   dqIssues.push(
-    { id: "DQ-0001", title: "Displayed flag inconsistent with displayed limit", detail: "PH-E-0201: LDL 3.2 mmol/L with displayed limit <3.0 appeared as normal in the legacy summary. Pulse shows Review required. A clinician must review. No replacement threshold is proposed.",
-      episodeId: "PH-E-0201", kind: "flag_inconsistency", status: "open", raisedByAgent: "quality", raisedAt: "2026-10-05T05:40:00.000Z" },
+    { id: "DQ-0001", title: "Displayed flag inconsistent with displayed limit", detail: "PH-E-0201: LDL 3.2 mmol/L with displayed limit <3.0 appeared as normal in the legacy summary. Pulse showed Review required, so the routine shortcut was unavailable. Dr Neil Reddy reviewed it individually and released the report. No replacement threshold is proposed.",
+      // Resolved by Neil's individual review and release of Ronan's report, as the release action does in the app.
+      episodeId: "PH-E-0201", kind: "flag_inconsistency", status: "resolved", raisedByAgent: "quality", raisedAt: "2026-10-05T05:40:00.000Z" },
     { id: "DQ-0002", title: "Source unit differs from template unit", detail: "PH-E-0104: LDL reported in mg/dL where the template expects mmol/L. The value is held as received until the laboratory confirms the unit.",
       episodeId: "PH-E-0104", kind: "source_unit", status: "open", raisedByAgent: "quality", raisedAt: "2026-10-05T05:41:00.000Z" },
     { id: "DQ-0003", title: "Incompatible specimen identifier", detail: "Row BATCH-20261002-01 specimen key PH-S-O202 does not match any collection record format. Possible letter O for zero. Suggestion only.",

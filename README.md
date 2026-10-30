@@ -81,8 +81,9 @@ src/views        original Pulse shell and pages (Home, Agents conversations, Rec
 | Thread | Where to look |
 | --- | --- |
 | Three lab identity exceptions, resolved by a person | Results, Imports |
-| 21 reports ready (7 routine, 14 flagged under the reference ranges table), 6 over 48 hours, release one at a time | Results, Review |
-| Ronan: LDL 3.2 against a displayed limit of 3.0 shows "Review required" | Results, Review, PH-E-0201 |
+| 20 reports ready (7 routine, 13 flagged under the reference ranges table), 6 over 48 hours, release one at a time | Results, Review |
+| Ronan: LDL 3.2 against a displayed limit of 3.0 showed "Review required"; Neil reviewed and released it individually, so it opens read only in Review and in his portal | Results, Review, PH-E-0201; Participant portal, PH-P-0501 |
+| Advice codes: Gráinne Mooney's flagged report (cholesterol, LDL, triglycerides, BMI, waist), type CHOL-HI in the advice box | Results, Review, PH-E-1210 |
 | IBM capacity: 15 slots today, five invitees still in progress | Programmes, Invitations |
 | Failed reminders (2), retry moves one from failed to delivered | Participants, Communications |
 | Urgent follow-up due 09:00, needs an outcome and acknowledgement | Results, Follow-up |
