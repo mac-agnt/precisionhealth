@@ -11,6 +11,7 @@ import { buildOps } from "./ops";
 import { buildPortalBaseline } from "../portalAdmin";
 import { initialSalesState } from "../sales";
 import { initialSalesFlowState, seedSalesFlow } from "../salesFlow";
+import { initialSalesDeskState, seedSalesDesk } from "../salesDesk";
 import { initialFluState } from "../flu";
 import { initialOccHealthState } from "../occHealth";
 import { initialOnboardingState } from "../onboarding";
@@ -109,6 +110,7 @@ export function createInitialState(): PhState {
     referenceRanges: ranges,
     labCsv: initialLabCsvState(),
     salesFlow: initialSalesFlowState(),
+    salesDesk: initialSalesDeskState(),
     screeningDays: days.state,
     onboarding: initialOnboardingState(),
     scheduled: initialScheduledState(),
@@ -116,6 +118,7 @@ export function createInitialState(): PhState {
   };
   state.portal = buildPortalBaseline(state);
   seedSalesFlow(state);
+  seedSalesDesk(state);
   syncProgrammeRegistry(state.programmes);
   return state;
 }

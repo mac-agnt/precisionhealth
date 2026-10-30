@@ -26,6 +26,8 @@ const HANDLERS: Record<string, Handler> = { ...coreHandlers, ...resultsHandlers,
 export function registerHandlers(extra: Record<string, Handler>): void {
   Object.assign(HANDLERS, extra);
 }
+/** A registered handler, so one action can run another inside the same state change. */
+export const handlerFor = (type: string): Handler | undefined => HANDLERS[type];
 
 /**
  * A working copy for one action. Everything is deep-cloned except the two large append-only arrays,

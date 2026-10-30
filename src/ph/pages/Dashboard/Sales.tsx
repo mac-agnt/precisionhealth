@@ -79,7 +79,7 @@ function NeedsCard() {
   const t = today(s);
   return (
     <Card>
-      <CardHeader title={me.id === "stephen" ? "Needs you now" : "Needs Stephen now"} sub="Most urgent first. Click any row to open it." />
+      <CardHeader title={me.id === "stephen" ? "Needs you now" : "Needs Stephen now"} sub="Most urgent first. Click any row to open it." right={<span className="ph-row-flex ph-wrap" style={{ gap: 4 }}><Button size="sm" variant="ghost" icon="flag" onClick={() => nav.go({ page: "Sales", tab: "today" })}>Today</Button><Button size="sm" variant="ghost" icon="mail" onClick={() => nav.go({ page: "Sales", tab: "follow-ups" })}>Follow-ups</Button><Button size="sm" variant="ghost" icon="clock" onClick={() => nav.go({ page: "Sales", tab: "expiring" })}>Expiring soon</Button></span>} />
       <Group title="Reply within 10 minutes" right={N.inbound.length ? <Pill tone="warn" icon={null}>{N.inbound.length} waiting</Pill> : null}>
         {N.inbound.length ? N.inbound.map(({ inb, lead: l }) => (
           <ActRow key={l.id} onClick={() => nav.go(lead(l.id))} title={l.company} label={`Open ${l.company}`}

@@ -45,7 +45,7 @@ import {
   buildGraph
 } from "./data";
 import { phStore, dispatch as phDispatch } from "../ph/store";
-import { railPagesFor } from "../ph/model/nav";
+import { railPagesFor, railEntriesFor, visibleTab } from "../ph/model/nav";
 import { act as phAct, defaultTab, hashFor, navAttention, resolveTab } from "../ph/model";
 import { phContext, phOverrides, applyHash, phFileTree } from "./phBridge";
 import { answerQuery as phAnswer, agentReply as phAgentReply, agentSuggestions as phAgentSuggestions, toDublin as phToDublin } from "../ph/model";
@@ -1460,28 +1460,40 @@ export default class PulseLogic extends DCLogic {
       : "display:none";
     /* Each person's rail shows their side of the business; dividers with nothing under them drop out. */
     const allowed = railPagesFor(phStore.getState().session.personaId);
-    const NAV_SHOWN = allowed ? NAV.filter((n, i, all) => {
+    /* A person's own rail: entries can open a page on a tab (Stephen's Sales tabs). Home then Agents stay first. */
+    const entries = railEntriesFor(phStore.getState().session.personaId);
+    const railFromEntries = (list) => {
+      const top = ["Home", "Agents"].map(pg => list.find(e => e.page === pg && !e.tab) || NAV.find(n => n.page === pg));
+      const rest = list.filter(e => !(top.indexOf(e) > -1));
+      const out = top.slice();
+      let prev;
+      rest.forEach(e => { if (e.section && e.section !== prev) out.push({divider:true, label:e.section}); prev = e.section; out.push(e); });
+      return out;
+    };
+    const NAV_SHOWN = entries ? railFromEntries(entries) : allowed ? NAV.filter((n, i, all) => {
       if (!n.divider) return allowed.indexOf(n.page) > -1;
       for (let j = i + 1; j < all.length && !all[j].divider; j++) if (allowed.indexOf(all[j].page) > -1) return true;
       return false;
     }) : NAV;
+    const curTab = visibleTab(page, this.tabFor(page));
+    const isOn = (n) => n.page === page && (!n.tab || n.tab === curTab);
     const nav = NAV_SHOWN.map((n, idx) => n.divider
       ? {isDivider:true, isItem:false, label: railOpen ? (n.label || "") : ""}
       : {isItem:true, isDivider:false, label:n.label, hint: railOpen ? (n.hint || "") : "", d:ICONS[n.icon],
          dot: n.dot === true && this.phDot(n.page),
          dotStyle: "position:absolute;top:5px;" + (railOpen ? "left:30px" : "right:6px")
            + ";width:5px;height:5px;border-radius:50%;background:var(--accent)",
-         inlineStyle: inlineStyle(st.railHov === idx, n.page === page),
+         inlineStyle: inlineStyle(st.railHov === idx, isOn(n)),
          hintStyle: "flex:none;font-family:" + MONO + ";font-size:9.5px;color:var(--faint);white-space:nowrap",
-         active: n.page === page,
-         railKey: n.page === page ? "active" : "idle",
-         glyphStyle: glyphStyle(n.page === page, st.hovered === idx || st.railHov === idx),
-         haloStyle: haloStyle(n.page === page, st.hovered === idx || st.railHov === idx),
-         drawStyle: drawStyle(n.page === page, st.hovered === idx || st.railHov === idx),
-         style: railStyle(n.page === page) + ";animation:railIn .42s var(--ease) " + (idx * 45) + "ms both",
+         active: isOn(n),
+         railKey: isOn(n) ? "active" : "idle",
+         glyphStyle: glyphStyle(isOn(n), st.hovered === idx || st.railHov === idx),
+         haloStyle: haloStyle(isOn(n), st.hovered === idx || st.railHov === idx),
+         drawStyle: drawStyle(isOn(n), st.hovered === idx || st.railHov === idx),
+         style: railStyle(isOn(n)) + ";animation:railIn .42s var(--ease) " + (Math.min(idx, 10) * 45) + "ms both",
          enter: (e) => { if (!railOpen) this.hover(idx, n.label, n.hint || "", e); else this.setState({railHov:idx}); },
          leave: () => { if (this.state.railHov === idx) this.setState({railHov:null}); this.unhover(idx); },
-         go: () => this.go(n.page)});
+         go: () => (n.tab ? this.phGo({page: n.page, tab: n.tab}) : this.go(n.page))});
 
     const workSec = WORK_SECTIONS.find(s => s.id === st.workSection) || WORK_SECTIONS[0];
     
