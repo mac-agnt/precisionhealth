@@ -20,21 +20,29 @@ Every screen is linkable: `#/Results/imports?batch=BATCH-20261002-01`, `#/Partic
 
 ## What is in it
 
-| Module | Tabs |
-| --- | --- |
-| Home | Pulse chat, deterministic answers with links to the records behind them |
-| Agents | Conversations, Activity (seven agents, all drafting or watching, none acting) |
-| Dashboard | Executive, Clinic Operations, Clinical Delivery |
-| Programmes | Overview, Programmes, Forms & Templates, Invitations |
-| Clinics | Overview, Schedule, Appointments, Team & Resources |
-| Participants | Directory, Screening History, Communications |
-| Results | Inbox, Imports, Review, Follow-up, Corrections |
-| Health Screening | Reference ranges, Check a result, Change control, Results impact, Calculations, Cohorts, To confirm (versioned, superadmin-controlled ranges from Precision Health's table, see `docs/client-source/REFERENCE_RANGES.md`) |
-| Reporting | Overview, Report Builder, Exports |
-| Work | Automations, Tasks, Approvals, Workflows, Schedules |
-| Records | Ontology, Files, Contacts, Companies, Staff |
-| Activity | Everything, People, Agents, Needs Attention |
-| Settings | Organisation, Teams, Permissions, Systems & Integrations, Governance, AI Controls, Experience |
+The side rail is grouped by how the business runs: Sell, Deliver screening, Services, Run the business.
+
+| Section | Module | Tabs |
+| --- | --- | --- |
+| | Home | Pulse chat, deterministic answers with links to the records behind them |
+| | Agents | Conversations, Activity (seven agents, all drafting or watching, none acting) |
+| | Calendar | Everything with a date, in one place |
+| | Dashboard | Executive, Clinic operations, Clinical delivery |
+| Sell | Sales | Pipeline, Proposals, Price list, Onboarding, Retention, Irish Life Health |
+| Deliver screening | Programmes | Overview, All programmes, Invitations, Forms and templates |
+| Deliver screening | Clinics | Today, Screening days, Schedule, Appointments, Team and resources |
+| Deliver screening | Participants | Directory, Screening history, Communications, Portal admin |
+| Deliver screening | Results | Inbox, Lab imports, Review, Follow-up, Corrections |
+| Deliver screening | Health Screening | Ranges, Cohorts, Calculations, Test run, Changes, Impact, To confirm (versioned, superadmin-controlled ranges from Precision Health's table, see `docs/client-source/REFERENCE_RANGES.md`) |
+| Services | Flu | Overview, Bookings, Vaccine stock, Cold chain |
+| Services | Occupational Health | Clients and onboarding, Questionnaires, Meddbase sessions, Agreements |
+| Run the business | Reporting | Overview, Report builder, Exports |
+| Run the business | Work | Tasks, Approvals, Automations, Workflows, Schedules |
+| Run the business | Records | Ontology, Files, Contacts, Companies, Staff |
+| Run the business | Activity | Everything, People, Agents, Needs attention |
+| | Settings | Organisation, Teams, Permissions, Integrations, Governance, AI controls, Display |
+
+Sections are set with `section` on each page in `src/ph/model/nav.ts`. Every page header shows its section and page as a breadcrumb. Tab ids never change, so old deep links still work.
 
 Three portal previews sit outside the staff navigation. Open them from the persona menu (top right):
 

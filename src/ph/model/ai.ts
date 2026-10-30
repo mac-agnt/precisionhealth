@@ -213,7 +213,7 @@ export function answerQuery(state: PhState, q: string): Answer {
         scenario: sc, supported: true, tool: "pulse_review_queue", effect: "read", text,
         cols: ["Episode", "Programme", "Ready", "Review"],
         rows: aged.map((i) => [i.episode.id, i.programme.code, fmtDayMonth(i.readyAt), i.flagged ? "Review required" : "Routine"]),
-        actions: [{ label: "Open review queue", target: { page: "Results", tab: "review" }, primary: true }, { label: "Open Dashboard, Clinical Delivery", target: { page: "Dashboard", tab: "clinical-delivery" } }],
+        actions: [{ label: "Open review queue", target: { page: "Results", tab: "review" }, primary: true }, { label: "Open Dashboard, Clinical delivery", target: { page: "Dashboard", tab: "clinical-delivery" } }],
       };
     }
     case "capacity": {
@@ -291,7 +291,7 @@ export function answerQuery(state: PhState, q: string): Answer {
       return {
         scenario: sc, supported: true, tool: "pulse_forms", effect: "read",
         text: "Blood Pressure 1.2 is one versioned block shared by Comprehensive (LAB) Screen, Cardiovascular Screen and Sports Cardiac Screen, with the same fields, units and validation wherever it is used. A draft edit creates a new template version and never alters answers already collected: each episode keeps its form snapshot.",
-        actions: [{ label: "Open Forms & Templates", target: { page: "Programmes", tab: "forms-templates" }, primary: true }],
+        actions: [{ label: "Open Forms and templates", target: { page: "Programmes", tab: "forms-templates" }, primary: true }],
       };
     case "qrisk":
       return { scenario: sc, supported: true, tool: "pulse_calculations", effect: "read", text: `${QRISK3.text} Pulse never calculates a score itself: it shows the engine's 10-year risk, heart age and relative risk, and episodes created in this session wait for the engine.`, actions: [{ label: "Open the review", target: { page: "Results", tab: "review" } }] };
@@ -391,7 +391,7 @@ export function agentThread(state: PhState, id: AgentId): ThreadItem[] {
       if (!clinical) return [stamp("Visible to clinical roles"), agent("Drafting previews work on a selected fictional episode and are limited to clinical roles.")];
       return [
         stamp("Optional preview (P1)"),
-        agent(state.settings.aiDraftingOn ? "I can draft advice wording from approved content for one fictional episode. You edit and approve it. I do not diagnose, invent measurements, decide urgency or release a report. Demo content, no model connected." : "The drafting preview is switched off in Settings, AI Controls. Manual advice is fully usable.", undefined, [open("Open AI Controls", { page: "Settings", tab: "ai-controls" })]),
+        agent(state.settings.aiDraftingOn ? "I can draft advice wording from approved content for one fictional episode. You edit and approve it. I do not diagnose, invent measurements, decide urgency or release a report. Demo content, no model connected." : "The drafting preview is switched off in Settings, AI controls. Manual advice is fully usable.", undefined, [open("Open AI controls", { page: "Settings", tab: "ai-controls" })]),
         ...Object.keys(state.aiDrafts).map((epId) => agent(`a draft preview for ${epId} is waiting for clinician edit and approval.`, undefined, [open("Open the review", linkFor("episode", epId))])),
       ];
     case "reporting": {

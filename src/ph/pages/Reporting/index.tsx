@@ -1,4 +1,4 @@
-/* Reporting module: Overview, Report Builder and Exports for disclosure-controlled employer
+/* Reporting module: Overview, Report builder and Exports for disclosure-controlled employer
    programme reports. Importing ./disclosure and ./snapshot registers the local cohort and snapshot handlers. */
 import { usePersona } from "../../store";
 import { PageHeader, RestrictedNotice } from "../../ui";

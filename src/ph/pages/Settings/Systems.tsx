@@ -1,4 +1,4 @@
-/* Settings, Systems & Integrations: the existing systems register. Each status is the exact
+/* Settings, Integrations: the existing systems register. Each status is the exact
    simulated or unconfirmed text from the register. No credentials are requested, no live
    connection is claimed, FTP is not described as SFTP, no Gmail API or Microsoft Graph link is
    claimed, and Meddbase has no records or sync events. Activity comes from the shared feed.
@@ -65,7 +65,7 @@ export default function Systems() {
     <div className="ph-page">
       <SettingsHeader
         gated={false}
-        title="Systems & Integrations"
+        title="Integrations"
         sub="The existing systems register. Every status is simulated or still to be confirmed. No credentials are requested or stored, and no live connection is claimed."
       />
       <div className="ph-stack">

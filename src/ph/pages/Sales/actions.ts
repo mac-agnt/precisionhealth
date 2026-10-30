@@ -17,7 +17,7 @@ function needSales(c: Ctx, right: keyof SalesRights, what: string): ActionResult
   if (salesRights(p)[right]) return null;
   if (p.isParticipant) return c.fail(`The participant preview cannot ${what}. Sales is for Precision Health staff.`);
   const who = right === "ilh" ? "Stephen Kelly, Martina Beattie and Brenda Madden update Irish Life bookings." : right === "prices" ? "Only Stephen Kelly changes the price list." : "Stephen Kelly owns sales.";
-  return c.fail(`${p.name} (${p.roleLabel}) cannot ${what}. ${who} Switch role in Settings, Experience to try it.`);
+  return c.fail(`${p.name} (${p.roleLabel}) cannot ${what}. ${who} Switch role in Settings, Display to try it.`);
 }
 const todayOf = (c: Ctx) => localDateOf(c.now);
 const isDate = (v: unknown): v is string => typeof v === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v) && !Number.isNaN(Date.parse(v + "T00:00:00Z"));

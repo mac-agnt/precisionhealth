@@ -1,4 +1,4 @@
-/* Person timeline for Screening History: invitation, questionnaire and form version, bookings,
+/* Person timeline for Screening history: invitation, questionnaire and form version, bookings,
    appointment, measurements, calculations, specimens, observations, review, holds, report
    versions, report access, follow-up and messages. Every item carries its episode and
    programme, so one person can hold several episodes without programmes being merged.

@@ -1,4 +1,4 @@
-/* Clinical Delivery dashboard: the authorised clinical view of report workflow. 225 episodes
+/* Clinical delivery dashboard: the authorised clinical view of report workflow. 225 episodes
    partitioned into released, ready, awaiting and held; reviewer workload; ageing buckets derived
    from timestamps; expected-test completion; follow-up tasks. Every queue has a real link.
    Roles without clinical access get counts only, with no names, flags or values. */
@@ -47,7 +47,7 @@ function RestrictedView() {
   const H = holdCounts(s);
   return (
     <div className="ph-page">
-      <PageHeader title="Clinical Delivery" sub="Report workflow for clinical reviewers and nurses." actions={<AsOf nowUtc={s.clock.nowUtc} />} />
+      <PageHeader title="Clinical delivery" sub="Report workflow for clinical reviewers and nurses." actions={<AsOf nowUtc={s.clock.nowUtc} />} />
       <div className="ph-stack">
         <RestrictedNotice title="Clinical detail is limited to clinical roles">
           {p.name} ({p.roleLabel}) sees queue counts only. Results, flags, participant names and reviewer workload are shown to clinical reviewers and nurses.
@@ -65,7 +65,7 @@ function RestrictedView() {
           <div className="ph-wrap">
             {p.perms.has("imports.view") ? <GoButton to={{ page: "Results", tab: "imports", params: { batch: "BATCH-20261002-01" } }}>{`Identity exceptions (${H.identity} held episodes)`}</GoButton> : null}
             <GoButton to={{ page: "Dashboard", tab: "executive" }}>Executive dashboard</GoButton>
-            <GoButton to={{ page: "Dashboard", tab: "clinic-operations" }}>Clinic Operations</GoButton>
+            <GoButton to={{ page: "Dashboard", tab: "clinic-operations" }}>Clinic operations</GoButton>
             {p.perms.has("reports.build") ? <GoButton to={{ page: "Reporting", tab: "overview" }}>Employer reporting</GoButton> : null}
           </div>
           <Note icon="lock">Holds have separate categories: identity, data quality and clinical action. Clinical action detail stays with clinicians.</Note>

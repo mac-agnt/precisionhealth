@@ -1,6 +1,6 @@
 /* Dashboard module: three tabs with different jobs and different chart forms.
-   Executive (programme performance), Clinic Operations (today and this week) and
-   Clinical Delivery (report workflow, clinical roles only). */
+   Executive (programme performance), Clinic operations (today and this week) and
+   Clinical delivery (report workflow, clinical roles only). */
 import { usePersona } from "../../store";
 import { PageHeader, RestrictedNotice } from "../../ui";
 import Executive from "./Executive";

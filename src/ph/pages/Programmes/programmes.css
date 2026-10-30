@@ -1,4 +1,4 @@
-/* Programmes module (Overview, Programmes, Forms & Templates, Invitations). Prefix prg-.
+/* Programmes module (Overview, Programmes, Forms and templates, Invitations). Prefix prg-.
    Pulse tokens only, so every theme keeps working. Layouts respond to the width of the
    content area through a container query, not the viewport, because the side rail changes
    the space available at the same window width. */

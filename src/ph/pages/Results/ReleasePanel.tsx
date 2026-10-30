@@ -221,7 +221,7 @@ export function FlagsCard({ b, canAct }: { b: Bundle; canAct: boolean }) {
  * blur, and reports every keystroke through onTextChange so the report preview shows the text as
  * typed. Approved advice codes expand in place (CHOL-HI then Space or Tab, or "/" to search), the
  * suggested codes for this episode insert with one click, and "Prepare draft" (when the drafting
- * path is on in Settings, AI Controls) writes a draft built only from approved snippets. Every
+ * path is on in Settings, AI controls) writes a draft built only from approved snippets. Every
  * inserted passage traces back to its code and version. variant "sheet" is the NEW ADVICE box
  * under the results viewer; "card" is the stacked editor used in Corrections.
  */

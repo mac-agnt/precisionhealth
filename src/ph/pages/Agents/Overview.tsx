@@ -112,7 +112,7 @@ function agentInfo(state: PhState, def: AgentDef, feed: ActivityView[], clinical
       if (!drafts.length) {
         items.push(on
           ? { key: "none", label: "No drafting preview is waiting. It runs only when a clinician asks for one in Results, Review.", tone: "ok" }
-          : { key: "none", label: "Preview switched off in Settings, AI Controls. Clinicians write advice manually and the workflow is unaffected.", tone: "neutral" });
+          : { key: "none", label: "Preview switched off in Settings, AI controls. Clinicians write advice manually and the workflow is unaffected.", tone: "neutral" });
       }
       pending = drafts.length;
       context.push(on ? "Preview on. The clinician edits and approves every word. No diagnosis, invented measurement, urgency decision or release." : "Preview off.");
@@ -220,7 +220,7 @@ function OverviewBody() {
           <Kpi label="Agents" value={AGENT_DEFS.length} icon="spark" sub={`${AGENT_DEFS.filter((a) => !a.optional).length} core agents and ${AGENT_DEFS.filter((a) => a.optional).length} optional preview`} />
           <Kpi label="Simulated actions" value={feed.length} icon="list" sub={`${totalToday} today. The same entries as Activity, Agents.`} onClick={() => nav.go({ page: "Agents", tab: "activity" })} hint="Open the agent activity feed" />
           <Kpi label="Awaiting a human" value={awaiting} tone={awaiting ? "warn" : "ok"} sub={awaitingSub} hint="Distinct items agents prepared or flagged that wait for a person. Agents never decide." />
-          <Kpi label="Clinical Drafting preview" value={on ? "On" : "Off"} icon="edit" sub="Set in Settings, AI Controls. Manual workflows never depend on it." onClick={() => nav.go({ page: "Settings", tab: "ai-controls" })} hint="Open AI Controls" />
+          <Kpi label="Clinical Drafting preview" value={on ? "On" : "Off"} icon="edit" sub="Set in Settings, AI controls. Manual workflows never depend on it." onClick={() => nav.go({ page: "Settings", tab: "ai-controls" })} hint="Open AI controls" />
         </KpiStrip>
         {wide ? (
           <div className="ph-split">

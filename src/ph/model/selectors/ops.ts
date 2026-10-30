@@ -167,8 +167,8 @@ function derivedTaskStatus(state: PhState, t: Task): { status: TaskView["status"
     case "TSK-0004": return done(state.invitationDrafts.every((d) => d.programmeId !== "PRG-IBM-26" || (d.status !== "draft" && d.status !== "pending_approval")), "Decide the IBM invitation list in Work, Approvals.");
     case "TSK-0006": return done(!state.followUps.some((f) => f.id === "FU-0001" && f.status === "open"), "Record a documented outcome and acknowledgement in Results, Follow-up.");
     case "TSK-0007": return done(!state.messages.some((m) => m.kind === "reminder" && m.status === "failed"), "Retry or resolve each failed reminder in Participants, Communications.");
-    case "TSK-0008": { const r = state.employerReports.find((x) => x.id === "ER-SISK-01"); return done(!!r && r.status !== "draft", "Complete the disclosure review in Reporting, Report Builder."); }
-    case "TSK-0009": { const r = state.employerReports.find((x) => x.id === "ER-SISK-01"); return done(!!r && r.narrativeApproved, "Approve the clinical narrative in Reporting, Report Builder."); }
+    case "TSK-0008": { const r = state.employerReports.find((x) => x.id === "ER-SISK-01"); return done(!!r && r.status !== "draft", "Complete the disclosure review in Reporting, Report builder."); }
+    case "TSK-0009": { const r = state.employerReports.find((x) => x.id === "ER-SISK-01"); return done(!!r && r.narrativeApproved, "Approve the clinical narrative in Reporting, Report builder."); }
     case "TSK-0015":
     case "TSK-0016": { const f = state.followUps.find((x) => x.taskId === t.id); return done(!!f && f.status === "closed", "Record the follow-up outcome in Results, Follow-up."); }
   }

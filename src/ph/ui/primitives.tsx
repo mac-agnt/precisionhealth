@@ -2,7 +2,7 @@
    text plus an icon plus colour, never colour alone. */
 import { useId } from "react";
 import type { ButtonHTMLAttributes, CSSProperties, InputHTMLAttributes, ReactNode, SelectHTMLAttributes, TextareaHTMLAttributes } from "react";
-import { linkFor } from "../model";
+import { linkFor, PAGE_BY_ID, sectionOf } from "../model";
 import type { EntityKind } from "../model";
 import { useNav } from "../nav-context";
 import { Icon } from "./icons";
@@ -66,8 +66,22 @@ export function CardHeader({ title, sub, right, eyebrow }: { title: ReactNode; s
   );
 }
 
+/** Section · Page above every page title, so you always know where you are in the rail.
+    A page's own eyebrow is kept after it unless it only repeats the page name. */
+function useBreadcrumb(eyebrow: ReactNode): ReactNode {
+  const { page } = useNav();
+  const def = PAGE_BY_ID[page];
+  if (!def || page === "Home") return eyebrow;
+  const section = sectionOf(page);
+  const crumb = section ? `${section} · ${def.label}` : def.label;
+  if (eyebrow === undefined || eyebrow === null || eyebrow === "") return crumb;
+  if (typeof eyebrow === "string" && def.label.toLowerCase().startsWith(eyebrow.toLowerCase())) return crumb;
+  return <>{crumb} · {eyebrow}</>;
+}
+
 /** Page title block with the demo label and page actions. */
 export function PageHeader({ title, sub, actions, eyebrow }: { title: ReactNode; sub?: ReactNode; actions?: ReactNode; eyebrow?: ReactNode }) {
+  eyebrow = useBreadcrumb(eyebrow);
   return (
     <div className="ph-row-flex" style={{ alignItems: "flex-end", padding: "20px 0 16px", flexWrap: "wrap" }}>
       <div className="ph-grow" style={{ minWidth: 220 }}>

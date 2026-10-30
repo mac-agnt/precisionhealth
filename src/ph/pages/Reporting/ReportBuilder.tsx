@@ -1,4 +1,4 @@
-/* Report Builder: one defined cohort feeds the participation funnel, breakdowns, clinical
+/* Report builder: one defined cohort feeds the participation funnel, breakdowns, clinical
    indicators, narrative and exports. Disclosure control comes from the model selector; this screen
    never shows a suppressed count or a blocked subgroup. Martina completes the disclosure review,
    Neil approves the clinical narrative, approval freezes the snapshot behind every export. */
@@ -34,7 +34,7 @@ export default function ReportBuilder() {
   if (!r) {
     return (
       <div className="ph-page">
-        <PageHeader title="Report Builder" />
+        <PageHeader title="Report builder" />
         <Card pad={false}>
           <EmptyState title="Report not found" icon="file" action={<Button onClick={() => nav.go({ page: "Reporting", tab: "overview" })}>Back to Overview</Button>}>
             {paramId ? `There is no employer report with the id ${paramId}.` : "There are no employer reports yet."}
@@ -194,7 +194,7 @@ function NarrativeEditor({ r, m, text, setText, canBuild }: { r: EmployerReport;
     if (res.ok) { setSaved(true); setUnlocked(false); }
   };
   const draftBlock = !canBuild ? "This role cannot draft the narrative."
-    : !s.settings.aiDraftingOn ? "The AI drafting preview is off in Settings, AI Controls. Manual editing works as normal."
+    : !s.settings.aiDraftingOn ? "The AI drafting preview is off in Settings, AI controls. Manual editing works as normal."
       : approved || exported ? "The report is approved. Its narrative is frozen with the snapshot."
         : m.blocked ? "Use the programme-level view before drafting."
           : dirty ? "Save or discard your changes first. Drafting replaces the text."
