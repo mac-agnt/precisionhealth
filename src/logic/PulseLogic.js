@@ -45,7 +45,7 @@ import {
   buildGraph
 } from "./data";
 import { phStore, dispatch as phDispatch } from "../ph/store";
-import { act as phAct, defaultTab, hashFor, navAttention } from "../ph/model";
+import { act as phAct, defaultTab, hashFor, navAttention, resolveTab } from "../ph/model";
 import { phContext, phOverrides, applyHash, phFileTree } from "./phBridge";
 import { answerQuery as phAnswer, agentReply as phAgentReply, agentSuggestions as phAgentSuggestions, toDublin as phToDublin } from "../ph/model";
 
@@ -1229,7 +1229,7 @@ export default class PulseLogic extends DCLogic {
   }
   phGo(t){ this.phApply(t, true); }
   phApply(t, push){
-    const page = t.page, tab = t.tab || defaultTab(page);
+    const page = t.page, tab = resolveTab(page, t.tab);
     const order = NAV.filter(n => !n.divider).map(n => n.page).concat(["Settings"]);
     const from = order.indexOf(this.state.page), to = order.indexOf(page);
     this.setState(prev => {
