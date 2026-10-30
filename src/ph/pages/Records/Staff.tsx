@@ -7,7 +7,7 @@ import { PERM_DEFS, ROLE_LABEL, STORY_DEFS, act, activityFeed, approvalViews, fm
 import type { PhState, Staff as StaffT, TeamId } from "../../model";
 import { dispatch, usePersona, usePhState } from "../../store";
 import { useNav } from "../../nav-context";
-import { Avatar, Button, Card, CardHeader, Chip, DataTable, DemoTag, EntityLink, Pill, RestrictedNotice, Split } from "../../ui";
+import { Avatar, Button, Icon, Card, CardHeader, Chip, DataTable, DemoTag, EntityLink, Pill, RestrictedNotice, Split } from "../../ui";
 import type { Column } from "../../ui";
 import { ActivityList, DefList, PERM_TOTAL, SettingsHeader, YesNo, firstNameOf, rolePerms, sessionClient, sessionShort, staffSessions, staffToday } from "../Settings/common";
 
@@ -90,6 +90,13 @@ export default function Staff() {
         sub={`The ${s.staff.length} demonstration profiles taken from the public website. They are a demo roster, not the total headcount. Assignments and tasks are fictional.`}
       />
       <div className="ph-stack">
+        <div className="ph-card" style={{ display: "flex", alignItems: "center", gap: 14, padding: "14px 16px", borderStyle: "dashed" }}>
+          <span style={{ flex: "none", width: 36, height: 36, borderRadius: 11, display: "flex", alignItems: "center", justifyContent: "center", background: "var(--accent-soft)", color: "var(--accent)" }}><Icon name="users" size={17} /></span>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ color: "var(--ink)", fontWeight: 600, fontSize: 13.5 }}>Staff management <Pill tone="neutral" style={{ marginLeft: 6 }}>Phase 2</Pill></div>
+            <div style={{ color: "var(--dim)", fontSize: 12, lineHeight: 1.45 }}>Staff onboarding, contracts and training records in one place. Planned for phase 2, after screening, results and sales are live.</div>
+          </div>
+        </div>
         <div className="ph-wrap" style={{ gap: 6 }} role="group" aria-label="Filter by team">
           <Chip on={team === "all"} onClick={() => setTeam("all")} count={s.staff.length}>All teams</Chip>
           {s.teams.map((t) => (
