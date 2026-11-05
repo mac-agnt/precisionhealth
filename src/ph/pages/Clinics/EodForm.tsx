@@ -12,6 +12,7 @@ import type { BoardRowKind, ClinicSession, EodInput, ExpenseInput, ExpenseKind, 
 import { dispatch, usePersona, usePhState } from "../../store";
 import { Button, Checkbox, Field, Icon, Pill, Segmented, Select, Switch, TextInput, Textarea } from "../../ui";
 import { opsAct } from "./opsActions";
+import { clinicOutcomes } from "../NursePortal/data";
 import "./board.css";
 
 export interface EodPrefill {
@@ -37,8 +38,13 @@ export function EodFields({ prefill, chooseStaff, onDone, onCancel }: { prefill:
   const [clientLocation, setClientLocation] = useState(prefill.clientLocation);
   const [jobType, setJobType] = useState<JobType>(prefill.jobType || "lab_screening");
   const [dayLength, setDayLength] = useState<"full" | "half">("full");
-  const [screens, setScreens] = useState("");
-  const [dna, setDna] = useState("");
+  // A clinic session fills the counts in from the outcomes the clinician recorded on the clinic list.
+  const session = prefill.sessionId ? state.sessions.find((x) => x.id === prefill.sessionId) : undefined;
+  const outcomes = session ? clinicOutcomes(state, session) : null;
+  const [screens, setScreens] = useState(outcomes ? String(outcomes.completed) : "");
+  const [dna, setDna] = useState(outcomes ? String(outcomes.didNotArrive) : "");
+  const [cancelled, setCancelled] = useState(outcomes ? String(outcomes.cancelled) : "");
+  const openLeft = session && session.date === t && outcomes ? outcomes.open.length : 0;
   const [vaccines, setVaccines] = useState("");
   const [pre, setPre] = useState(""); const [mid, setMid] = useState(""); const [post, setPost] = useState("");
   const [batch, setBatch] = useState("");
@@ -50,7 +56,7 @@ export function EodFields({ prefill, chooseStaff, onDone, onCancel }: { prefill:
   const flu = jobType === "flu_vaccination";
   const input: EodInput = {
     staffId, date, clientLocation, programmeId: prefill.programmeId ?? null, sessionId: prefill.sessionId ?? null, boardItemId: prefill.boardItemId ?? null, jobType, dayLength,
-    screensCompleted: num(screens), dnaCount: num(dna), vaccinesAdministered: num(vaccines), preVaccineTempC: num(pre), intermediateVaccineTempC: num(mid), postVaccineTempC: num(post),
+    screensCompleted: num(screens), dnaCount: num(dna), cancelledCount: num(cancelled), vaccinesAdministered: num(vaccines), preVaccineTempC: num(pre), intermediateVaccineTempC: num(mid), postVaccineTempC: num(post),
     vaccineBatch: batch || null, issues, outsideDublin: outside, mileageKm: outside ? num(km) : null, psaCount: num(psa), fitKitCount: num(fit),
   };
   const errs = eodErrors(input, t);
@@ -59,7 +65,7 @@ export function EodFields({ prefill, chooseStaff, onDone, onCancel }: { prefill:
   const exc = eodExcursions(input);
   const submit = () => {
     setTried(true);
-    if (Object.keys(errs).length) return;
+    if (Object.keys(errs).length || openLeft) return;
     const r = dispatch(opsAct.submitEod(input));
     if (r.ok && r.id) onDone(r.id);
   };
@@ -79,8 +85,9 @@ export function EodFields({ prefill, chooseStaff, onDone, onCancel }: { prefill:
         <div className="span2"><Field label="Company and location" error={show("clientLocation")}><TextInput value={clientLocation} onChange={(e) => setClientLocation(e.target.value)} invalid={!!show("clientLocation")} /></Field></div>
         <Field label="Job completed" help="Pay rates differ by job."><Select value={jobType} onChange={(e) => setJobType(e.target.value as JobType)}>{EOD_JOB_TYPES.map((j) => <option key={j} value={j}>{EOD_JOB_TYPE_LABEL[j]}</option>)}</Select></Field>
         <Field label="Full or half day"><Segmented label="Day length" value={dayLength} onChange={setDayLength} options={[{ id: "full", label: "Full day" }, { id: "half", label: "Half day" }]} /></Field>
-        {!flu ? n("Screens completed", screens, setScreens, "screensCompleted") : null}
-        {n("Did not attend (DNA)", dna, setDna, "dnaCount")}
+        {!flu ? n("Screens completed", screens, setScreens, "screensCompleted", outcomes ? "From the clinic list: completed." : undefined) : null}
+        {n("Did not arrive (DNA)", dna, setDna, "dnaCount", outcomes ? "From the clinic list." : undefined)}
+        {n("Cancelled", cancelled, setCancelled, "cancelledCount", outcomes ? "From the clinic list: cancelled on the day." : "Leave blank if none.")}
         {n("Vaccines administered", vaccines, setVaccines, "vaccinesAdministered", flu ? undefined : "Leave blank if no vaccines.")}
         {flu || num(vaccines) ? (
           <Field label="Vaccine batch number" error={show("vaccineBatch")}><Select value={batch} onChange={(e) => setBatch(e.target.value)}><option value="">Choose</option>{EOD_VACCINE_BATCHES.map((b) => <option key={b} value={b}>{b}</option>)}</Select></Field>
@@ -98,10 +105,11 @@ export function EodFields({ prefill, chooseStaff, onDone, onCancel }: { prefill:
       </div>
       {exc.length ? <div className="brd-note warn"><Icon name="alert" size={14} /><span>{exc.map((x) => x.text).join(". ")}. Tell the nursing lead today; it shows on Flu, Cold chain.</span></div> : null}
       <div className="eod-pay"><span>Pay line</span><b>{fmtEuro(pay.total)}</b><span>{pay.label}</span><span className="ph-faint" style={{ fontSize: 11 }}>{EOD_RATES_NOTE}</span></div>
+      {openLeft ? <div className="brd-note warn"><Icon name="alert" size={14} /><span>{openLeft === 1 ? "One appointment is" : `${openLeft} appointments are`} not accounted for yet. Give each one an outcome on the clinic list (Check in, Did not arrive or Cancelled) before you submit.</span></div> : null}
       {tried && Object.keys(errs).length ? <div className="brd-note warn"><Icon name="alert" size={14} />{Object.keys(errs).length === 1 ? "One thing to fix" : `${Object.keys(errs).length} things to fix`} before it can be submitted.</div> : null}
       <div className="ph-wrap" style={{ gap: 8, justifyContent: "flex-end" }}>
         {onCancel ? <Button variant="ghost" onClick={onCancel}>Cancel</Button> : null}
-        <Button variant="primary" icon="check" onClick={submit}>Submit End of Day form</Button>
+        <Button variant="primary" icon="check" disabled={!!openLeft} title={openLeft ? "Account for every appointment first" : undefined} onClick={submit}>Submit End of Day form</Button>
       </div>
     </div>
   );
@@ -197,7 +205,7 @@ export function NurseDayForms({ session }: { session: ClinicSession }) {
         {mine ? <Pill tone="ok" icon="check">Submitted {mine.id}</Pill> : <Pill tone="warn" icon="clock">Not submitted yet</Pill>}
       </div>
       {mine && pay ? (
-        <div className="eod-pay" style={{ marginTop: 10 }}><span>{EOD_JOB_TYPE_LABEL[mine.jobType]}, {mine.dayLength} day{mine.screensCompleted !== null ? `, ${mine.screensCompleted} screens` : ""}{mine.dnaCount !== null ? `, ${mine.dnaCount} DNA` : ""}{mine.mileageKm ? `, ${mine.mileageKm} km` : ""}</span><b>{fmtEuro(pay.total)}</b><span className="ph-faint" style={{ fontSize: 11 }}>Illustrative pay line</span></div>
+        <div className="eod-pay" style={{ marginTop: 10 }}><span>{EOD_JOB_TYPE_LABEL[mine.jobType]}, {mine.dayLength} day{mine.screensCompleted !== null ? `, ${mine.screensCompleted} screens` : ""}{mine.dnaCount !== null ? `, ${mine.dnaCount} DNA` : ""}{mine.cancelledCount ? `, ${mine.cancelledCount} cancelled` : ""}{mine.mileageKm ? `, ${mine.mileageKm} km` : ""}</span><b>{fmtEuro(pay.total)}</b><span className="ph-faint" style={{ fontSize: 11 }}>Illustrative pay line</span></div>
       ) : null}
       <div className="ph-wrap" style={{ gap: 8, marginTop: 12 }}>
         {!mine ? <Button variant="primary" icon="edit" onClick={() => setOpen("eod")}>Fill in End of Day form</Button> : null}

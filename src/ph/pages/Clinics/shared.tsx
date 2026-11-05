@@ -46,7 +46,7 @@ export const APPT_META: Record<ApptStatus, { label: string; tone: Tone; icon: Gl
   checked_in: { label: "Checked in", tone: "info", icon: "user", help: "Checked in. Identity not confirmed and nothing captured yet." },
   in_progress: { label: "In progress", tone: "brand", icon: "edit", help: "Clinical capture under way." },
   completed: { label: "Completed", tone: "ok", icon: "check", help: "Appointment completed. An episode exists. Completing never releases a report." },
-  no_show: { label: "Did not attend", tone: "warn", icon: "alert", help: "Recorded as not attended." },
+  no_show: { label: "Did not arrive", tone: "warn", icon: "alert", help: "Recorded by the clinician as did not arrive." },
   cancelled: { label: "Cancelled", tone: "neutral", icon: "x", help: "Cancelled or rescheduled. The slot is free again." },
 };
 export function ApptPill({ status, rescheduled }: { status: ApptStatus; rescheduled?: boolean }) {

@@ -16,10 +16,10 @@ export function nurseSessionToday(state: PhState, staffId: string): ClinicSessio
   return mine.find((s) => s.nurseId === staffId) || mine.find((s) => s.supportIds.some((x) => x === staffId)) || null;
 }
 
-/** Confirmed appointments in a clinic, in slot order. */
+/** Appointments in a clinic, in slot order: confirmed ones and those the clinician cancelled on the day. */
 export function clinicRows(state: PhState, session: ClinicSession): ApptRow[] {
   return state.bookings
-    .filter((b) => b.sessionId === session.id && b.status === "confirmed")
+    .filter((b) => b.sessionId === session.id && (b.status === "confirmed" || !!b.cancelledAtClinic))
     .map((b) => apptRow(state, b))
     .filter((r): r is ApptRow => !!r)
     .sort((a, b) => (a.booking.slotStart < b.booking.slotStart ? -1 : a.booking.slotStart > b.booking.slotStart ? 1 : a.booking.id < b.booking.id ? -1 : 1));
@@ -31,8 +31,10 @@ export interface ClinicCounts {
   inProgress: number;
   completed: number;
   notArrived: number;
-  /** Booked, not checked in, and the slot time has passed. */
+  /** Recorded by the clinician as Did not arrive. Nobody becomes Did not arrive on their own. */
   didNotAttend: number;
+  /** Cancelled by the clinician on the day. */
+  cancelled: number;
   referrals: number;
   referralsPending: number;
   ecgReviews: number;
@@ -50,17 +52,35 @@ export function clinicCounts(state: PhState, session: ClinicSession): ClinicCoun
   const drafts = rows.map((r) => r.draft).filter((d): d is NonNullable<typeof d> => !!d);
   const epIds = new Set(eps.map((e) => e.id));
   return {
-    booked: rows.length,
+    booked: rows.filter((r) => r.status !== "cancelled").length,
     checkedIn: rows.filter((r) => r.status === "checked_in" || r.status === "in_progress").length,
     inProgress: rows.filter((r) => r.status === "in_progress").length,
     completed: rows.filter((r) => r.status === "completed").length,
     notArrived: rows.filter((r) => r.status === "not_arrived" || r.status === "upcoming").length,
-    didNotAttend: rows.filter((r) => r.status === "no_show" || (r.status === "not_arrived" && r.slotPassed)).length,
+    didNotAttend: rows.filter((r) => r.status === "no_show").length,
+    cancelled: rows.filter((r) => r.status === "cancelled").length,
     referrals: eps.filter((e) => !!e.nurseReferral).length,
     referralsPending: drafts.filter((d) => isNurseReferral(d)).length,
     ecgReviews: eps.filter((e) => !!e.capture.ecgReview).length + drafts.filter((d) => !!d.ecgReview).length,
     ecgPending: drafts.filter((d) => !d.ecgReview && needsEcgReview(d)).length,
     specimens: state.specimens.filter((s) => epIds.has(s.episodeId)).length,
+  };
+}
+
+/** An appointment the clinician has accounted for: completed, did not arrive, or cancelled. */
+export const accountedFor = (r: ApptRow) => r.status === "completed" || r.status === "no_show" || r.status === "cancelled";
+
+/**
+ * How the clinic's appointments ended, for the End of Day form. Every appointment needs an outcome
+ * before the form is submitted: open lists the ones still to account for.
+ */
+export function clinicOutcomes(state: PhState, session: ClinicSession): { completed: number; didNotArrive: number; cancelled: number; open: ApptRow[] } {
+  const rows = clinicRows(state, session);
+  return {
+    completed: rows.filter((r) => r.status === "completed").length,
+    didNotArrive: rows.filter((r) => r.status === "no_show").length,
+    cancelled: rows.filter((r) => r.status === "cancelled").length,
+    open: rows.filter((r) => !accountedFor(r)),
   };
 }
 

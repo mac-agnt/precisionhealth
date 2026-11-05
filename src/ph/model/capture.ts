@@ -70,6 +70,25 @@ export function parseIrishDate(s: string): string | null {
   return isRealDate(iso) ? iso : null;
 }
 
+/**
+ * Types the slashes of a dd/mm/yyyy date for the user: 27061966 becomes 27/06/1966 as they type.
+ * A separator after a single digit pads it (9/ becomes 09/). Deleting never re-adds a trailing slash.
+ */
+export function maskIrishDate(next: string, prev = ""): string {
+  const growing = next.length > prev.length;
+  const parts = next.split(/\D+/);
+  let digits = "";
+  parts.forEach((p, i) => {
+    const padded = i < parts.length - 1 && p.length === 1 && (digits.length === 0 || digits.length === 2) ? "0" + p : p;
+    digits += padded;
+  });
+  const d = digits.slice(0, 8);
+  let out = d.slice(0, 2);
+  if (d.length > 2 || (growing && d.length === 2)) out += "/" + d.slice(2, 4);
+  if (d.length > 4 || (growing && d.length === 4)) out += "/" + d.slice(4);
+  return out;
+}
+
 /* ================================================================================================
    Nurse form: "SISK Comprehensive (LAB) Screen V2", field for field, in the client's order and
    wording. A declarative schema the nurse workspace renders and the model validates. Fields are
@@ -163,7 +182,6 @@ export const NURSE_FORM_SECTIONS: NurseFormSection[] = [
     rec("lastName", "Last name", "family"),
     rec("email", "Email", "email"),
     rec("mobile", "Mobile", "phone"),
-    f("emailE", "Email E", "text", { help: "A second email address, if the participant gives one." }),
     rec("dob", "Date of birth", "dob", "date"),
     f("sexAtBirth", "Sex at birth", "choice", { options: ["Male", "Female"], required: true, prefillFrom: "booking" }),
     f("company", "Company", "choice", { options: COMPANY_OPTIONS, required: true, prefillFrom: "booking" }),

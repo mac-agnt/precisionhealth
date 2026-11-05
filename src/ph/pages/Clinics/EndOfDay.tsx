@@ -83,7 +83,7 @@ export default function EndOfDay() {
     { key: "nurse", header: "Nurse", sort: (a, b) => staffName(state, a.staffId).localeCompare(staffName(state, b.staffId)), cell: (e) => staffName(state, e.staffId) },
     { key: "where", header: "Company and location", nowrap: false, cell: (e) => <div style={{ minWidth: 180, maxWidth: 260, fontSize: 12.5 }}>{e.clientLocation}</div> },
     { key: "job", header: "Job", nowrap: false, cell: (e) => <div style={{ minWidth: 130, fontSize: 12.5 }}>{EOD_JOB_TYPE_LABEL[e.jobType]}<div className="ph-faint" style={{ fontSize: 11 }}>{e.dayLength === "full" ? "Full day" : "Half day"}</div></div> },
-    { key: "counts", header: "Done", nowrap: false, cell: (e) => <span className="ph-num" style={{ fontSize: 12.5 }}>{[e.screensCompleted !== null ? `${e.screensCompleted} screens` : "", e.vaccinesAdministered !== null ? `${e.vaccinesAdministered} vaccines` : "", e.dnaCount !== null ? `${e.dnaCount} DNA` : ""].filter(Boolean).join(", ") || "Talk or visit"}</span> },
+    { key: "counts", header: "Done", nowrap: false, cell: (e) => <span className="ph-num" style={{ fontSize: 12.5 }}>{[e.screensCompleted !== null ? `${e.screensCompleted} screens` : "", e.vaccinesAdministered !== null ? `${e.vaccinesAdministered} vaccines` : "", e.dnaCount !== null ? `${e.dnaCount} DNA` : "", e.cancelledCount ? `${e.cancelledCount} cancelled` : ""].filter(Boolean).join(", ") || "Talk or visit"}</span> },
     { key: "km", header: "Mileage", align: "right", sort: (a, b) => (a.mileageKm || 0) - (b.mileageKm || 0), cell: (e) => (e.mileageKm ? `${fmtInt(e.mileageKm)} km` : <span className="ph-faint">Dublin</span>) },
     { key: "pay", header: "Pay line", align: "right", cell: (e) => fmtEuro(eodPayLine(e).total) },
     { key: "flags", header: "", cell: (e) => <span className="ph-wrap" style={{ gap: 4 }}>{eodExcursions(e).length ? <Pill tone="bad" icon="alert">Cold chain</Pill> : null}{late(e) ? <Pill tone="warn" icon="clock">Next day</Pill> : null}{e.submittedBy ? <Pill>By {staffName(state, e.submittedBy).split(" ")[0]}</Pill> : null}</span> },
@@ -161,7 +161,7 @@ function EodDrawer({ e, onClose }: { e: EndOfDaySubmission; onClose: () => void 
   const temp = (v: number | null) => (v === null ? "Not recorded" : `${v.toFixed(1)} °C`);
   const rows: Array<[string, string]> = [
     ["Date", fmtWeekdayDate(e.date)], ["Company and location", e.clientLocation], ["Job completed", EOD_JOB_TYPE_LABEL[e.jobType]], ["Full or half day", e.dayLength === "full" ? "Full day" : "Half day"],
-    ["Screens completed", e.screensCompleted === null ? "Not applicable" : String(e.screensCompleted)], ["Did not attend (DNA)", e.dnaCount === null ? "Not applicable" : String(e.dnaCount)],
+    ["Screens completed", e.screensCompleted === null ? "Not applicable" : String(e.screensCompleted)], ["Did not arrive (DNA)", e.dnaCount === null ? "Not applicable" : String(e.dnaCount)], ["Cancelled", e.cancelledCount == null ? "Not recorded" : String(e.cancelledCount)],
     ["Vaccines administered", e.vaccinesAdministered === null ? "None" : String(e.vaccinesAdministered)], ["Pre-vaccine temperature", temp(e.preVaccineTempC)], ["Intermediate temperature", temp(e.intermediateVaccineTempC)],
     ["Post-vaccine temperature", temp(e.postVaccineTempC)], ["Vaccine batch", e.vaccineBatch || "None"], ["PSAs and FIT kits", `${e.psaCount ?? "None"} PSAs, ${e.fitKitCount ?? "None"} FIT kits`],
     ["Issues and adverse reactions", e.issues || "None"], ["Screening outside Dublin", e.outsideDublin ? `Yes, ${e.mileageKm} km claimed` : "No"],

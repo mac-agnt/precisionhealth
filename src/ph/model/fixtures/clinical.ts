@@ -220,7 +220,6 @@ function completedCapture(r: Rng, person: Person, bookingId: string, collectedAt
 function seedNurseForm(cap: ClinicalCapture, x: Rng, o: { person: Person; answers: Answers; age: number; site: string; employer: string; nurseName: string; routine: boolean; mixed: boolean; collectedAt: Iso }): void {
   const { person, answers: a, age } = o;
   const form: Record<string, NurseFormValue> = { ...nurseFormPrefill(a, { site: o.site, employer: o.employer, sex: person.sex, clinician: o.nurseName }) };
-  form.emailE = null;
   form.smokingHistory = a.smokesCigarettes === "Ex-smoker" ? `Stopped ${x.int(2, 15)} years ago.` : a.smokesCigarettes === "Yes" ? "Current smoker." : null;
   // Bowel: FIT for those over 50 or with a risk factor; an informed choice otherwise.
   const bowelRisk = a.bloodInStool === true || a.bowelHabitChange === true || a.famHistoryBowel === true;

@@ -10,7 +10,7 @@ import type { AnalyteCode, Band, ClinicalCapture, Episode, MeasureKey, NurseForm
 import {
   FIT_INFORMED_CHOICE_TEXT, IDENTITY_HELP, MEASURE_RULES, NURSE_FORM_SECTIONS, POC_FORM_SECTIONS, PROGRAMME_BY_ID, PSA_INFORMED_CHOICE_TEXT, REPORT_STATE_LABEL, act, ageOn, bmiCategory, bmiOf, bpCategory, ecgBand, expectedPanel,
   fitKitGiven, fmtDateLong, fmtDateTime, fmtNumericDate, fmtTime, isNurseReferral, ix, localTimeOf, measureError, membershipOf, needsEcgReview, nurseFieldValue, nurseFieldVisible,
-  nurseFormMissing, nurseFormRows, nurseSectionVisible, parseIrishDate, pocArmSpan, pocEcgBand, pocFieldVisible, pocFormMissing, pocInterArmSystolic, pocSectionVisible, psaTaken, urineBand, waistCategory,
+  maskIrishDate, nurseFormMissing, nurseFormRows, nurseSectionVisible, parseIrishDate, pocArmSpan, pocEcgBand, pocFieldVisible, pocFormMissing, pocInterArmSystolic, pocSectionVisible, psaTaken, urineBand, waistCategory,
 } from "../../model";
 import type { LiveBand, LivePerson, LiveTestId } from "../../model/nurseEntry";
 import { liveBand, suggestedOutcome, toldUsFlagCount, whatTheyToldUs } from "../../model/nurseEntry";
@@ -552,7 +552,16 @@ export function NurseCapture({ row, draft, variant, onCompleted, onOpenTask }: N
               </div>
             </div>
           ) : (
-            <SectionBody kit={kit} sec={cur} />
+            <>
+              <SectionBody kit={kit} sec={cur} />
+              {cur.toConfirm.length ? (
+                <div className="nf-confirm-foot">
+                  <span className="ph-dim">Asked them all? Confirm the {cur.toConfirm.length === 1 ? "answer" : `${cur.toConfirm.length} answers`} still to check.</span>
+                  <Button variant="primary" icon="check" disabled={disabled} onClick={() => conf.confirm(cur.toConfirm)}
+                    title="Use after reading each answer back to the participant">Confirm {cur.toConfirm.length} answer{cur.toConfirm.length === 1 ? "" : "s"}</Button>
+                </div>
+              ) : null}
+            </>
           )}
 
           <div className="nf-pager">
@@ -742,7 +751,7 @@ function Field({ kit, field, sec, after, hideHelp, lock }: { kit: Kit; field: Nu
       const text = typeof raw === "string" ? raw : "";
       control = long
         ? <Textarea id={id} rows={field.key === "nurseComments" ? 3 : 2} maxLength={1000} value={text} disabled={disabled} onChange={(e) => set(e.target.value)} />
-        : <TextInput id={id} type={field.key === "emailE" ? "email" : "text"} value={text} disabled={disabled} list={field.key === "ecgMachine" ? "nf-ecg-machines" : undefined} onChange={(e) => set(e.target.value)} />;
+        : <TextInput id={id} value={text} disabled={disabled} list={field.key === "ecgMachine" ? "nf-ecg-machines" : undefined} onChange={(e) => set(e.target.value)} />;
       break;
     }
   }
@@ -916,7 +925,7 @@ function IdentityPanel({ kit }: { kit: Kit }) {
             <div className="nf-inline" style={{ marginTop: 12 }}>
               <div>
                 <label className="ph-label" htmlFor={dobId}>Date of birth, as the participant states it</label>
-                <TextInput id={dobId} value={dob} placeholder="dd/mm/yyyy" inputMode="numeric" autoComplete="off" invalid={!!dobFmt} onChange={(e) => setDob(e.target.value)} />
+                <TextInput id={dobId} value={dob} placeholder="dd/mm/yyyy" inputMode="numeric" autoComplete="off" invalid={!!dobFmt} onChange={(e) => setDob(maskIrishDate(e.target.value, dob))} maxLength={10} />
                 {dobFmt ? <div className="ph-err" role="alert">{dobFmt}</div> : null}
               </div>
               <div>
