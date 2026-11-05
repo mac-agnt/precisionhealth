@@ -221,6 +221,8 @@ export interface Booking {
   replaces: Id | null;
   replacedBy: Id | null;
   cancelReason?: string;
+  /** Cancelled by the clinician on the day: it stays on the clinic list and counts on the End of Day form. */
+  cancelledAtClinic?: boolean;
 }
 
 /* ---- clinical capture ---- */

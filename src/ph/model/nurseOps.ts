@@ -30,6 +30,8 @@ export interface EndOfDaySubmission {
   dayLength: "full" | "half";
   screensCompleted: number | null;
   dnaCount: number | null;
+  /** Appointments the clinician recorded as Cancelled on the day. Absent on older forms. */
+  cancelledCount?: number | null;
   vaccinesAdministered: number | null;
   /** Cold chain, degrees Celsius. Null when no vaccines were carried. */
   preVaccineTempC: number | null;
@@ -116,17 +118,18 @@ export function eodErrors(i: EodInput, today: LocalDate): Record<string, string>
   if (!i.clientLocation.trim()) out.clientLocation = "Enter the client and location.";
   if (!EOD_JOB_TYPES.includes(i.jobType)) out.jobType = "Choose the job completed.";
   if (i.dayLength !== "full" && i.dayLength !== "half") out.dayLength = "Choose full or half day.";
-  const count = (k: "screensCompleted" | "dnaCount" | "vaccinesAdministered", label: string, max: number) => {
-    const v = i[k];
+  const count = (k: "screensCompleted" | "dnaCount" | "cancelledCount" | "vaccinesAdministered", label: string, max: number) => {
+    const v = i[k] ?? null;
     if (v === null) return;
     if (!isInt(v) || v < 0 || v > max) out[k] = `${label} must be a whole number from 0 to ${max}.`;
   };
   count("screensCompleted", "Screens completed", 300);
-  count("dnaCount", "Did not attend", 300);
+  count("dnaCount", "Did not arrive", 300);
+  count("cancelledCount", "Cancelled", 300);
   count("vaccinesAdministered", "Vaccines administered", 2000);
   const screening = i.jobType === "lab_screening" || i.jobType === "poc_screening" || i.jobType === "cardiac_screening";
   if (screening && i.screensCompleted === null && !out.screensCompleted) out.screensCompleted = "Enter the number of screens completed. Write 0 if none.";
-  if (screening && i.dnaCount === null && !out.dnaCount) out.dnaCount = "Enter the number who did not attend. Write 0 if none.";
+  if (screening && i.dnaCount === null && !out.dnaCount) out.dnaCount = "Enter the number who did not arrive. Write 0 if none.";
   if (i.jobType === "flu_vaccination" && i.vaccinesAdministered === null && !out.vaccinesAdministered) out.vaccinesAdministered = "Enter the number of vaccines administered.";
   const vaccines = (i.vaccinesAdministered || 0) > 0;
   for (const [k, label] of [["preVaccineTempC", "Pre-vaccine temperature"], ["intermediateVaccineTempC", "Intermediate vaccine temperature"], ["postVaccineTempC", "Post-vaccine temperature"]] as const) {
@@ -473,7 +476,7 @@ function eodSeed(): EndOfDaySubmission[] {
     const { at, nextDay, ...rest } = r;
     return {
       id: `EOD-${String(i + 1).padStart(4, "0")}`, programmeId: null, sessionId: null, vaccinesAdministered: null, preVaccineTempC: null, intermediateVaccineTempC: null, postVaccineTempC: null,
-      vaccineBatch: null, outsideDublin: false, mileageKm: null, psaCount: null, fitKitCount: null, submittedBy: null, boardItemId: null,
+      vaccineBatch: null, outsideDublin: false, mileageKm: null, psaCount: null, fitKitCount: null, cancelledCount: null, submittedBy: null, boardItemId: null,
       ...rest, submittedAt: dublinToUtc(nextDay ? addDays(r.date, 1) : r.date, at),
     };
   });

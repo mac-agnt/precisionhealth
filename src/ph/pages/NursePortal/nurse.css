@@ -58,6 +58,7 @@
 .nf-pager { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--border); }
 .nf-portal .nf-pager .ph-btn { height: var(--nf-hit); }
 .nf-foot { font-size: 11px; margin-top: 10px; }
+.nf-confirm-foot { display: flex; align-items: center; justify-content: flex-end; gap: 12px; flex-wrap: wrap; margin-top: 18px; font-size: 12.5px; }
 
 /* fields */
 .nf-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px 18px; min-width: 0; }
@@ -239,7 +240,7 @@
 .np-kv { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px 16px; margin: 12px 0 0; padding-top: 12px; border-top: 1px solid var(--border); }
 .np-kv dt { font-size: 11px; color: var(--faint); margin: 0 0 2px; }
 .np-kv dd { margin: 0; font-size: 13px; color: var(--ink); line-height: 1.4; }
-.np-counts { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 10px; }
+.np-counts { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; }
 .np-bp-tablet .np-counts { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .np-bp-phone .np-counts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .np-count { padding: 12px 14px; border-radius: 14px; border: 1px solid var(--border); background: var(--surface); min-width: 0; }
@@ -252,7 +253,7 @@
 .np-filter .ph-num { opacity: .7; }
 
 .np-list { display: flex; flex-direction: column; min-width: 0; }
-.np-row { display: grid; grid-template-columns: 74px minmax(0, 1.6fr) minmax(0, 1fr) minmax(0, 1fr) 132px; gap: 12px; align-items: center; padding: 10px 14px; border-top: 1px solid var(--border); min-height: 60px; }
+.np-row { display: grid; grid-template-columns: 74px minmax(0, 1.6fr) minmax(0, 1fr) minmax(0, 1fr) 176px; gap: 12px; align-items: center; padding: 10px 14px; border-top: 1px solid var(--border); min-height: 60px; }
 .np-row:first-child { border-top: 0; }
 .np-row.head { min-height: 0; padding-top: 8px; padding-bottom: 8px; font-size: 11px; color: var(--faint); background: var(--surface-faint); border-radius: 12px 12px 0 0; }
 .np-row.next { background: var(--accent-faint); box-shadow: inset 3px 0 0 var(--accent); }
@@ -264,7 +265,7 @@
 .np-who { min-width: 0; }
 .np-who b { display: block; color: var(--ink); font-weight: 500; font-size: 13.5px; }
 .np-who small { display: block; color: var(--faint); font-size: 11px; font-family: var(--mono); }
-.np-bp-tablet .np-row { grid-template-columns: 64px minmax(0, 1.4fr) minmax(0, 1fr) 120px; }
+.np-bp-tablet .np-row { grid-template-columns: 64px minmax(0, 1.4fr) minmax(0, 1fr) 168px; }
 .np-bp-tablet .np-row .np-col-q { display: none; }
 .np-q-inline { display: none; }
 .np-bp-tablet .np-q-inline { display: inline-flex; margin-top: 4px; }
@@ -362,3 +363,14 @@
 button.np-count { text-align: left; font: inherit; color: inherit; cursor: pointer; transition: border-color .15s var(--ease); }
 button.np-count:hover { border-color: var(--accent-line, var(--accent)); }
 button.np-count[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-faint, var(--accent-soft)); }
+
+/* Appointment outcome: Check in, with Did not arrive and Cancelled underneath. */
+.np-outcome { display: flex; flex-direction: column; align-items: stretch; gap: 6px; width: 100%; }
+.np-outcome-alt { display: flex; gap: 6px; }
+.np-outcome-btn { flex: 1; height: 28px; padding: 0 8px; border-radius: var(--r-ctl, 10px); border: 1px solid var(--border); background: transparent; color: var(--dim); font: inherit; font-size: 11.5px; white-space: nowrap; cursor: pointer; transition: color .15s var(--ease), border-color .15s var(--ease), background .15s var(--ease); }
+.np-outcome-btn:hover:not(:disabled) { color: var(--ink); border-color: var(--border-strong, var(--faint)); }
+.np-outcome-btn:disabled { opacity: .45; cursor: not-allowed; }
+.np-outcome-btn.sure { color: var(--warn); border-color: var(--warn); background: var(--warn-soft); }
+.np-bp-phone .np-outcome-btn { height: 36px; }
+.np-mini-outcome li { flex-wrap: wrap; }
+.np-mini-outcome .np-outcome { width: auto; min-width: 200px; }

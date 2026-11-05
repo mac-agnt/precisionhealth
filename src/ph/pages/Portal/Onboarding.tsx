@@ -4,7 +4,7 @@
    booking by itself. */
 import { useEffect, useRef, useState } from "react";
 import type { FormEvent, ReactNode } from "react";
-import { act, fmtDate, fmtNumericDate, parseIrishDate, today } from "../../model";
+import { act, fmtDate, fmtNumericDate, maskIrishDate, parseIrishDate, today } from "../../model";
 import type { Membership } from "../../model";
 import { dispatch, usePhState } from "../../store";
 import { Button, Card, DemoTag, Field, Icon, Pill, ProgressBar, TextInput, Textarea } from "../../ui";
@@ -299,14 +299,15 @@ const describedBy = (id: string, err?: string, help?: unknown) => [err ? id + "-
 
 /* ---- your details ---- */
 function DetailsForm({ d, answers, set, errFor, todayIso, onSave, onLater }: { d: PortalData; answers: Answers; set: SetFn; errFor: ErrFn; todayIso: string; onSave: () => void; onLater: () => void }) {
-  const text = (k: string, label: string, opts: { type?: string; auto?: string; help?: ReactNode; placeholder?: string; inputMode?: "numeric" | "tel" | "email" } = {}) => {
+  const text = (k: string, label: string, opts: { type?: string; auto?: string; help?: ReactNode; placeholder?: string; inputMode?: "numeric" | "tel" | "email"; date?: boolean } = {}) => {
     const id = fieldId(k);
     const err = errFor(k);
     return (
       <div className="pp-field">
         <label className="pp-q-label" htmlFor={id}>{label}</label>
         <TextInput id={id} type={opts.type || "text"} autoComplete={opts.auto} inputMode={opts.inputMode} placeholder={opts.placeholder} value={String(answers[k] ?? "")} invalid={!!err}
-          aria-describedby={describedBy(id, err, opts.help)} onChange={(e) => set(k, e.target.value)} />
+          aria-describedby={describedBy(id, err, opts.help)} maxLength={opts.date ? 10 : undefined}
+          onChange={(e) => set(k, opts.date ? maskIrishDate(e.target.value, String(answers[k] ?? "")) : e.target.value)} />
         <Err text={err} help={opts.help} id={id} />
       </div>
     );
@@ -338,7 +339,7 @@ function DetailsForm({ d, answers, set, errFor, todayIso, onSave, onLater }: { d
           </div>
         ) : null}
       </div>
-      {text(DK.dob, "Date of birth *", { placeholder: "dd/mm/yyyy", inputMode: "numeric", auto: "bday", help: "As dd/mm/yyyy, for example 09/06/1993." })}
+      {text(DK.dob, "Date of birth *", { placeholder: "dd/mm/yyyy", inputMode: "numeric", auto: "bday", date: true, help: "As dd/mm/yyyy, for example 09/06/1993." })}
       {dobDiffers ? <div className="pp-callout" role="note" style={{ marginBottom: 12 }}><Icon name="info" size={14} style={{ marginTop: 2, color: "var(--accent)" }} /><span>This is different from your invitation record ({fmtNumericDate(d.person.dob)}). If it is right, keep it and email {SUPPORT_EMAIL} so we can correct the record before your appointment. The nurse checks your date of birth on the day.</span></div> : null}
       <div className="pp-field">
         <span className="pp-q-label" id={fieldId(DK.sex) + "-label"}>Sex at birth *</span>
@@ -423,7 +424,7 @@ function ConsentForm({ d, answers, set, errFor, onSave, onBack, onLater }: { d: 
         <div className="pp-field">
           <label className="pp-q-label" htmlFor={fieldId(CK.date)}>Date *</label>
           <TextInput id={fieldId(CK.date)} inputMode="numeric" placeholder="dd/mm/yyyy" value={String(answers[CK.date] ?? "")} invalid={!!errFor(CK.date)}
-            aria-describedby={describedBy(fieldId(CK.date), errFor(CK.date), true)} onChange={(e) => set(CK.date, e.target.value)} />
+            aria-describedby={describedBy(fieldId(CK.date), errFor(CK.date), true)} onChange={(e) => set(CK.date, maskIrishDate(e.target.value, String(answers[CK.date] ?? "")))} maxLength={10} />
           <Err text={errFor(CK.date)} id={fieldId(CK.date)} help="Filled in with today. You can change it." />
         </div>
       </div>

@@ -110,6 +110,8 @@ export const act = {
   cancelBooking: (bookingId: string, reason?: string) => ({ type: "booking/cancel", bookingId, reason }),
   /* nurse workspace */
   checkIn: (bookingId: string) => ({ type: "clinic/checkIn", bookingId }),
+  /** The clinician's outcome for someone not seen: Did not arrive or Cancelled. "booked" undoes a Did not arrive. */
+  recordOutcome: (bookingId: string, outcome: "did_not_arrive" | "cancelled" | "booked") => ({ type: "clinic/outcome", bookingId, outcome }),
   confirmIdentity: (bookingId: string, dob: string, reference: string) => ({ type: "clinic/confirmIdentity", bookingId, dob, reference }),
   /** form carries nurse-form fields stored on capture.form (see NURSE_FORM_SECTIONS); null clears a field. */
   saveCapture: (bookingId: string, baseRev: number, patch: { measures?: Measures; urine?: { protein: string; glucose: string; blood: string; wcc?: string } | null; notes?: string; form?: Record<string, NurseFormValue> }) => ({ type: "clinic/saveCapture", bookingId, baseRev, ...patch }),

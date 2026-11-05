@@ -9,6 +9,7 @@ import {
   BOARD_SCREENING_TYPES, BOARD_STATUSES, EOD_JOB_TYPE_LABEL, EXPENSE_APPROVERS, EXPENSE_KIND_LABEL, boardTarget, briefEveningBefore, eodErrors, eodPayLine, expenseErrors,
   expenseSummary, fmtEuro, fmtWeekdayDate, gapsNext, localDateOf, registerHandlers, staffName, subsistenceAmount,
 } from "../../model";
+import { clinicOutcomes } from "../NursePortal/data";
 
 const me = (c: Ctx) => c.persona().id as StaffId;
 const todayOf = (c: Ctx) => localDateOf(c.now);
@@ -149,6 +150,12 @@ registerHandlers({
     const errs = eodErrors(i, todayOf(c));
     const first = Object.values(errs)[0];
     if (first) return c.fail(first);
+    // On the clinic day every appointment needs an outcome (completed, did not arrive or cancelled) before the form goes in.
+    const session = i.sessionId ? c.s.sessions.find((x) => x.id === i.sessionId) : undefined;
+    if (session && session.date === todayOf(c)) {
+      const left = clinicOutcomes(c.s, session).open.length;
+      if (left) return c.fail(`${left} appointment${left === 1 ? " is" : "s are"} not accounted for yet. Check in, Did not arrive or Cancelled for each one first.`);
+    }
     const ops = c.s.nurseOps;
     const dup = ops.endOfDay.find((e) => e.staffId === i.staffId && e.date === i.date && ((i.sessionId && e.sessionId === i.sessionId) || (i.boardItemId && e.boardItemId === i.boardItemId) || (!i.sessionId && !i.boardItemId && e.clientLocation.trim().toLowerCase() === i.clientLocation.trim().toLowerCase())));
     if (dup) return c.fail(`${staffName(c.s, i.staffId)} already submitted the End of Day form for this day (${dup.id}).`);

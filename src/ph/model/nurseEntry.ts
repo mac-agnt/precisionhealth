@@ -73,7 +73,9 @@ export function liveBand(test: LiveTestId, value: number | null | undefined, who
   }
   const band: Band = r.band;
   const urgent = r.outcome === "high_critical";
-  const word = urgent ? "Urgent" : WORD[band];
+  // BMI says what it means (Underweight, Overweight, Obese) rather than a generic band word, as Neil asked.
+  const bmiWord = test === "bmi" && /^(UNDERWEIGHT|NORMAL|OVERWEIGHT|OBESE)$/.test(r.label) ? r.label.charAt(0) + r.label.slice(1).toLowerCase() : null;
+  const word = urgent ? "Urgent" : bmiWord ?? WORD[band];
   return { band, word, label: r.label, normalText, versionText, recordedOnly: false, urgent };
 }
 

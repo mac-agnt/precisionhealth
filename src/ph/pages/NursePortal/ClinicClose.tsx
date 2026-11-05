@@ -1,13 +1,15 @@
 /* End of day: what happened in this clinic and the specimen manifest for the Eurofins courier.
    The manifest carries identifiers only (Precision ID and specimen ID), never clinical values. */
+import { useState } from "react";
 import type { ReactNode } from "react";
 import type { ClinicSession } from "../../model";
-import { PROGRAMME_BY_ID, fmtDateLong, fmtTime, ix } from "../../model";
-import { usePhState } from "../../store";
+import { PROGRAMME_BY_ID, act, fmtDateLong, fmtTime, ix } from "../../model";
+import { dispatch, usePhState } from "../../store";
 import { Button, DemoTag, Icon, Pill } from "../../ui";
 import { Portal } from "../Clinics/shared";
 import { clinicCounts, clinicEpisodes, clinicRows } from "./data";
 import { NurseDayForms } from "../Clinics/EodForm";
+import { OutcomeActions, UndoDna } from "./ClinicDay";
 
 export function ClinicClose({ session, onOpen, onOpenTask, receipt }: { session: ClinicSession; onOpen: (bookingId: string) => void; onOpenTask: (taskId: string) => void; receipt?: ReactNode }) {
   const state = usePhState();
@@ -15,8 +17,11 @@ export function ClinicClose({ session, onOpen, onOpenTask, receipt }: { session:
   const c = clinicCounts(state, session);
   const eps = clinicEpisodes(state, session).slice().sort((a, b) => (a.collectedAt < b.collectedAt ? -1 : 1));
   const open = rows.filter((r) => r.status === "checked_in" || r.status === "in_progress");
-  const dna = rows.filter((r) => r.status === "no_show" || (r.status === "not_arrived" && r.slotPassed));
-  const toCome = rows.filter((r) => (r.status === "not_arrived" && !r.slotPassed) || r.status === "upcoming");
+  const [msg, setMsg] = useState<string | null>(null);
+  const dna = rows.filter((r) => r.status === "no_show");
+  const cancelled = rows.filter((r) => r.status === "cancelled");
+  // Not checked in and no outcome yet. Nobody becomes Did not arrive on their own.
+  const toAccount = rows.filter((r) => r.status === "not_arrived" || r.status === "upcoming");
   const name = (personId: string) => { const p = ix(state).personById.get(personId); return p ? `${p.given} ${p.family}` : personId; };
   const lab = state.companies.find((x) => x.id === "co-eurofins")?.name || "Eurofins";
   const manifest = eps.flatMap((e) => state.specimens.filter((s) => s.episodeId === e.id).map((s) => ({ e, s })));
@@ -24,7 +29,7 @@ export function ClinicClose({ session, onOpen, onOpenTask, receipt }: { session:
   const ecg = eps.filter((e) => !!e.capture.ecgReview);
   const ecgDrafts = rows.filter((r) => r.draft?.ecgReview);
   const addOns = (codes: string[]) => [codes.includes("PSA") ? "PSA requested" : "", codes.includes("FIT") ? "FIT kit given" : ""].filter(Boolean).join(", ") || "None";
-  const ready = open.length === 0;
+  const ready = open.length === 0 && toAccount.length === 0;
 
   const manifestTable = (
     <table className="np-table">
@@ -54,15 +59,18 @@ export function ClinicClose({ session, onOpen, onOpenTask, receipt }: { session:
         <p className="np-lead">{PROGRAMME_BY_ID[session.programmeId].name}. {fmtDateLong(session.date)}, {session.start} to {session.end}. {session.siteName}.</p>
         <div style={{ marginTop: 10 }}>
           {ready
-            ? <Pill tone="ok" icon="check" style={{ maxWidth: "100%" }}>{toCome.length ? `${toCome.length} still to arrive. Nothing open right now.` : "Nothing open. Ready to close."}</Pill>
-            : <Pill tone="warn" icon="alert" style={{ maxWidth: "100%" }}>{open.length} appointment{open.length === 1 ? "" : "s"} still open. Complete them before you close.</Pill>}
+            ? <Pill tone="ok" icon="check" style={{ maxWidth: "100%" }}>Every appointment accounted for. Ready for the End of Day form.</Pill>
+            : open.length
+              ? <Pill tone="warn" icon="alert" style={{ maxWidth: "100%" }}>{open.length} appointment{open.length === 1 ? "" : "s"} still open. Complete them before you close.</Pill>
+              : <Pill tone="warn" icon="alert" style={{ maxWidth: "100%" }}>{toAccount.length} appointment{toAccount.length === 1 ? "" : "s"} without an outcome. Check in, Did not arrive or Cancelled.</Pill>}
         </div>
       </div>
 
       <div className="np-counts">
         <Count icon="check" label="Completed" value={c.completed} sub={`of ${c.booked} booked`} />
-        <Count icon="x" label="Did not attend" value={dna.length} sub="Slot passed, not checked in" />
-        <Count icon="edit" label="Still open" value={open.length} sub="Checked in, not completed" />
+        <Count icon="x" label="Did not arrive" value={dna.length} sub="Recorded by the clinician" />
+        <Count icon="calendar" label="Cancelled" value={cancelled.length} sub="On the day, slot freed" />
+        <Count icon="edit" label="Still open" value={open.length + toAccount.length} sub={toAccount.length ? `${toAccount.length} without an outcome` : "Checked in, not completed"} />
         <Count icon="alert" label="Referrals" value={c.referrals} sub="Doctor review tasks" />
         <Count icon="flag" label="ECG reviews" value={c.ecgReviews} sub="Photo to the clinical channel" />
         <Count icon="flask" label="Specimens" value={c.specimens} sub={`For the ${lab} courier`} />
@@ -79,15 +87,31 @@ export function ClinicClose({ session, onOpen, onOpenTask, receipt }: { session:
         </div>
       ) : null}
 
+      {toAccount.length ? (
+        <div className="np-card">
+          <h2 className="ph-h2">Without an outcome</h2>
+          <div className="ph-faint" style={{ fontSize: 11.5, marginTop: 3 }}>Every appointment needs an outcome before the End of Day form. The counts below fill it in.</div>
+          {msg ? <div className="clx-banner warn" style={{ marginTop: 10 }}><Icon name="alert" size={14} style={{ color: "var(--warn)", marginTop: 2 }} /><span>{msg}</span></div> : null}
+          <ul className="np-mini np-mini-outcome" style={{ marginTop: 10 }}>
+            {toAccount.map((r) => (
+              <li key={r.booking.id}><Icon name="clock" size={13} /><span className="ph-grow">{r.booking.slotStart} {r.person.given} {r.person.family} <span className="ph-faint ph-mono">{r.booking.id}</span></span>
+                <OutcomeActions r={r} primary={false} onCheckIn={() => { const res = dispatch(act.checkIn(r.booking.id)); if (res.ok) { setMsg(null); onOpen(r.booking.id); } else setMsg(res.message || "Not checked in."); }} onMsg={setMsg} />
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+
       <NurseDayForms session={session} />
 
       <div className="np-two">
         <div className="np-card">
-          <h2 className="ph-h2">Did not attend</h2>
-          <div className="ph-faint" style={{ fontSize: 11.5, marginTop: 3 }}>Booked, slot time passed, not checked in. The office follows up and offers a new slot.</div>
+          <h2 className="ph-h2">Did not arrive and cancelled</h2>
+          <div className="ph-faint" style={{ fontSize: 11.5, marginTop: 3 }}>Recorded by the clinician on the clinic list. The office follows up and offers a new slot.</div>
           <ul className="np-mini" style={{ marginTop: 10 }}>
-            {dna.length ? dna.map((r) => <li key={r.booking.id}><Icon name="x" size={13} /><span>{r.booking.slotStart} {r.person.given} {r.person.family} <span className="ph-faint ph-mono">{r.booking.id}</span></span></li>)
-              : <li><Icon name="check" size={13} /><span>None so far.{toCome.length ? ` ${toCome.length} still to arrive.` : ""}</span></li>}
+            {dna.map((r) => <li key={r.booking.id}><Icon name="x" size={13} /><span className="ph-grow">Did not arrive: {r.booking.slotStart} {r.person.given} {r.person.family} <span className="ph-faint ph-mono">{r.booking.id}</span></span><UndoDna r={r} onMsg={setMsg} /></li>)}
+            {cancelled.map((r) => <li key={r.booking.id}><Icon name="calendar" size={13} /><span>Cancelled: {r.booking.slotStart} {r.person.given} {r.person.family} <span className="ph-faint ph-mono">{r.booking.id}</span></span></li>)}
+            {!dna.length && !cancelled.length ? <li><Icon name="check" size={13} /><span>None so far.</span></li> : null}
           </ul>
         </div>
         <div className="np-card">
@@ -136,7 +160,7 @@ export function ClinicClose({ session, onOpen, onOpenTask, receipt }: { session:
   );
 }
 
-function Count({ icon, label, value, sub }: { icon: "check" | "x" | "edit" | "alert" | "flag" | "flask"; label: string; value: number; sub: string }) {
+function Count({ icon, label, value, sub }: { icon: "check" | "x" | "edit" | "alert" | "flag" | "flask" | "calendar"; label: string; value: number; sub: string }) {
   return (
     <div className="np-count">
       <div className="np-count-label"><Icon name={icon} size={12} />{label}</div>

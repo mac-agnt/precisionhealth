@@ -291,6 +291,47 @@ handlers["clinic/checkIn"] = (c, a: { bookingId: string }) => {
   return c.ok(poc ? "Checked in. Choose the screen type, then confirm their identity." : "Checked in. Confirm their identity first.", "ok", b.id);
 };
 
+/**
+ * The clinician accounts for everyone on the list. Nobody becomes Did not arrive on their own: the
+ * nurse chooses Check in, Did not arrive or Cancelled, and the End of Day form waits until every
+ * appointment has one. "booked" undoes a Did not arrive (for example someone who turns up late).
+ */
+handlers["clinic/outcome"] = (c, a: { bookingId: string; outcome: "did_not_arrive" | "cancelled" | "booked" }) => {
+  const b = c.ix().bookingById.get(a.bookingId);
+  if (!b || b.status !== "confirmed") return c.fail("Unknown appointment.");
+  const p = c.persona();
+  if (!p.perms.has("clinical.capture") && !p.perms.has("bookings.manage")) return c.fail(`${p.name} cannot record appointment outcomes.`);
+  const s = c.ix().sessionById.get(b.sessionId)!;
+  if (p.role === "clinical_capture" && !p.perms.has("bookings.manage") && s.nurseId !== p.id && !s.supportIds.includes(p.id as StaffId)) {
+    return c.fail(`${p.name} is not assigned to this clinic.`);
+  }
+  if (s.date !== today(c.s)) return c.fail("Outcomes are recorded on the day of the appointment.");
+  const who = `${c.personName(b.personId)} (${b.slotStart}, ${b.id})`;
+  if (a.outcome === "booked") {
+    if (b.attendance !== "no_show") return c.fail("Only a Did not arrive can be undone.");
+    b.attendance = "booked";
+    c.emit({ verb: "clinic.outcome", summary: `${c.first()} undid Did not arrive for ${who}.`, entity: { kind: "booking", id: b.id }, programmeId: b.programmeId, personId: b.personId });
+    return c.ok("Back to not arrived. Check them in when they arrive.", "ok", b.id);
+  }
+  if (b.attendance !== "booked") return c.fail("This participant is already checked in, completed or accounted for.");
+  if (a.outcome === "did_not_arrive") {
+    b.attendance = "no_show";
+    c.emit({ verb: "clinic.outcome", summary: `${c.first()} recorded Did not arrive for ${who}.`, entity: { kind: "booking", id: b.id }, programmeId: b.programmeId, personId: b.personId });
+    return c.ok("Recorded as did not arrive. The office follows up and offers a new slot.", "ok", b.id);
+  }
+  b.status = "cancelled";
+  b.cancelReason = "Cancelled on the day";
+  b.cancelledAtClinic = true;
+  delete c.s.captureDrafts[b.id];
+  const mem = membershipOf(c.s, b.personId, b.programmeId);
+  c.inv();
+  const stillBooked = (c.ix().bookingsByPerson.get(b.personId) || []).some((x) => x.status === "confirmed" && x.programmeId === b.programmeId);
+  if (mem && !stillBooked) mem.stage = "onboarding";
+  cancelReminders(c, b.id);
+  c.emit({ verb: "clinic.outcome", summary: `${c.first()} recorded Cancelled for ${who}. The slot is free again.`, entity: { kind: "booking", id: b.id }, programmeId: b.programmeId, personId: b.personId });
+  return c.ok("Recorded as cancelled. The slot is free again.", "ok", b.id);
+};
+
 handlers["clinic/confirmIdentity"] = (c, a: { bookingId: string; dob: string; reference: string }) => {
   const blocked = canWork(c, a.bookingId); if (blocked) return c.fail(blocked);
   const cap = captureOf(c, a.bookingId);
